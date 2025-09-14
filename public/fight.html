@@ -2,130 +2,60 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Fight Game</title>
+<title>Fight Game - Pino Collection</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="overlay"></div>
-<div id="onlineCounter">Online: 0</div>
+  <div class="overlay"></div>
+  <div id="onlineCounter">Online: 0</div>
 
-<h1>Fight Game - Pino Collection</h1>
+  <h1>Fight Game - Pino Collection</h1>
 
-<div class="modeButtons">
-  <h3>Select Mode:</h3>
-  <button id="walletBtn">Connect Wallet</button>
-  <button id="demoBtn">Demo</button>
-</div>
-
-<div class="characters-selection" id="charactersSelection"></div>
-
-<div id="players">
-  <div class="player" id="player1">
-    <h2>Waiting...</h2>
-    <div class="bonus">No bonus</div>
-    <p>HP: <span class="hp">20</span></p>
-    <div class="bar" style="width:100%"></div>
-    <img class="character" src="img/Beast.png" alt="Character">
-    <img class="dice" src="img/dice1.png" alt="Dice">
+  <!-- Mode Selection -->
+  <div class="modeButtons">
+    <h3>Select Mode:</h3>
+    <button id="walletBtn">Connect Wallet</button>
+    <button id="demoBtn">Demo</button>
   </div>
-  <div class="player" id="player2">
-    <h2>Waiting...</h2>
-    <div class="bonus">No bonus</div>
-    <p>HP: <span class="hp">20</span></p>
-    <div class="bar" style="width:100%"></div>
-    <img class="character" src="img/Beast.png" alt="Character">
-    <img class="dice" src="img/dice1.png" alt="Dice">
+
+  <!-- Character Selection -->
+  <div class="characters-selection" id="characterSelection">
+    <img src="img/Beast.png" data-name="Beast">
+    <img src="img/Clown.png" data-name="Clown">
+    <img src="img/Cyclope.png" data-name="Cyclope">
+    <img src="img/Giant.png" data-name="Giant">
+    <img src="img/Hero.png" data-name="Hero">
+    <img src="img/Kongo.png" data-name="Kongo">
+    <img src="img/Pirate.png" data-name="Pirate">
+    <img src="img/Sailor.png" data-name="Sailor">
+    <img src="img/Taurus.png" data-name="Taurus">
+    <img src="img/WereWolf.png" data-name="WereWolf">
   </div>
-</div>
 
-<pre id="log"></pre>
-<button id="startBattleBtn" disabled>Start Battle</button>
+  <!-- Players Display -->
+  <div id="players">
+    <div class="player" id="player1">
+      <h2>Waiting...</h2>
+      <div class="bonus">No bonus</div>
+      <p>HP: <span class="hp">20</span></p>
+      <div class="bar" style="width:100%"></div>
+      <img class="character" src="img/Beast.png" alt="Character">
+      <img class="dice" src="img/dice1.png" alt="Dice">
+    </div>
+    <div class="player" id="player2">
+      <h2>Waiting...</h2>
+      <div class="bonus">No bonus</div>
+      <p>HP: <span class="hp">20</span></p>
+      <div class="bar" style="width:100%"></div>
+      <img class="character" src="img/Beast.png" alt="Character">
+      <img class="dice" src="img/dice1.png" alt="Dice">
+    </div>
+  </div>
 
-<script>
-const wsProtocol = window.location.protocol==='https:'?'wss':'ws';
-const ws = new WebSocket(`${wsProtocol}://${window.location.host}`);
+  <button id="startBattleBtn" disabled>Start Battle</button>
 
-let onlineCount = 0;
-let myIndex = null;
-let players = [{ hp:20, mode:null, character:"Beast" }, { hp:20, mode:null, character:"Beast" }];
+  <pre id="log"></pre>
 
-ws.onmessage = (event)=>{
-  try{
-    const data = JSON.parse(event.data || '{}');
-    if(data.type==='online'){
-      onlineCount = data.count;
-      document.getElementById('onlineCounter').innerText = 'Online: '+onlineCount;
-    } else if(data.type==='setMode'){
-      players[data.index] = { ...players[data.index], mode:data.mode, character:data.character };
-      if(players[0].mode && players[1].mode){
-        document.getElementById('startBattleBtn').disabled = false;
-      }
-      updateUI();
-    }
-  }catch{}
-};
-
-const characters = ["Beast","Clown","Cyclope","Giant","Hero","Kongo","Pirate","Sailor","Taurus","WereWolf"];
-let selectedCharacter = "Beast";
-const charContainer = document.getElementById('charactersSelection');
-
-characters.forEach(name=>{
-  const img = document.createElement('img');
-  img.src = `img/${name}.png`;
-  img.alt = name;
-  img.dataset.name = name;
-  img.addEventListener('click', ()=>{
-    selectedCharacter = name;
-    document.querySelectorAll('.characters-selection img').forEach(i=>i.classList.remove('selected'));
-    img.classList.add('selected');
-  });
-  charContainer.appendChild(img);
-});
-
-function updateUI(){
-  players.forEach((p,i)=>{
-    const div = document.getElementById('player'+(i+1));
-    div.querySelector('h2').innerText = p.mode? `Player ${i+1}`:'Waiting...';
-    div.querySelector('.bonus').innerText = p.mode? `Mode: ${p.mode}`:'No bonus';
-    div.querySelector('.hp').innerText = p.hp;
-    div.querySelector('.bar').style.width=(p.hp/20*100)+'%';
-    let hpLevel = p.hp>15?'':p.hp>10?'15':p.hp>5?'10':p.hp>0?'5':'0';
-    div.querySelector('.character').src=`img/${p.character}${hpLevel}.png`;
-  });
-}
-
-function chooseMode(index, mode){
-  myIndex = index;
-  ws.send(JSON.stringify({ type:'setMode', index, mode, character:selectedCharacter }));
-}
-
-document.getElementById('walletBtn').addEventListener('click',()=>chooseMode(0,'wallet'));
-document.getElementById('demoBtn').addEventListener('click',()=>chooseMode(0,'demo'));
-
-function rollDice(){ return Math.floor(Math.random()*8)+1; }
-function showDice(playerIndex,value){ document.querySelectorAll('.dice')[playerIndex].src=`img/dice${value}.png`; }
-
-async function startBattle(){
-  const logEl = document.getElementById('log');
-  logEl.textContent='';
-  let attacker=players[0], defender=players[1], turn=1;
-
-  while(players[0].hp>0 && players[1].hp>0){
-    await new Promise(r=>setTimeout(r,1500));
-    const roll = rollDice();
-    showDice(0,roll);
-    defender.hp -= roll;
-    if(defender.hp<0) defender.hp=0;
-    updateUI();
-    logEl.textContent+=`Turn ${turn}: ${attacker.character} deals ${roll} dmg to ${defender.character}. HP left: ${defender.hp}\n`;
-    [attacker, defender]=[defender, attacker];
-    turn++;
-  }
-  logEl.textContent+=`🏆 Winner: ${players[0].hp>0?players[0].character:players[1].character}\n`;
-}
-
-document.getElementById('startBattleBtn').addEventListener('click',startBattle);
-
-</script>
+  <script type="module" src="fight.js"></script>
 </body>
 </html>
