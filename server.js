@@ -1,6 +1,6 @@
 import express from "express";
-import http from "http";
 import { WebSocketServer } from "ws";
+import http from "http";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -10,41 +10,48 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Serve file statici (public/fight.html, img, style.css)
 app.use(express.static(path.join(__dirname, "public")));
-app.use(express.static(__dirname));
+app.use(express.static(__dirname)); // per index.html nella root
 
+// HTTP server
 const server = http.createServer(app);
+
+// WebSocket server
 const wss = new WebSocketServer({ server });
 
-let players = [];
+let playersQueue = []; // tiene traccia dei client connessi
 
 wss.on("connection", (ws) => {
   console.log("✅ Nuovo client connesso");
-  players.push(ws);
+
+  // Aggiungi alla coda dei giocatori
+  playersQueue.push(ws);
   broadcastOnline();
 
-  ws.on("message", (msg) => {
-    try {
-      const data = JSON.parse(msg);
-      // Inoltra a tutti i client
-      wss.clients.forEach(c => {
-        if (c.readyState === 1) c.send(JSON.stringify(data));
-      });
-    } catch(e){ console.error(e); }
+  // Ricevi messaggi dai client e inoltra a tutti
+  ws.on("message", (message) => {
+    wss.clients.forEach((client) => {
+      if (client.readyState === 1) client.send(message.toString());
+    });
   });
 
   ws.on("close", () => {
     console.log("❌ Client disconnesso");
-    players = players.filter(p => p !== ws);
+    playersQueue = playersQueue.filter(p => p !== ws);
     broadcastOnline();
   });
 });
 
-function broadcastOnline(){
-  const msg = JSON.stringify({ type:"online", count: players.length });
-  players.forEach(ws=>{
-    if(ws.readyState===1) ws.send(msg);
+// Aggiorna contatore online
+function broadcastOnline() {
+  const msg = JSON.stringify({ type: "online", count: playersQueue.length });
+  playersQueue.forEach(ws => {
+    if (ws.readyState === 1) ws.send(msg);
   });
 }
 
-server.listen(PORT, () => console.log(`🚀 Server attivo su porta ${PORT}`));
+// Avvia server
+server.listen(PORT, () => {
+  console.log(`🚀 Server attivo su porta ${PORT}`);
+});
