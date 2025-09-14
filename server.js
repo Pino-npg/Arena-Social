@@ -10,62 +10,69 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Serve static files (index.html, fight.html, img, style.css)
+// Serve static files
 app.use(express.static(path.join(__dirname, "public")));
-app.use(express.static(__dirname)); // per index.html e fight.html nella root
+app.use(express.static(__dirname));
 
-// HTTP server
 const server = http.createServer(app);
-
-// WebSocket server
 const wss = new WebSocketServer({ server });
 
-// Stato dei giocatori in attesa
-let waitingPlayers = [];
+let waitingPlayers = []; // client in attesa
 
-// Funzione per aggiornare contatore online
 function broadcastOnline() {
-  const msg = JSON.stringify({ type: "online", count: waitingPlayers.length });
-  waitingPlayers.forEach(ws => {
-    if(ws.readyState === 1) ws.send(msg);
+  const msg = JSON.stringify({ type: "online", count: wss.clients.size });
+  wss.clients.forEach((c) => {
+    if (c.readyState === 1) c.send(msg);
   });
 }
 
-// Gestione connessione WebSocket
 wss.on("connection", (ws) => {
   console.log("✅ Nuovo client connesso");
-
-  // Aggiungi alla coda
-  waitingPlayers.push(ws);
   broadcastOnline();
 
-  // Invia messaggio ai client
-  ws.on("message", (message) => {
-    const msg = JSON.parse(message.toString());
+  ws.on("message", (msg) => {
+    const data = JSON.parse(msg);
 
-    if(msg.type === "join"){
-      // Se sono due giocatori pronti, assegna ruoli e avvia
-      if(waitingPlayers.length >= 2){
-        waitingPlayers[0].send(JSON.stringify({ type:"assign", index:0 }));
-        waitingPlayers[1].send(JSON.stringify({ type:"assign", index:1 }));
-        waitingPlayers.forEach(client => client.send(JSON.stringify({ type:"start" })));
+    if (data.type === "join") {
+      ws.playerMode = data.mode;
+      waitingPlayers.push(ws);
+      broadcastOnline();
+
+      if (waitingPlayers.length >= 2) {
+        const p1 = waitingPlayers[0];
+        const p2 = waitingPlayers[1];
+
+        const startMsg = JSON.stringify({
+          type: "startBattle",
+          players: [
+            { id: 1, mode: p1.playerMode },
+            { id: 2, mode: p2.playerMode },
+          ],
+        });
+
+        p1.send(startMsg);
+        p2.send(startMsg);
+
+        // rimuovi dalla coda
+        waitingPlayers = waitingPlayers.slice(2);
       }
-    } else if(msg.type === "update"){
-      // inoltra aggiornamento a tutti gli altri
-      waitingPlayers.forEach(client=>{
-        if(client !== ws && client.readyState===1) client.send(JSON.stringify(msg));
+    }
+
+    // inoltra altri messaggi a tutti (azioni in battaglia)
+    if (data.type === "battleAction") {
+      wss.clients.forEach((c) => {
+        if (c !== ws && c.readyState === 1) c.send(msg);
       });
     }
   });
 
   ws.on("close", () => {
     console.log("❌ Client disconnesso");
-    waitingPlayers = waitingPlayers.filter(p => p !== ws);
+    waitingPlayers = waitingPlayers.filter((p) => p !== ws);
     broadcastOnline();
   });
 });
 
-// Start server
 server.listen(PORT, () => {
   console.log(`🚀 Server attivo su porta ${PORT}`);
 });
