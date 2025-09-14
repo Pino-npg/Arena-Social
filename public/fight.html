@@ -4,164 +4,156 @@
 <meta charset="UTF-8">
 <title>Fight Game - Pino Collection</title>
 <link rel="stylesheet" href="style.css">
-<style>
-  body { text-align:center; position:relative; background: url('img/Arena.png') center/cover no-repeat; }
-  .player { border:1px solid #ccc; padding:10px; display:inline-block; width:220px; background:#fff; vertical-align:top; margin:10px;}
-  .bar { height:20px; background:#4caf50; margin-top:5px; transition: width 0.5s; }
-  .dice { height:60px; margin-top:10px; }
-  .bonus { font-size:0.9em; color:#444; text-align:left; margin-top:5px; }
-  #onlineCounter { position:absolute; top:10px; right:10px; font-weight:bold; color:white; font-size:1.2em; }
-  #characterSelection img { width:80px; height:auto; cursor:pointer; margin:5px; border:2px solid transparent; }
-  #characterSelection img.selected { border-color:gold; }
-</style>
 </head>
 <body>
+<div class="overlay"></div>
 
 <h1>Fight Game - Pino Collection</h1>
 <div id="onlineCounter">Online: 0</div>
 
-<div id="modeButtons">
-  <button onclick="chooseMode('wallet')">Connect Wallet</button>
-  <button onclick="chooseMode('demo')">Demo</button>
+<!-- Mode Selection -->
+<div class="modeButtons">
+  <h3>Select Mode:</h3>
+  <button id="walletBtn" disabled>Connect Wallet</button>
+  <button id="demoBtn" disabled>Demo</button>
 </div>
 
-<div id="characterSelection"></div>
+<!-- Character Selection -->
+<div class="characters-selection">
+  <img src="img/Beast.png" data-name="Beast">
+  <img src="img/Clown.png" data-name="Clown">
+  <img src="img/Cyclope.png" data-name="Cyclope">
+  <img src="img/Giant.png" data-name="Giant">
+  <img src="img/Hero.png" data-name="Hero">
+  <img src="img/Kongo.png" data-name="Kongo">
+  <img src="img/Pirate.png" data-name="Pirate">
+  <img src="img/Sailor.png" data-name="Sailor">
+  <img src="img/Taurus.png" data-name="Taurus">
+  <img src="img/WereWolf.png" data-name="WereWolf">
+</div>
 
+<!-- Players Display -->
 <div id="players">
   <div class="player" id="player1">
     <h2>Waiting...</h2>
-    <img id="player1-img" src="img/Beast.png" alt="Player 1">
     <div class="bonus">No bonus</div>
     <p>HP: <span class="hp">20</span></p>
     <div class="bar" style="width:100%"></div>
+    <img class="character" src="img/Beast.png" alt="Player 1 Character">
     <img class="dice" src="img/dice1.png" alt="Dice">
   </div>
   <div class="player" id="player2">
     <h2>Waiting...</h2>
-    <img id="player2-img" src="img/Beast.png" alt="Player 2">
     <div class="bonus">No bonus</div>
     <p>HP: <span class="hp">20</span></p>
     <div class="bar" style="width:100%"></div>
+    <img class="character" src="img/Beast.png" alt="Player 2 Character">
     <img class="dice" src="img/dice1.png" alt="Dice">
   </div>
 </div>
 
+<button id="startBattle" disabled>Start Battle</button>
 <pre id="log"></pre>
 
 <script>
-const characters = ["Beast","Clown","Cyclope","Giant","Hero","Kongo","Pirate","Sailor","Taurus","WereWolf"];
-let selectedCharacter = "Beast";
-let playerIndex = null;
-let playerMode = null;
-let ws;
-
+const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`);
 const players = [
-  {name:"Player 1", hp:20, bonusHP:0, bonusDamage:0, bonusInitiative:0, stunned:false, description:[], mode:null, character:"Beast"},
-  {name:"Player 2", hp:20, bonusHP:0, bonusDamage:0, bonusInitiative:0, stunned:false, description:[], mode:null, character:"Beast"}
+  {name:"Player 1", hp:20, bonusHP:0, bonusDamage:0, bonusInitiative:0, character:"Beast"},
+  {name:"Player 2", hp:20, bonusHP:0, bonusDamage:0, bonusInitiative:0, character:"Beast"}
 ];
+let playerIndex = null; // 0 o 1
+let ready = false;
 
-// --- WebSocket ---
-function connectWS(){
-  ws = new WebSocket('wss://TUO_APP_RENDER.onrender.com');
-  ws.onopen = () => console.log("✅ Connesso al server WebSocket");
-  ws.onmessage = (event) => {
-    const msg = JSON.parse(event.data);
-    if(msg.type==="online") document.getElementById('onlineCounter').innerText = 'Online: '+msg.count;
-    if(msg.type==="assign" && playerIndex===null){
-      playerIndex = msg.index;
-      console.log("Sei il player", playerIndex+1);
+// --- Enable buttons on WebSocket open ---
+ws.onopen = () => {
+  document.getElementById('walletBtn').disabled = false;
+  document.getElementById('demoBtn').disabled = false;
+};
+
+// --- Update online counter ---
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  if(msg.type === 'online'){
+    document.getElementById('onlineCounter').innerText = 'Online: ' + msg.count;
+  } else if(msg.type === 'join'){
+    assignPlayer(msg.index, msg.mode);
+  } else if(msg.type === 'character'){
+    updateCharacterUI(msg.index);
+  } else if(msg.type === 'start'){
+    if(playerIndex !== null) startBattle();
+  }
+};
+
+// --- Assign player and mode ---
+function assignPlayer(index, mode){
+  playerIndex = index;
+  players[playerIndex].mode = mode;
+  document.getElementById('player'+(index+1)).querySelector('h2').innerText = players[index].name;
+  document.getElementById('startBattle').disabled = false;
+}
+
+// --- Choose mode ---
+document.getElementById('walletBtn').onclick = () => {
+  ws.send(JSON.stringify({type:'join', mode:'wallet'}));
+};
+document.getElementById('demoBtn').onclick = () => {
+  ws.send(JSON.stringify({type:'join', mode:'demo'}));
+};
+
+// --- Character Selection ---
+const characterImages = document.querySelectorAll('.characters-selection img');
+characterImages.forEach(img => {
+  img.addEventListener('click', () => {
+    characterImages.forEach(i => i.classList.remove('selected'));
+    img.classList.add('selected');
+    if(playerIndex !== null){
+      players[playerIndex].character = img.dataset.name;
+      updateCharacterUI(playerIndex);
+      ws.send(JSON.stringify({type:'character', index:playerIndex, character:img.dataset.name}));
     }
-    if(msg.type==="start") startBattle();
-    if(msg.type==="update") updateFromServer(msg);
-  };
-}
-
-// --- Modalità ---
-function chooseMode(mode){
-  playerMode = mode;
-  if(!ws) connectWS();
-  ws.send(JSON.stringify({type:"join", mode:mode, character:selectedCharacter}));
-}
-
-// --- Selezione personaggio ---
-const charDiv = document.getElementById("characterSelection");
-characters.forEach(c=>{
-  const img = document.createElement("img");
-  img.src=`img/${c}.png`;
-  img.title=c;
-  img.onclick=()=>{ selectedCharacter=c; document.querySelectorAll("#characterSelection img").forEach(i=>i.classList.remove("selected")); img.classList.add("selected"); };
-  if(c==="Beast") img.classList.add("selected");
-  charDiv.appendChild(img);
+  });
 });
 
-// --- BONUS demo ---
-function getBonus(tokens){
-  let bonus={hp:0,damage:0,initiative:0,description:[]};
-  if(playerMode==='wallet' && tokens){
-    tokens.forEach(t=>{
-      if(t.collection==="PINO" && characters.includes(t.name)){
-        bonus.hp+=2; bonus.damage+=1; bonus.initiative+=1; bonus.description.push("+2 HP (Special)","+1 Damage","+1 Initiative");
-      } else if(t.collection==="PINO"){ bonus.hp+=2; bonus.damage+=1; bonus.description.push("+2 HP (PINO)","+1 Damage"); }
-      else if(t.collection==="YUMI"){ bonus.hp+=2; bonus.description.push("+2 HP (YUMI)"); }
-    });
-  }
-  return bonus;
+// --- Update character image according to HP ---
+function updateCharacterUI(index){
+  const player = players[index];
+  const el = document.getElementById('player'+(index+1)).querySelector('img.character');
+  let suffix = '';
+  if(player.hp <= 0) suffix = '0';
+  else if(player.hp <= 5) suffix = '5';
+  else if(player.hp <= 10) suffix = '10';
+  else if(player.hp <= 15) suffix = '15';
+  el.src = `img/${player.character}${suffix}.png`;
+  document.getElementById('player'+(index+1)).querySelector('.hp').innerText = player.hp;
+  document.getElementById('player'+(index+1)).querySelector('.bar').style.width = (player.hp/(20+player.bonusHP)*100)+'%';
 }
 
-// --- UI ---
-function updateUI(){
-  players.forEach((p,i)=>{
-    document.querySelectorAll('.hp')[i].innerText=p.hp;
-    document.querySelectorAll('.bar')[i].style.width=(p.hp/(20+p.bonusHP)*100)+'%';
-    document.getElementById(`player${i+1}-img`).src=`img/${p.character}${p.hp<=15?15:p.hp<=10?10:p.hp<=5?5:0}.png`;
-  });
-}
+// --- Start battle ---
+document.getElementById('startBattle').onclick = () => {
+  ws.send(JSON.stringify({type:'start'}));
+};
 
-function rollDice(){ return Math.floor(Math.random()*8)+1; }
-function showDice(playerIndex,value){ document.querySelectorAll('.dice')[playerIndex].src=`img/dice${value}.png`; }
-
-// --- Sincronizzazione --- 
-function updateFromServer(msg){
-  if(msg.hp!==undefined) { players[msg.player].hp=msg.hp; updateUI(); }
-}
-
-// --- BATTLE ---
 async function startBattle(){
-  const logEl=document.getElementById('log');
-  logEl.textContent='';
-  players.forEach(p=>p.stunned=false);
-  updateUI();
-
-  const init1=rollDice()+players[0].bonusInitiative;
-  const init2=rollDice()+players[1].bonusInitiative;
-  let attacker=init1>=init2?players[0]:players[1];
-  let defender=attacker===players[0]?players[1]:players[0];
-
-  logEl.textContent+=`🌀 Initiative: ${attacker.name} starts first!\n\n`;
-  let turn=1;
-  while(players[0].hp>0 && players[1].hp>0){
-    await new Promise(r=>setTimeout(r,2000));
-    const roll=rollDice();
-    showDice(attacker===players[0]?0:1,roll);
-
-    let dmg=roll+attacker.bonusDamage;
-    if(attacker.stunned){ dmg=Math.max(0,dmg-1); logEl.textContent+=`😵 ${attacker.name} is stunned and deals -1 damage!\n`; attacker.stunned=false; }
-
-    if(dmg>=8){ logEl.textContent+=`💥 CRITICAL by ${attacker.name}!\n`; defender.stunned=true; }
-
-    defender.hp-=dmg; if(defender.hp<0)defender.hp=0;
-    updateUI();
-    ws.send(JSON.stringify({type:"update", player:players.indexOf(defender), hp:defender.hp}));
-
-    logEl.textContent+=`🔴 Turn ${turn}: ${attacker.name} deals ${dmg} damage to ${defender.name}. Remaining HP: ${defender.hp}\n\n`;
-    if(defender.hp<=0) break;
-    [attacker,defender]=[defender,attacker];
+  const logEl = document.getElementById('log');
+  logEl.textContent = '';
+  let [attacker, defender] = players[0].hp >= players[1].hp ? [players[0], players[1]] : [players[1], players[0]];
+  let turn = 1;
+  while(players[0].hp > 0 && players[1].hp > 0){
+    await new Promise(r => setTimeout(r,2000));
+    const roll = Math.floor(Math.random()*8)+1;
+    document.querySelectorAll('.dice')[attacker===players[0]?0:1].src = `img/dice${roll}.png`;
+    let dmg = roll + attacker.bonusDamage;
+    defender.hp -= dmg;
+    if(defender.hp<0) defender.hp=0;
+    updateCharacterUI(0);
+    updateCharacterUI(1);
+    logEl.textContent += `🔴 Turn ${turn}: ${attacker.name} deals ${dmg} damage to ${defender.name}. Remaining HP: ${defender.hp}\n`;
+    if(defender.hp <= 0) break;
+    [attacker, defender] = [defender, attacker];
     turn++;
   }
-
-  await new Promise(r=>setTimeout(r,2000));
-  const winner=players[0].hp>0?players[0].name:players[1].name;
-  logEl.textContent+=`🏆 Winner: ${winner}!\n`;
+  const winner = players[0].hp>0 ? players[0].name : players[1].name;
+  logEl.textContent += `🏆 Winner: ${winner}!\n`;
 }
 </script>
 </body>
