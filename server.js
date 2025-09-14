@@ -4,6 +4,7 @@ import http from "http";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
 
 // Crea server HTTP base
 const server = http.createServer(app);
