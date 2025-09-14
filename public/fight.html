@@ -2,66 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Fight Game - Pino Collection</title>
+<title>Fight Game</title>
 <link rel="stylesheet" href="style.css">
-<style>
-body {
-  margin: 0;
-  padding: 0;
-  background-image: url('img/Arena.png');
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-position: center center;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  color: white;
-  text-align: center;
-  height: 100vh;
-  position: relative;
-}
-.overlay { background: rgba(0,0,0,0.6); position: fixed; inset:0; z-index:0; }
-#onlineCounter { position:absolute; top:10px; right:10px; font-weight:bold; font-size:1.2em; background: rgba(0,0,0,0.4); padding:5px 10px; border-radius:8px; z-index:2; }
-.player { border:2px solid #ccc; padding:10px; margin:10px; display:inline-block; width:200px; background: rgba(0,0,0,0.6); vertical-align:top; border-radius:12px; position:relative; z-index:1; }
-.player img.character { width:120px; height:auto; margin-top:10px; border-radius:8px; }
-.bar { height:20px; background:#4caf50; margin-top:5px; transition:width 0.5s; border-radius:6px; }
-.dice { margin-top:10px; height:60px; }
-.bonus { font-size:0.9em; color:#ffd700; margin-top:5px; text-align:left; }
-button { padding:10px 20px; margin-top:10px; cursor:pointer; border-radius:8px; background-color: rgba(255,255,255,0.2); border:1px solid #fff; color:white; font-weight:bold; transition: background-color 0.3s; }
-button:hover { background-color: rgba(255,255,255,0.4); }
-.modeButtons { margin:20px 0; }
-.characters-selection { display:flex; justify-content:center; gap:10px; margin-bottom:15px; flex-wrap:wrap; }
-.characters-selection img { width:60px; cursor:pointer; border:2px solid transparent; border-radius:6px; transition: transform 0.2s, border-color 0.2s; }
-.characters-selection img:hover { transform: scale(1.1); border-color: gold; }
-.characters-selection img.selected { border-color: gold; }
-pre#log { text-align:left; max-height:300px; overflow:auto; background: rgba(0,0,0,0.6); padding:10px; border:1px solid #ccc; color:#fff; border-radius:8px; margin-top:20px; }
-</style>
 </head>
 <body>
 <div class="overlay"></div>
-<h1>Fight Game - Pino Collection</h1>
 <div id="onlineCounter">Online: 0</div>
 
-<!-- Mode Selection -->
+<h1>Fight Game - Pino Collection</h1>
+
 <div class="modeButtons">
   <h3>Select Mode:</h3>
-  <button id="btnWallet">Connect Wallet</button>
-  <button id="btnDemo">Demo</button>
+  <button id="walletBtn">Connect Wallet</button>
+  <button id="demoBtn">Demo</button>
 </div>
 
-<!-- Character Selection -->
-<div class="characters-selection" id="characters">
-  <img src="img/Beast.png" alt="Beast" data-name="Beast">
-  <img src="img/Clown.png" alt="Clown" data-name="Clown">
-  <img src="img/Cyclope.png" alt="Cyclope" data-name="Cyclope">
-  <img src="img/Giant.png" alt="Giant" data-name="Giant">
-  <img src="img/Hero.png" alt="Hero" data-name="Hero">
-  <img src="img/Kongo.png" alt="Kongo" data-name="Kongo">
-  <img src="img/Pirate.png" alt="Pirate" data-name="Pirate">
-  <img src="img/Sailor.png" alt="Sailor" data-name="Sailor">
-  <img src="img/Taurus.png" alt="Taurus" data-name="Taurus">
-  <img src="img/WereWolf.png" alt="WereWolf" data-name="WereWolf">
-</div>
+<div class="characters-selection" id="charactersSelection"></div>
 
-<!-- Players -->
 <div id="players">
   <div class="player" id="player1">
     <h2>Waiting...</h2>
@@ -82,54 +39,93 @@ pre#log { text-align:left; max-height:300px; overflow:auto; background: rgba(0,0
 </div>
 
 <pre id="log"></pre>
+<button id="startBattleBtn" disabled>Start Battle</button>
 
 <script>
-const ws = new WebSocket(`ws://${location.host}`);
-let myPlayerId = null;
-let myCharacter = "Beast";
-let players = [];
+const wsProtocol = window.location.protocol==='https:'?'wss':'ws';
+const ws = new WebSocket(`${wsProtocol}://${window.location.host}`);
 
-const charImgs = document.querySelectorAll("#characters img");
-charImgs.forEach(img => {
-  img.addEventListener("click", ()=> {
-    charImgs.forEach(i=>i.classList.remove("selected"));
-    img.classList.add("selected");
-    myCharacter = img.dataset.name;
-    // Aggiorna immagine lato client
-    const pEl = myPlayerId===1?document.getElementById("player1"):document.getElementById("player2");
-    pEl.querySelector(".character").src=`img/${myCharacter}.png`;
+let onlineCount = 0;
+let myIndex = null;
+let players = [{ hp:20, mode:null, character:"Beast" }, { hp:20, mode:null, character:"Beast" }];
+
+ws.onmessage = (event)=>{
+  try{
+    const data = JSON.parse(event.data || '{}');
+    if(data.type==='online'){
+      onlineCount = data.count;
+      document.getElementById('onlineCounter').innerText = 'Online: '+onlineCount;
+    } else if(data.type==='setMode'){
+      players[data.index] = { ...players[data.index], mode:data.mode, character:data.character };
+      if(players[0].mode && players[1].mode){
+        document.getElementById('startBattleBtn').disabled = false;
+      }
+      updateUI();
+    }
+  }catch{}
+};
+
+const characters = ["Beast","Clown","Cyclope","Giant","Hero","Kongo","Pirate","Sailor","Taurus","WereWolf"];
+let selectedCharacter = "Beast";
+const charContainer = document.getElementById('charactersSelection');
+
+characters.forEach(name=>{
+  const img = document.createElement('img');
+  img.src = `img/${name}.png`;
+  img.alt = name;
+  img.dataset.name = name;
+  img.addEventListener('click', ()=>{
+    selectedCharacter = name;
+    document.querySelectorAll('.characters-selection img').forEach(i=>i.classList.remove('selected'));
+    img.classList.add('selected');
   });
+  charContainer.appendChild(img);
 });
 
-function joinGame(mode){
-  ws.send(JSON.stringify({ type:"join", mode, character:myCharacter }));
-  document.getElementById("btnDemo").disabled = true;
-  document.getElementById("btnWallet").disabled = true;
+function updateUI(){
+  players.forEach((p,i)=>{
+    const div = document.getElementById('player'+(i+1));
+    div.querySelector('h2').innerText = p.mode? `Player ${i+1}`:'Waiting...';
+    div.querySelector('.bonus').innerText = p.mode? `Mode: ${p.mode}`:'No bonus';
+    div.querySelector('.hp').innerText = p.hp;
+    div.querySelector('.bar').style.width=(p.hp/20*100)+'%';
+    let hpLevel = p.hp>15?'':p.hp>10?'15':p.hp>5?'10':p.hp>0?'5':'0';
+    div.querySelector('.character').src=`img/${p.character}${hpLevel}.png`;
+  });
 }
 
-document.getElementById("btnDemo").addEventListener("click", ()=> joinGame("demo"));
-document.getElementById("btnWallet").addEventListener("click", ()=> joinGame("wallet"));
-
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  if(data.type==="online"){
-    document.getElementById("onlineCounter").innerText = "Online: "+data.count;
-  }
-  if(data.type==="startBattle"){
-    players = data.players;
-    myPlayerId = players[0].character ? 1 : 2; // assegna id
-    alert("Partita pronta! Sei Player "+myPlayerId);
-    startBattle();
-  }
-  if(data.type==="battleAction"){
-    // qui aggiorni azioni in tempo reale
-  }
+function chooseMode(index, mode){
+  myIndex = index;
+  ws.send(JSON.stringify({ type:'setMode', index, mode, character:selectedCharacter }));
 }
 
-function startBattle(){
-  const logEl = document.getElementById("log");
-  logEl.textContent = "🌀 Battle Started!\n";
+document.getElementById('walletBtn').addEventListener('click',()=>chooseMode(0,'wallet'));
+document.getElementById('demoBtn').addEventListener('click',()=>chooseMode(0,'demo'));
+
+function rollDice(){ return Math.floor(Math.random()*8)+1; }
+function showDice(playerIndex,value){ document.querySelectorAll('.dice')[playerIndex].src=`img/dice${value}.png`; }
+
+async function startBattle(){
+  const logEl = document.getElementById('log');
+  logEl.textContent='';
+  let attacker=players[0], defender=players[1], turn=1;
+
+  while(players[0].hp>0 && players[1].hp>0){
+    await new Promise(r=>setTimeout(r,1500));
+    const roll = rollDice();
+    showDice(0,roll);
+    defender.hp -= roll;
+    if(defender.hp<0) defender.hp=0;
+    updateUI();
+    logEl.textContent+=`Turn ${turn}: ${attacker.character} deals ${roll} dmg to ${defender.character}. HP left: ${defender.hp}\n`;
+    [attacker, defender]=[defender, attacker];
+    turn++;
+  }
+  logEl.textContent+=`🏆 Winner: ${players[0].hp>0?players[0].character:players[1].character}\n`;
 }
+
+document.getElementById('startBattleBtn').addEventListener('click',startBattle);
+
 </script>
 </body>
 </html>
