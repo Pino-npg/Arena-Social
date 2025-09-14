@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fight Game - Pino Collection</title>
+<style>
+  body { font-family: Arial, sans-serif; background:#f0f0f0; text-align:center; padding:20px; position:relative; }
+  .player { border:1px solid #ccc; padding:10px; margin:10px; display:inline-block; width:240px; background:#fff; vertical-align:top; }
+  .bar { height:20px; background:#4caf50; margin-top:5px; transition: width 0.5s; }
+  button { padding:10px 20px; margin:10px; cursor:pointer; }
+  .dice { margin-top:10px; height:60px; }
+  pre { text-align:left; max-height:300px; overflow:auto; background:#fff; padding:10px; border:1px solid #ccc; }
+  .bonus { font-size: 0.9em; color:#444; margin-top:5px; text-align:left; }
+  #onlineCounter { position:absolute; top:10px; right:10px; font-weight:bold; }
+</style>
+<script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+<h1>Fight Game - Pino Collection</h1>
+<div id="onlineCounter">Online: 0</div>
+
+<div id="modeSelection">
+  <h3>Choose Mode:</h3>
+  <button onclick="chooseMode('wallet')">Connect Wallet</button>
+  <button onclick="chooseMode('demo')">Demo</button>
+</div>
+
+<div id="players">
+  <div class="player" id="player1">
+    <h2>Waiting...</h2>
+    <div class="bonus">No bonus</div>
+    <p>HP: <span class="hp">20</span></p>
+    <div class="bar" style="width:100%"></div>
+    <img class="dice" src="img/dice1.png" alt="Dice">
+  </div>
+  <div class="player" id="player2">
+    <h2>Waiting...</h2>
+    <div class="bonus">No bonus</div>
+    <p>HP: <span class="hp">20</span></p>
+    <div class="bar" style="width:100%"></div>
+    <img class="dice" src="img/dice1.png" alt="Dice">
+  </div>
+</div>
+
+<pre id="log"></pre>
+
+<script>
+const socket = io();
+let playerNumber = null;
+let opponentMode = null;
+let playerMode = null;
+
+// --- ONLINE COUNTER ---
+socket.on('online', (num) => {
+  document.getElementById('onlineCounter').innerText = 'Online: ' + num;
+});
+
+// --- CHOOSE MODE ---
+function chooseMode(mode){
+  if(playerNumber) return; // già scelto
+  playerMode = mode;
+  socket.emit('chooseMode', mode);
+  document.getElementById('modeSelection').style.display = 'none';
+  log('Waiting for another player...');
+}
+
+// --- WAITING / START GAME ---
+socket.on('waiting', (status)=>{
+  if(status) log('You are player 1, waiting for an opponent...');
+});
+
+socket.on('startGame', (data)=>{
+  playerNumber = data.playerNumber;
+  opponentMode = data.opponentMode;
+  log(`Game ready! You are player ${playerNumber}. Opponent mode: ${opponentMode}`);
+  
+  startBattle(); // inizia la partita
+});
+
+// --- LOG ---
+function log(msg){
+  const logEl = document.getElementById('log');
+  logEl.textContent += msg + '\n';
+}
+
+// --- NFT BONUS FUNCTION ---
+function getBonus(tokens){
+  let bonus = {hp:0, damage:0, initiative:0, description:[]};
+  const specialNames = ["Beast","Clown","Cyclope","Giant","Hero","Kongo","Pirate","Sailor","Taurus","WereWolf"];
+  if(tokens.some(t => t.collection==="PINO" && specialNames.includes(t.name))){
+    bonus.hp+=2; bonus.damage+=1; bonus.initiative+=1;
+    bonus.description.push("+2 HP (Special)", "+1 Damage", "+1 Initiative");
+    return bonus;
+  }
+  if(tokens.some(t => t.collection==="PINO")){ bonus.hp+=2; bonus.damage+=1; bonus.description.push("+2 HP (PINO)", "+1 Damage"); }
+  if(tokens.some(t => t.collection==="YUMI")){ bonus.hp+=2; bonus.description.push("+2 HP (YUMI)"); }
+  return bonus;
+}
+
+// --- DEMO NFT DATA ---
+const demoTokens = [
+  [ {collection:"PINO", name:"Beast"} ],
+  [ {collection:"YUMI", name:"Nft123"} ]
+];
+
+// --- PLAYERS ---
+const players = [
+  {name:"Player 1", hp:20, bonusHP:0, bonusDamage:0, bonusInitiative:0, stunned:false, description:[], mode:null},
+  {name:"Player 2", hp:20, bonusHP:0, bonusDamage:0, bonusInitiative:0, stunned:false, description:[], mode:null}
+];
+
+function assignTokens(){
+  for(let i=0;i<2;i++){
+    const mode = (i+1)===playerNumber ? playerMode : opponentMode;
+    let tokens = mode==='demo'?[]:demoTokens[i]; // wallet reading placeholder
+    const b = getBonus(tokens);
+    players[i].hp = 20+b.hp;
+    players[i].bonusHP = b.hp;
+    players[i].bonusDamage = b.damage;
+    players[i].bonusInitiative = b.initiative;
+    players[i].description = b.description;
+    
+    const pEl = document.getElementById('player'+(i+1));
+    pEl.querySelector('h2').innerText = players[i].name;
+    pEl.querySelector('.bonus').innerHTML = b.description.length?"Bonuses:<br>• "+b.description.join("<br>• "):"No bonus";
+  }
+}
+
+// --- UI ---
+function updateUI(){
+  players.forEach((p,i)=>{
+    document.querySelectorAll('.hp')[i].innerText=p.hp;
+    document.querySelectorAll('.bar')[i].style.width=(p.hp/(20+p.bonusHP)*100)+'%';
+  });
+}
+
+function rollDice(){ return Math.floor(Math.random()*8)+1; }
+function showDice(playerIndex,value){ document.querySelectorAll('.dice')[playerIndex].src=`img/dice${value}.png`; }
+
+// --- BATTLE ---
+async function startBattle(){
+  assignTokens();
+  log('Starting battle...');
+  players.forEach(p=>p.stunned=false);
+  updateUI();
+
+  const init1 = rollDice()+players[0].bonusInitiative;
+  const init2 = rollDice()+players[1].bonusInitiative;
+  let attacker = init1>=init2?players[0]:players[1];
+  let defender = attacker===players[0]?players[1]:players[0];
+  log(`🌀 Initiative: ${attacker.name} starts first!\n`);
+
+  let turn=1;
+  while(players[0].hp>0 && players[1].hp>0){
+    await new Promise(r=>setTimeout(r,2000));
+    const roll = rollDice();
+    showDice(attacker===players[0]?0:1,roll);
+    let dmg = roll+attacker.bonusDamage;
+    if(attacker.stunned){ dmg=Math.max(0,dmg-1); log(`😵 ${attacker.name} is stunned and deals -1 damage!`); attacker.stunned=false; }
+    if(dmg>=8){ log(`💥 CRITICAL by ${attacker.name}!`); defender.stunned=true; }
+    defender.hp -= dmg; if(defender.hp<0) defender.hp=0;
+    updateUI();
+    log(`🔴 Turn ${turn}: ${attacker.name} deals ${dmg} damage to ${defender.name}. Remaining HP: ${defender.hp}`);
+    if(defender.hp<=0) break;
+    [attacker,defender]=[defender,attacker];
+    turn++;
+  }
+
+  await new Promise(r=>setTimeout(r,2000));
+  const winner = players[0].hp>0?players[0].name:players[1].name;
+  log(`🏆 Winner: ${winner}!`);
+}
+</script>
+</body>
+</html>
