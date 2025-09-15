@@ -41,7 +41,7 @@ characterSelection.querySelectorAll('img').forEach(img => {
     if(currentPlayer.index !== null){
       ws.send(JSON.stringify({
         type:'character',
-        name:currentPlayer.character,
+        name: currentPlayer.character,
         playerIndex: currentPlayer.index
       }));
     }

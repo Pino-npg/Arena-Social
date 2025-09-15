@@ -95,23 +95,23 @@ button:hover {
   border-radius: 6px;
   transition: transform 0.2s, border-color 0.2s;
 }
-
 .characters-selection img:hover,
 .characters-selection img.selected {
   border-color: gold;
   transform: scale(1.1);
 }
 
-/* --- PLAYER CHARACTERS LARGE --- */
+/* --- PLAYER CHARACTERS LARGE, accanto ai riquadri --- */
 .player-character-large {
   position: absolute;
   top: 150px;
-  width: 200px; /* grande quanto il riquadro */
-  z-index: 1;
+  width: 200px;
+  z-index: 3;
+  transition: transform 0.3s;
 }
 
-#player1-character { left: 10px; }
-#player2-character { right: 10px; }
+#player1-character { left: 220px; }
+#player2-character { right: 220px; }
 
 /* --- LOG --- */
 pre#log {
@@ -129,5 +129,7 @@ pre#log {
 /* --- RESPONSIVE --- */
 @media screen and (max-width: 768px) {
   .player-character-large { width: 120px; }
+  #player1-character { left: 160px; }
+  #player2-character { right: 160px; }
   .player { width: 150px; }
 }
