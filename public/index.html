@@ -6,61 +6,9 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="onlineCounter">Online: 0</div>
-
-  <h1>Fight Game - Pino Collection</h1>
-
-  <!-- Mode Selection -->
-  <div class="modeButtons">
-    <h3>Select Mode:</h3>
-    <button id="walletBtn">Connect Wallet</button>
-    <button id="demoBtn">Demo</button>
-  </div>
-
-  <!-- Character Selection -->
-  <div class="characters-selection" id="characterSelection">
-    <img src="img/Beast.png" data-name="Beast">
-    <img src="img/Clown.png" data-name="Clown">
-    <img src="img/Cyclope.png" data-name="Cyclope">
-    <img src="img/Giant.png" data-name="Giant">
-    <img src="img/Hero.png" data-name="Hero">
-    <img src="img/Kongo.png" data-name="Kongo">
-    <img src="img/Pirate.png" data-name="Pirate">
-    <img src="img/Sailor.png" data-name="Sailor">
-    <img src="img/Taurus.png" data-name="Taurus">
-    <img src="img/WereWolf.png" data-name="WereWolf">
-  </div>
-
-  <!-- Players Display -->
-  <div id="players">
-    <!-- Personaggi grandi ai lati dei riquadri -->
-    <img id="player1-character" class="player-character-large" src="img/Beast.png" alt="Player 1">
-    <img id="player2-character" class="player-character-large" src="img/Beast.png" alt="Player 2">
-
-    <div class="player" id="player1">
-      <h2>Waiting...</h2>
-      <div class="bonus">No bonus</div>
-      <p>HP: <span class="hp">20</span></p>
-      <div class="bar" style="width:100%"></div>
-      <img class="dice" src="img/dice1.png" alt="Dice">
-    </div>
-    <div class="player" id="player2">
-      <h2>Waiting...</h2>
-      <div class="bonus">No bonus</div>
-      <p>HP: <span class="hp">20</span></p>
-      <div class="bar" style="width:100%"></div>
-      <img class="dice" src="img/dice1.png" alt="Dice">
-    </div>
-  </div>
-
-  <button id="startBattleBtn" disabled>Start Battle</button>
-
-  <pre id="log"></pre>
-
-  <!-- Audio -->
-  <audio id="bgMusic" loop></audio>
-  <audio id="winMusic"></audio>
-
-  <script type="module" src="fight.js"></script>
+  <!-- Redireziona subito a fight.html -->
+  <script>
+    window.location.href = "/fight.html";
+  </script>
 </body>
 </html>
