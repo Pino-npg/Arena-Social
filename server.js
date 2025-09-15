@@ -12,7 +12,6 @@ const PORT = process.env.PORT || 10000;
 
 // Serve static files
 app.use(express.static(path.join(__dirname, "public")));
-app.use(express.static(__dirname));
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
@@ -31,8 +30,9 @@ wss.on("connection", ws => {
 
   ws.on("message", msg => {
     const data = JSON.parse(msg);
-    
-    if(data.type === "start" && !gameState.started) {
+
+    // Gestione start modalità (demo o wallet)
+    if(data.type === "start" && !gameState.started){
       if(gameState.players.length < 2){
         const playerIndex = gameState.players.length;
         gameState.players.push({
@@ -42,15 +42,29 @@ wss.on("connection", ws => {
           hp: 20,
           bonusHP: data.mode==="wallet"?2:0,
           bonusDamage: data.mode==="wallet"?1:0,
-          bonusInitiative: data.mode==="wallet"?1:0
+          bonusInitiative: data.mode==="wallet"?1:0,
+          stunned: 0
         });
 
-        // 👉 comunica al client il suo indice
+        // assegna indice giocatore
         ws.send(JSON.stringify({ type: "assignIndex", index: playerIndex }));
       }
 
-      if(gameState.players.length === 2) {
-        gameState.started = true;
+      if(gameState.players.length === 2){
+        // comunica ai client che entrambi sono pronti
+        sendToAll({ type: "readyToStart" });
+      }
+    }
+
+    // Cambio personaggio
+    if(data.type === "character" && data.playerIndex !== undefined){
+      gameState.players[data.playerIndex].character = data.name;
+      sendToAll({ type: "character", playerIndex: data.playerIndex, name: data.name });
+    }
+
+    // Click Start Battle
+    if(data.type === "startBattle" && !gameState.started){
+      if(gameState.players.length === 2){
         startBattle();
       }
     }
@@ -78,6 +92,9 @@ function sendToAll(data){
 // --- Logica battaglia ---
 async function startBattle(){
   const [p1, p2] = gameState.players;
+  if(!p1 || !p2) return;
+
+  gameState.started = true;
 
   p1.hp += p1.bonusHP;
   p2.hp += p2.bonusHP;
@@ -89,30 +106,53 @@ async function startBattle(){
 
   const init1 = rollDice() + p1.bonusInitiative;
   const init2 = rollDice() + p2.bonusInitiative;
-  let attacker = init1>=init2?p1:p2;
-  let defender = attacker===p1?p2:p1;
+  let attacker = init1 >= init2 ? p1 : p2;
+  let defender = attacker === p1 ? p2 : p1;
 
   sendToAll({ type:"log", message:`🌀 ${attacker.character} inizia per primo!`});
 
-  while(p1.hp>0 && p2.hp>0){
+  // proprietà stordimento
+  p1.stunned = 0;
+  p2.stunned = 0;
+
+  while(p1.hp > 0 && p2.hp > 0){
     await delay(1500);
 
-    const roll = rollDice();
-    const dmg = roll + attacker.bonusDamage;
+    let roll = rollDice();
+    let dmg = roll + attacker.bonusDamage;
+
+    let critical = false;
+    if(roll >= 8){
+      critical = true;
+      defender.stunned = 1; // chi subisce il critico sarà stordito
+    }
+
+    if(attacker.stunned > 0){
+      dmg -= 1;             // malus stordimento
+      attacker.stunned = 0;
+    }
 
     defender.hp -= dmg;
-    if(defender.hp<0) defender.hp=0;
+    if(defender.hp < 0) defender.hp = 0;
 
-    sendToAll({ type:"turn", attacker:attacker.character, defender:defender.character, dmg, defenderHP:defender.hp });
+    sendToAll({
+      type:"turn",
+      attacker: attacker.character,
+      defender: defender.character,
+      dmg,
+      defenderHP: defender.hp,
+      critical
+    });
 
     [attacker, defender] = [defender, attacker];
   }
 
   await delay(1000);
-  const winner = p1.hp>0?p1.character:p2.character;
+  const winner = p1.hp > 0 ? p1.character : p2.character;
   sendToAll({ type:"end", winner });
-  gameState.started=false;
-  gameState.players=[];
+
+  gameState.started = false;
+  gameState.players = [];
 }
 
 function rollDice(){ return Math.floor(Math.random()*8)+1; }
