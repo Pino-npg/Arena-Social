@@ -1,4 +1,6 @@
-const ws = new WebSocket(`ws://${location.host}`);
+// Gestione protocollo sicuro (Render è https)
+const protocol = location.protocol === "https:" ? "wss" : "ws";
+const ws = new WebSocket(`${protocol}://${location.host}`);
 
 let currentPlayer = {
   index: null,
@@ -57,6 +59,11 @@ ws.onmessage = (event) => {
     document.getElementById('onlineCounter').innerText = `Online: ${msg.count}`;
   }
 
+  if (msg.type === "assignIndex") {
+    currentPlayer.index = msg.index;
+    console.log("🎮 Sei il Player", msg.index + 1);
+  }
+
   if (msg.type === "init") {
     players[0].character = msg.players[0].character;
     players[0].hp = msg.players[0].hp;
@@ -113,7 +120,7 @@ function updateCharacterImage(player, index) {
   else img.src = `img/${charName}.png`;
 }
 
-// --- Local Start Battle (optional for demo testing) ---
+// --- Local Start Battle (solo debug) ---
 startBtn.onclick = () => {
   logEl.textContent = "⚔️ Battle started locally...\n";
   startBtn.disabled = true;

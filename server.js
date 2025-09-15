@@ -33,8 +33,8 @@ wss.on("connection", ws => {
     const data = JSON.parse(msg);
     
     if(data.type === "start" && !gameState.started) {
-      // Aggiungi giocatore se non presente
       if(gameState.players.length < 2){
+        const playerIndex = gameState.players.length;
         gameState.players.push({
           ws,
           mode: data.mode,
@@ -44,6 +44,9 @@ wss.on("connection", ws => {
           bonusDamage: data.mode==="wallet"?1:0,
           bonusInitiative: data.mode==="wallet"?1:0
         });
+
+        // 👉 comunica al client il suo indice
+        ws.send(JSON.stringify({ type: "assignIndex", index: playerIndex }));
       }
 
       if(gameState.players.length === 2) {
@@ -76,17 +79,14 @@ function sendToAll(data){
 async function startBattle(){
   const [p1, p2] = gameState.players;
 
-  // HP iniziale con bonus
   p1.hp += p1.bonusHP;
   p2.hp += p2.bonusHP;
 
-  // Invia stato iniziale
   sendToAll({ type:"init", players: [
     {character:p1.character, hp:p1.hp},
     {character:p2.character, hp:p2.hp}
   ]});
 
-  // Determina iniziativa
   const init1 = rollDice() + p1.bonusInitiative;
   const init2 = rollDice() + p2.bonusInitiative;
   let attacker = init1>=init2?p1:p2;
@@ -94,7 +94,6 @@ async function startBattle(){
 
   sendToAll({ type:"log", message:`🌀 ${attacker.character} inizia per primo!`});
 
-  let turn=1;
   while(p1.hp>0 && p2.hp>0){
     await delay(1500);
 
@@ -106,9 +105,7 @@ async function startBattle(){
 
     sendToAll({ type:"turn", attacker:attacker.character, defender:defender.character, dmg, defenderHP:defender.hp });
 
-    // Scambia ruolo
     [attacker, defender] = [defender, attacker];
-    turn++;
   }
 
   await delay(1000);
