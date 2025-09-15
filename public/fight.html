@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Online Counter -->
   <div id="onlineCounter">Online: 0</div>
 
   <h1>Fight Game - Pino Collection</h1>
@@ -49,18 +50,21 @@
     </div>
   </div>
 
-  <!-- Character Images Large ai lati -->
+  <!-- Character Images Large ai lati dei riquadri HP -->
   <img id="player1-character" class="player-character-large" src="img/Beast.png" alt="Player 1">
   <img id="player2-character" class="player-character-large" src="img/Beast.png" alt="Player 2">
 
+  <!-- Start Battle -->
   <button id="startBattleBtn" disabled>Start Battle</button>
 
+  <!-- Battle Log -->
   <pre id="log"></pre>
 
   <!-- Audio -->
   <audio id="bgMusic" loop></audio>
   <audio id="winMusic"></audio>
 
+  <!-- Script -->
   <script type="module" src="fight.js"></script>
 </body>
 </html>
