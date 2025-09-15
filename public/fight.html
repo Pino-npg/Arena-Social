@@ -6,8 +6,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-  <!-- Contatore Online -->
+  <!-- Online Counter -->
   <div id="onlineCounter">Online: 0</div>
 
   <h1>Fight Game - Pino Collection</h1>
@@ -21,16 +20,16 @@
 
   <!-- Character Selection -->
   <div class="characters-selection" id="characterSelection">
-    <img src="img/Beast.png" data-name="Beast" alt="Beast">
-    <img src="img/Clown.png" data-name="Clown" alt="Clown">
-    <img src="img/Cyclope.png" data-name="Cyclope" alt="Cyclope">
-    <img src="img/Giant.png" data-name="Giant" alt="Giant">
-    <img src="img/Hero.png" data-name="Hero" alt="Hero">
-    <img src="img/Kongo.png" data-name="Kongo" alt="Kongo">
-    <img src="img/Pirate.png" data-name="Pirate" alt="Pirate">
-    <img src="img/Sailor.png" data-name="Sailor" alt="Sailor">
-    <img src="img/Taurus.png" data-name="Taurus" alt="Taurus">
-    <img src="img/WereWolf.png" data-name="WereWolf" alt="WereWolf">
+    <img src="img/Beast.png" data-name="Beast">
+    <img src="img/Clown.png" data-name="Clown">
+    <img src="img/Cyclope.png" data-name="Cyclope">
+    <img src="img/Giant.png" data-name="Giant">
+    <img src="img/Hero.png" data-name="Hero">
+    <img src="img/Kongo.png" data-name="Kongo">
+    <img src="img/Pirate.png" data-name="Pirate">
+    <img src="img/Sailor.png" data-name="Sailor">
+    <img src="img/Taurus.png" data-name="Taurus">
+    <img src="img/WereWolf.png" data-name="WereWolf">
   </div>
 
   <!-- Players Display -->
@@ -41,29 +40,31 @@
       <p>HP: <span class="hp">20</span></p>
       <div class="bar" style="width:100%"></div>
       <img class="dice" src="img/dice1.png" alt="Dice">
-      <img class="character" id="player1-character" src="img/Beast.png" alt="Player 1">
     </div>
-
     <div class="player" id="player2">
       <h2>Waiting...</h2>
       <div class="bonus">No bonus</div>
       <p>HP: <span class="hp">20</span></p>
       <div class="bar" style="width:100%"></div>
       <img class="dice" src="img/dice1.png" alt="Dice">
-      <img class="character" id="player2-character" src="img/Beast.png" alt="Player 2">
     </div>
   </div>
+
+  <!-- Character Images Large ai lati dei riquadri HP -->
+  <img id="player1-character" class="player-character-large" src="img/Beast.png" alt="Player 1">
+  <img id="player2-character" class="player-character-large" src="img/Beast.png" alt="Player 2">
 
   <!-- Start Battle -->
   <button id="startBattleBtn" disabled>Start Battle</button>
 
-  <!-- Log -->
+  <!-- Battle Log -->
   <pre id="log"></pre>
 
   <!-- Audio -->
   <audio id="bgMusic" loop></audio>
-  <audio id="winnerMusic"></audio>
+  <audio id="winMusic"></audio>
 
+  <!-- Script -->
   <script type="module" src="fight.js"></script>
 </body>
 </html>

@@ -1,109 +1,136 @@
+/* --- BODY & BACKGROUND --- */
 body {
-  margin:0;
-  padding:0;
+  margin: 0;
+  padding: 0;
   background: url('img/Arena.png') center/cover no-repeat;
   font-family: 'Segoe UI', Arial, sans-serif;
-  color:white;
-  text-align:center;
-  position:relative;
+  color: white;
+  text-align: center;
+  height: 100vh;
+  position: relative;
 }
 
+/* --- ONLINE COUNTER --- */
 #onlineCounter {
-  position:absolute;
-  top:10px;
-  right:10px;
-  font-weight:bold;
-  font-size:1.2em;
-  background:rgba(0,0,0,0.4);
-  padding:5px 10px;
-  border-radius:8px;
-  z-index:3;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-weight: bold;
+  font-size: 1.2em;
+  background: rgba(0,0,0,0.4);
+  padding: 5px 10px;
+  border-radius: 8px;
+  z-index: 3;
 }
 
+/* --- PLAYER CARDS --- */
 .player {
-  display:inline-block;
-  width:200px;
-  padding:10px;
-  margin:10px;
-  background:rgba(0,0,0,0.6);
-  border-radius:12px;
-  vertical-align:top;
-  position:relative;
-  z-index:2;
+  display: inline-block;
+  width: 200px;
+  padding: 10px;
+  margin: 10px;
+  background: rgba(0,0,0,0.6);
+  border-radius: 12px;
+  vertical-align: top;
+  position: relative;
+  z-index: 2;
 }
 
 .bar {
-  height:20px;
-  background:#4caf50;
-  margin-top:5px;
-  border-radius:6px;
+  height: 20px;
+  background: #4caf50;
+  margin-top: 5px;
+  border-radius: 6px;
   transition: width 0.5s;
 }
 
+/* --- DICE IMAGE --- */
 .dice {
-  margin-top:10px;
-  height:60px;
+  margin-top: 10px;
+  height: 60px;
 }
 
+/* --- BONUS --- */
 .bonus {
-  font-size:0.9em;
-  color:#ffd700;
-  margin-top:5px;
-  text-align:left;
+  font-size: 0.9em;
+  color: #ffd700;
+  margin-top: 5px;
+  text-align: left;
 }
 
+/* --- BUTTONS --- */
 button {
-  padding:10px 20px;
-  margin-top:10px;
-  cursor:pointer;
-  border-radius:8px;
-  background:rgba(255,255,255,0.2);
-  border:1px solid #fff;
-  color:white;
-  font-weight:bold;
-  transition:0.3s;
+  padding: 10px 20px;
+  margin-top: 10px;
+  cursor: pointer;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.2);
+  border: 1px solid #fff;
+  color: white;
+  font-weight: bold;
+  transition: 0.3s;
 }
-button:hover { background:rgba(255,255,255,0.4); }
+button:hover {
+  background: rgba(255,255,255,0.4);
+}
 
+/* --- MODE SELECTION --- */
+.modeButtons {
+  margin: 20px 0;
+}
+
+/* --- CHARACTER SELECTION --- */
 .characters-selection {
-  display:flex;
-  justify-content:center;
-  gap:10px;
-  margin-bottom:15px;
-  flex-wrap:wrap;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
 }
 
 .characters-selection img {
-  width:60px;
-  cursor:pointer;
-  border:2px solid transparent;
-  border-radius:6px;
+  width: 60px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: 6px;
   transition: transform 0.2s, border-color 0.2s;
 }
+
 .characters-selection img:hover,
-.characters-selection img.selected { border-color: gold; transform: scale(1.1); }
+.characters-selection img.selected {
+  border-color: gold;
+  transform: scale(1.1);
+}
 
+/* --- PLAYER CHARACTERS LARGE --- */
 .player-character-large {
-  position:absolute;
-  width:240px;   /* +20% */
-  top:250px;
-  z-index:1;
+  position: absolute;
+  top: 250px;          /* più in basso rispetto a prima */
+  width: 220px;        /* grande come il box */
+  z-index: 1;
 }
-#player1-character { left:50px; }
-#player2-character { right:50px; }
 
+#player1-character { left: 50px; }
+#player2-character { right: 50px; }
+
+/* --- LOG --- */
 pre#log {
-  text-align:left;
-  max-height:300px;
-  overflow:auto;
-  background:rgba(0,0,0,0.6);
-  padding:10px;
-  border-radius:8px;
-  margin-top:20px;
-  color:#fff;
+  text-align: left;
+  max-height: 300px;
+  overflow: auto;
+  background: rgba(0,0,0,0.6);
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  margin-top: 20px;
+  color: #fff;
 }
 
-@media screen and (max-width:768px){
-  .player-character-large { width:150px; top:220px; }
-  .player { width:150px; }
+/* --- RESPONSIVE --- */
+@media screen and (max-width: 768px) {
+  .player-character-large {
+    width: 120px;
+    top: 220px;        /* leggermente più in alto su mobile */
+  }
+  .player { width: 150px; }
 }
