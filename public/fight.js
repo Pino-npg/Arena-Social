@@ -22,7 +22,6 @@ const characterSelection = document.getElementById('characterSelection');
 const logEl = document.getElementById('log');
 const onlineCounter = document.getElementById('onlineCounter');
 
-// personaggi grandi ai lati
 const player1Img = document.getElementById('player1-character');
 const player2Img = document.getElementById('player2-character');
 
@@ -41,14 +40,21 @@ characterSelection.querySelectorAll('img').forEach(img => {
     if(currentPlayer.index !== null){
       ws.send(JSON.stringify({
         type:'character',
-        name: currentPlayer.character,
+        name:currentPlayer.character,
         playerIndex: currentPlayer.index
       }));
     }
+
+    // Aggiorna immagini grandi ai lati subito
+    if(currentPlayer.index === 0) player1Img.src = `img/${currentPlayer.character}.png`;
+    else if(currentPlayer.index === 1) player2Img.src = `img/${currentPlayer.character}.png`;
   });
 });
 
 // --- Mode Selection ---
+walletBtn.disabled = false;
+demoBtn.disabled = false;
+
 walletBtn.onclick = () => chooseMode('wallet');
 demoBtn.onclick = () => chooseMode('demo');
 
@@ -157,7 +163,7 @@ function updateCharacterImage(player,index){
   else player2Img.src = src;
 }
 
-// --- Local start battle (opzionale) ---
+// --- Local start battle ---
 startBtn.onclick = ()=>{
   logEl.textContent = "⚔️ Battle started...\n";
   startBtn.disabled = true;
