@@ -1,7 +1,5 @@
-// fight.js
 const ws = new WebSocket(`ws://${location.host}`);
 
-// Giocatore corrente
 let currentPlayer = {
   index: null,
   mode: null,
@@ -12,13 +10,12 @@ let currentPlayer = {
   bonusInitiative: 0
 };
 
-// Giocatori in partita
 let players = [
   { name: "Player 1", hp: 20, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 },
   { name: "Player 2", hp: 20, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 }
 ];
 
-// Elementi DOM
+// --- DOM Elements ---
 const startBtn = document.getElementById('startBattleBtn');
 const walletBtn = document.getElementById('walletBtn');
 const demoBtn = document.getElementById('demoBtn');
@@ -28,31 +25,28 @@ const onlineCounter = document.getElementById('onlineCounter');
 const player1Img = document.getElementById('player1-character');
 const player2Img = document.getElementById('player2-character');
 
-// Audio
+// --- Audio ---
 let bgMusic = new Audio();
 bgMusic.loop = true;
 let winnerMusic = new Audio();
 
-// --- Selezione personaggi ---
+// --- Character Selection ---
 characterSelection.querySelectorAll('img').forEach(img => {
   img.addEventListener('click', () => {
+    if(currentPlayer.index === null) return; // solo dopo ready
     characterSelection.querySelectorAll('img').forEach(i => i.classList.remove('selected'));
     img.classList.add('selected');
     currentPlayer.character = img.dataset.name;
 
-    if(currentPlayer.index !== null){
-      ws.send(JSON.stringify({
-        type:'character',
-        name:currentPlayer.character,
-        playerIndex: currentPlayer.index
-      }));
-    }
-
-    updatePlayersUI(); // Aggiorna i personaggi grandi ai lati
+    ws.send(JSON.stringify({
+      type:'character',
+      name: currentPlayer.character,
+      playerIndex: currentPlayer.index
+    }));
   });
 });
 
-// --- Selezione modalità ---
+// --- Mode Selection ---
 walletBtn.onclick = () => chooseMode('wallet');
 demoBtn.onclick = () => chooseMode('demo');
 
@@ -70,7 +64,7 @@ function chooseMode(mode){
   playBattleMusic();
 }
 
-// --- Musica ---
+// --- Music ---
 function playBattleMusic(){
   bgMusic.src = "img/battle.mp3";
   bgMusic.play().catch(()=>{});
@@ -86,86 +80,88 @@ function playWinnerMusic(winnerChar){
 ws.onmessage = (event)=>{
   const msg = JSON.parse(event.data);
 
-  if(msg.type === "online"){
-    onlineCounter.innerText = `Online: ${msg.count}`;
-  }
+  switch(msg.type){
+    case "online":
+      onlineCounter.innerText = `Online: ${msg.count}`;
+      break;
 
-  if(msg.type === "ready"){
-    currentPlayer.index = msg.playerIndex;
-  }
+    case "ready":
+      currentPlayer.index = msg.playerIndex;
+      break;
 
-  if(msg.type === "init"){
-    players[0].character = msg.players[0].character;
-    players[0].hp = msg.players[0].hp;
-    players[1].character = msg.players[1].character;
-    players[1].hp = msg.players[1].hp;
-    updatePlayersUI();
-    startBtn.disabled = false;
-  }
+    case "init":
+      players[0].character = msg.players[0].character;
+      players[0].hp = msg.players[0].hp;
+      players[1].character = msg.players[1].character;
+      players[1].hp = msg.players[1].hp;
+      updatePlayersUI();
+      startBtn.disabled = false;
+      break;
 
-  if(msg.type === "turn"){
-    const atkIndex = players.findIndex(p => p.character === msg.attacker);
-    const defIndex = players.findIndex(p => p.character === msg.defender);
+    case "turn":
+      const atkIndex = players.findIndex(p => p.character === msg.attacker);
+      const defIndex = players.findIndex(p => p.character === msg.defender);
 
-    players[defIndex].hp = msg.defenderHP;
-    showDice(atkIndex, msg.dmg);
-    logEl.textContent += `🔴 ${msg.attacker} deals ${msg.dmg} to ${msg.defender}${msg.critical ? ' (CRIT!)' : ''}. HP left: ${msg.defenderHP}\n`;
-    logEl.scrollTop = logEl.scrollHeight;
+      players[defIndex].hp = msg.defenderHP;
+      showDice(atkIndex, msg.dmg);
+      logEl.textContent += `🔴 ${msg.attacker} deals ${msg.dmg} to ${msg.defender}${msg.critical ? ' (CRIT!)' : ''}. HP left: ${msg.defenderHP}\n`;
 
-    updateCharacterImage(players[defIndex], defIndex);
-    updatePlayersUI();
-  }
+      updateCharacterImage(players[defIndex], defIndex);
+      updatePlayersUI();
+      break;
 
-  if(msg.type === "end"){
-    logEl.textContent += `🏆 Winner: ${msg.winner}!\n`;
-    logEl.scrollTop = logEl.scrollHeight;
-    startBtn.disabled = false;
-    playWinnerMusic(msg.winner);
-  }
+    case "end":
+      logEl.textContent += `🏆 Winner: ${msg.winner}!\n`;
+      startBtn.disabled = false;
+      playWinnerMusic(msg.winner);
+      break;
 
-  if(msg.type === "character" && msg.playerIndex !== currentPlayer.index){
-    players[msg.playerIndex].character = msg.name;
-    updatePlayersUI();
+    case "character":
+      if(msg.playerIndex !== currentPlayer.index){
+        players[msg.playerIndex].character = msg.name;
+        updatePlayersUI();
+      }
+      break;
   }
 };
 
-// --- Aggiorna UI giocatori ---
+// --- Update UI ---
 function updatePlayersUI(){
   players.forEach((p,i)=>{
     document.querySelectorAll('.hp')[i].innerText = p.hp;
     document.querySelectorAll('.bar')[i].style.width = (p.hp/(20+p.bonusHP)*100)+'%';
-    const imgEl = document.querySelector(`#player${i+1} img.character`);
-    imgEl.src = `img/${p.character}.png`;
 
-    // personaggi grandi ai lati dei box HP
-    if(i===0) player1Img.src = `img/${p.character}.png`;
-    if(i===1) player2Img.src = `img/${p.character}.png`;
+    // aggiorna personaggi grandi ai lati
+    const src = getCharacterImg(p);
+    if(i===0) player1Img.src = src;
+    if(i===1) player2Img.src = src;
   });
+}
+
+function getCharacterImg(player){
+  let hp = player.hp;
+  let char = player.character;
+  let state = '';
+  if(hp<=0) state='0';
+  else if(hp<=5) state='5';
+  else if(hp<=10) state='10';
+  else if(hp<=15) state='15';
+  return state ? `img/${char}${state}.png` : `img/${char}.png`;
 }
 
 // --- Dice ---
 function rollDice(){ return Math.floor(Math.random()*8)+1; }
 function showDice(playerIndex,value){ document.querySelectorAll('.dice')[playerIndex].src = `img/dice${value}.png`; }
 
-// --- Aggiorna immagine personaggio in base a HP ---
+// --- Update Character Image by HP ---
 function updateCharacterImage(player,index){
-  let hp = player.hp;
-  let charName = player.character;
-  let state = '';
-  if(hp<=0) state='0';
-  else if(hp<=5) state='5';
-  else if(hp<=10) state='10';
-  else if(hp<=15) state='15';
-
-  const src = state ? `img/${charName}${state}.png` : `img/${charName}.png`;
-  document.querySelector(`#player${index+1} img.character`).src = src;
-
-  // personaggi grandi ai lati
+  const src = getCharacterImg(player);
+  document.querySelector(`#player${index+1} img.character`)?.setAttribute('src', src);
   if(index===0) player1Img.src = src;
   if(index===1) player2Img.src = src;
 }
 
-// --- Start Battle locale ---
+// --- Local start battle ---
 startBtn.onclick = ()=>{
   logEl.textContent = "⚔️ Battle started...\n";
   startBtn.disabled = true;

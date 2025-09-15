@@ -1,112 +1,87 @@
-import express from "express";
-import { WebSocketServer } from "ws";
-import http from "http";
+import { WebSocketServer } from 'ws';
+import http from 'http';
 
+// --- HTTP server per servire fight.html e risorse ---
+import express from 'express';
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.static('public')); // metti fight.html, style.css, img/ dentro public/
+
 const server = http.createServer(app);
+server.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+
+// --- WebSocket Server ---
 const wss = new WebSocketServer({ server });
 
-app.use(express.static("public")); // cartella con fight.html, fight.js, style.css, img
-
-// Stato del gioco
+let clients = [];
 let players = [
-  { ws: null, character: "Beast", hp: 20 },
-  { ws: null, character: "Beast", hp: 20 }
+  { character: 'Beast', hp: 20, bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 },
+  { character: 'Beast', hp: 20, bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 }
 ];
 
-// --- Funzione broadcast ---
-function broadcast(data) {
-  const msg = JSON.stringify(data);
-  wss.clients.forEach(client => {
-    if (client.readyState === 1) client.send(msg);
-  });
-}
+wss.on('connection', (ws) => {
+  const playerIndex = clients.length;
+  clients.push(ws);
 
-// --- Gestione connessioni ---
-wss.on("connection", (ws) => {
-  console.log("Nuovo giocatore connesso");
+  console.log(`Player connected: ${playerIndex}`);
+  sendOnlineCount();
 
-  // Aggiorna numero online
-  broadcast({ type: "online", count: wss.clients.size });
+  // Invia ready con playerIndex
+  ws.send(JSON.stringify({ type: 'ready', playerIndex }));
 
-  // Assegna playerIndex se disponibile
-  let playerIndex = players.findIndex(p => p.ws === null);
-  if (playerIndex !== -1) {
-    players[playerIndex].ws = ws;
-    ws.send(JSON.stringify({ type: "ready", playerIndex }));
+  // Invia init ai due client se almeno 2 connessi
+  if (clients.length >= 2) {
+    broadcast({ type: 'init', players });
   }
 
-  ws.on("message", (msg) => {
-    const data = JSON.parse(msg);
+  ws.on('message', (message) => {
+    const msg = JSON.parse(message.toString());
 
-    // --- Selezione modalità ---
-    if (data.type === "start") {
-      if (players[data.playerIndex]) {
-        players[data.playerIndex].character = data.character;
-        players[data.playerIndex].hp = 20;
-      }
-      broadcast({ type: "init", players: players.map(p => ({ character: p.character, hp: p.hp })) });
-    }
+    switch(msg.type){
+      case 'start':
+        // Imposta personaggio scelto
+        players[playerIndex].character = msg.character || 'Beast';
+        broadcast({ type: 'init', players });
+        break;
 
-    // --- Selezione personaggio ---
-    if (data.type === "character") {
-      if (players[data.playerIndex]) {
-        players[data.playerIndex].character = data.name;
-        broadcast({ type: "character", name: data.name, playerIndex: data.playerIndex });
-      }
-    }
+      case 'character':
+        // Aggiorna personaggio e invia a tutti tranne chi ha inviato
+        players[msg.playerIndex].character = msg.name;
+        broadcast(msg, ws);
+        break;
 
-    // --- Turno di attacco ---
-    if (data.type === "attack") {
-      const attacker = players[data.attacker];
-      const defender = players[1 - data.attacker];
-
-      if (!attacker || !defender) return;
-
-      // Danno casuale 1-8
-      let dmg = Math.floor(Math.random() * 8) + 1;
-      let critical = false;
-
-      // 1 su 6 possibilità di critico
-      if (Math.random() < 1/6) {
-        critical = true;
-        dmg += 2;
-      }
-
-      defender.hp -= dmg;
-      if (defender.hp < 0) defender.hp = 0;
-
-      broadcast({
-        type: "turn",
-        attacker: attacker.character,
-        defender: defender.character,
-        dmg,
-        critical,
-        defenderHP: defender.hp
-      });
-
-      // Controlla se partita finita
-      if (defender.hp <= 0) {
-        broadcast({ type: "end", winner: attacker.character });
-        resetGame();
-      }
+      case 'turn':
+        // Aggiorna HP del defender
+        const defIdx = players.findIndex(p => p.character === msg.defender);
+        if(defIdx !== -1){
+          players[defIdx].hp = msg.defenderHP;
+        }
+        broadcast(msg);
+        break;
     }
   });
 
-  ws.on("close", () => {
-    console.log("Giocatore disconnesso");
-    if (playerIndex !== -1) players[playerIndex].ws = null;
-    broadcast({ type: "online", count: wss.clients.size });
+  ws.on('close', () => {
+    console.log(`Player disconnected: ${playerIndex}`);
+    clients = clients.filter(c => c !== ws);
+    sendOnlineCount();
   });
 });
 
-// --- Reset partita ---
-function resetGame() {
-  players = [
-    { ws: players[0].ws, character: "Beast", hp: 20 },
-    { ws: players[1].ws, character: "Beast", hp: 20 }
-  ];
+// --- Helper Functions ---
+function broadcast(msg, excludeWs = null){
+  const data = JSON.stringify(msg);
+  clients.forEach(client => {
+    if(client !== excludeWs && client.readyState === 1){
+      client.send(data);
+    }
+  });
 }
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server attivo su porta ${PORT}`));
+function sendOnlineCount(){
+  const msg = JSON.stringify({ type: 'online', count: clients.length });
+  clients.forEach(client => {
+    if(client.readyState === 1) client.send(msg);
+  });
+}
