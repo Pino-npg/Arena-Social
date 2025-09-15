@@ -1,3 +1,4 @@
+/* --- BODY & BACKGROUND --- */
 body {
   margin: 0;
   padding: 0;
@@ -9,6 +10,7 @@ body {
   position: relative;
 }
 
+/* --- ONLINE COUNTER --- */
 #onlineCounter {
   position: absolute;
   top: 10px;
@@ -21,6 +23,7 @@ body {
   z-index: 3;
 }
 
+/* --- PLAYER CARDS --- */
 .player {
   display: inline-block;
   width: 200px;
@@ -41,11 +44,13 @@ body {
   transition: width 0.5s;
 }
 
+/* --- DICE IMAGE --- */
 .dice {
   margin-top: 10px;
   height: 60px;
 }
 
+/* --- BONUS --- */
 .bonus {
   font-size: 0.9em;
   color: #ffd700;
@@ -53,6 +58,7 @@ body {
   text-align: left;
 }
 
+/* --- BUTTONS --- */
 button {
   padding: 10px 20px;
   margin-top: 10px;
@@ -64,13 +70,16 @@ button {
   font-weight: bold;
   transition: 0.3s;
 }
-
 button:hover {
   background: rgba(255,255,255,0.4);
 }
 
-.modeButtons { margin: 20px 0; }
+/* --- MODE SELECTION --- */
+.modeButtons {
+  margin: 20px 0;
+}
 
+/* --- CHARACTER SELECTION --- */
 .characters-selection {
   display: flex;
   justify-content: center;
@@ -93,16 +102,18 @@ button:hover {
   transform: scale(1.1);
 }
 
+/* --- PLAYER CHARACTERS LARGE --- */
 .player-character-large {
   position: absolute;
-  top: 150px;
-  width: 200px;
+  top: 250px;          /* più in basso rispetto a prima */
+  width: 200px;        /* grande come il box */
   z-index: 1;
 }
 
-#player1-character { left: 10px; }
-#player2-character { right: 10px; }
+#player1-character { left: 50px; }
+#player2-character { right: 50px; }
 
+/* --- LOG --- */
 pre#log {
   text-align: left;
   max-height: 300px;
@@ -115,9 +126,11 @@ pre#log {
   color: #fff;
 }
 
+/* --- RESPONSIVE --- */
 @media screen and (max-width: 768px) {
-  .player-character-large { width: 120px; top: 130px; }
+  .player-character-large {
+    width: 120px;
+    top: 220px;        /* leggermente più in alto su mobile */
+  }
   .player { width: 150px; }
-  .characters-selection img { width: 45px; }
-  .dice { height: 45px; }
 }

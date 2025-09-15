@@ -1,0 +1,51 @@
+/* --- BARRA VITA --- */
+.hp-bars {
+    display: flex;
+    justify-content: space-between;
+    margin: 20px auto;
+    width: 80%;
+    position: relative;
+  }
+  
+  .hp {
+    width: 45%;
+    height: 20px;
+    background: red;
+    border: 2px solid #fff;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
+  .hp .bar {
+    height: 100%;
+    width: 100%;
+    background: limegreen;
+    transition: width 0.5s;
+  }
+  
+  /* --- PERSONAGGI GRANDI AI LATI --- */
+  .player-character-large {
+    position: absolute;
+    top: 40px; /* sotto i riquadri */
+    width: 200px;
+    z-index: 1;
+  }
+  
+  #player1-character {
+    left: -220px; /* accanto alla barra vita sinistra */
+  }
+  
+  #player2-character {
+    right: -220px; /* accanto alla barra vita destra */
+  }
+  
+  /* --- RESPONSIVE --- */
+  @media screen and (max-width: 768px) {
+    .player-character-large {
+      width: 120px;
+      top: 60px;
+    }
+  
+    #player1-character { left: -140px; }
+    #player2-character { right: -140px; }
+  }
