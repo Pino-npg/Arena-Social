@@ -2,56 +2,62 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Fight Game - Pino</title>
+<title>Fight Game - Pino Collection</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<h1>Fight Game - Pino Collection</h1>
-<div id="onlineCounter">Online: 0</div>
+  <div id="onlineCounter">Online: 0</div>
 
-<div class="modeButtons">
-  <h3>Select Mode:</h3>
-  <button id="walletBtn">Connect Wallet</button>
-  <button id="demoBtn">Demo</button>
-</div>
+  <h1>Fight Game - Pino Collection</h1>
 
-<div class="characters-selection" id="characters">
-  <img src="img/Beast.png" data-name="Beast" class="selected">
-  <img src="img/Clown.png" data-name="Clown">
-  <img src="img/Giant.png" data-name="Giant">
-  <!-- aggiungi gli altri -->
-</div>
+  <!-- Mode Selection -->
+  <div class="modeButtons">
+    <h3>Select Mode:</h3>
+    <button id="walletBtn">Connect Wallet</button>
+    <button id="demoBtn">Demo</button>
+  </div>
 
-<button id="startBtn">Start Battle</button>
+  <!-- Character Selection -->
+  <div class="characters-selection" id="characterSelection">
+    <img src="img/Beast.png" data-name="Beast">
+    <img src="img/Clown.png" data-name="Clown">
+    <img src="img/Cyclope.png" data-name="Cyclope">
+    <img src="img/Giant.png" data-name="Giant">
+    <img src="img/Hero.png" data-name="Hero">
+    <img src="img/Kongo.png" data-name="Kongo">
+    <img src="img/Pirate.png" data-name="Pirate">
+    <img src="img/Sailor.png" data-name="Sailor">
+    <img src="img/Taurus.png" data-name="Taurus">
+    <img src="img/WereWolf.png" data-name="WereWolf">
+  </div>
 
-<script>
-const ws = new WebSocket(`ws://${location.host}`);
-const onlineCounter = document.getElementById("onlineCounter");
-const startBtn = document.getElementById("startBtn");
-let selectedCharacter = "Beast";
-let mode = null;
+  <!-- Players Display -->
+  <div id="players">
+    <!-- Personaggi grandi ai lati -->
+    <img id="player1-character" class="player-character-large" src="img/Beast.png" alt="Player 1">
+    <img id="player2-character" class="player-character-large" src="img/Beast.png" alt="Player 2">
 
-document.querySelectorAll("#characters img").forEach(img => {
-  img.addEventListener("click", ()=> {
-    document.querySelectorAll("#characters img").forEach(i=>i.classList.remove("selected"));
-    img.classList.add("selected");
-    selectedCharacter = img.dataset.name;
-  });
-});
+    <!-- Player cards -->
+    <div class="player" id="player1">
+      <h2>Waiting...</h2>
+      <div class="bonus">No bonus</div>
+      <p>HP: <span class="hp">20</span></p>
+      <div class="bar" style="width:100%"></div>
+      <img class="dice" src="img/dice1.png" alt="Dice">
+    </div>
+    <div class="player" id="player2">
+      <h2>Waiting...</h2>
+      <div class="bonus">No bonus</div>
+      <p>HP: <span class="hp">20</span></p>
+      <div class="bar" style="width:100%"></div>
+      <img class="dice" src="img/dice1.png" alt="Dice">
+    </div>
+  </div>
 
-document.getElementById("walletBtn").onclick = ()=>{mode="wallet"; startBtn.disabled=false;};
-document.getElementById("demoBtn").onclick = ()=>{mode="demo"; startBtn.disabled=false;};
+  <button id="startBattleBtn" disabled>Start Battle</button>
 
-startBtn.onclick = ()=>{
-  if(!mode) return alert("Seleziona una modalità!");
-  ws.send(JSON.stringify({type:"start", mode, character:selectedCharacter}));
-  startBtn.disabled=true;
-};
+  <pre id="log"></pre>
 
-ws.onmessage = (msg)=>{
-  const data = JSON.parse(msg.data);
-  if(data.type==="online") onlineCounter.innerText="Online: "+data.count;
-};
-</script>
+  <script type="module" src="fight.js"></script>
 </body>
 </html>
