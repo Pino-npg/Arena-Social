@@ -75,64 +75,83 @@ function sendToAll(data){
   clients.forEach(ws=>{ if(ws.readyState===1) ws.send(msg) });
 }
 
-// --- Logica battaglia ---
+// --- Logica battaglia (aggiornata) ---
 async function startBattle(){
   const [p1, p2] = gameState.players;
+  if(!p1 || !p2) return;
 
+  // applica bonus vita iniziali
   p1.hp += p1.bonusHP;
   p2.hp += p2.bonusHP;
 
   sendToAll({ type:"init", players: [
-    {character:p1.character, hp:p1.hp},
-    {character:p2.character, hp:p2.hp}
+    { character: p1.character, hp: p1.hp },
+    { character: p2.character, hp: p2.hp }
   ]});
 
   const init1 = rollDice() + p1.bonusInitiative;
   const init2 = rollDice() + p2.bonusInitiative;
-  let attacker = init1>=init2?p1:p2;
-  let defender = attacker===p1?p2:p1;
+  let attacker = init1 >= init2 ? p1 : p2;
+  let defender = attacker === p1 ? p2 : p1;
 
-  sendToAll({ type:"log", message:`🌀 ${attacker.character} inizia per primo!`});
+  sendToAll({ type:"log", message:`🌀 ${attacker.character} starts first!` });
 
-  while(p1.hp>0 && p2.hp>0){
+  // inizializza lo stato stordito
+  p1.stunned = false;
+  p2.stunned = false;
+
+  while(p1.hp > 0 && p2.hp > 0){
     await delay(1500);
 
-    // --- Colpo critico e stordimento ---
-    let roll = rollDice();
+    const roll = rollDice();
     let dmg = roll + attacker.bonusDamage;
+    let critical = false;
 
-    // Se l’attaccante era stordito, infligge -1 danno
+    // se l'attaccante è stordito applica -1 al danno (min 0) e resetta lo stato
     if(attacker.stunned){
-      dmg = Math.max(0, dmg - 1); 
-      attacker.stunned = false; 
-      sendToAll({ type:"log", message:`😵 ${attacker.character} è stordito e infligge 1 danno in meno!`});
+      dmg = Math.max(0, dmg - 1);
+      attacker.stunned = false;
+      sendToAll({ type:"log", message: `😵 ${attacker.character} is stunned and deals -1 damage this turn.` });
     }
 
+    // applica danno
     defender.hp -= dmg;
-    if(defender.hp<0) defender.hp=0;
+    if(defender.hp < 0) defender.hp = 0;
 
-    sendToAll({ 
-      type:"turn", 
-      attacker:attacker.character, 
-      defender:defender.character, 
-      dmg, 
-      defenderHP:defender.hp 
+    // calcola indici (assicurati di prendere gli indici reali dalla array)
+    const attackerIndex = gameState.players.indexOf(attacker);
+    const defenderIndex = gameState.players.indexOf(defender);
+
+    // se il roll è un 8 o più -> critico -> stordisci il difensore
+    if(roll >= 8 && defender.hp > 0){
+      critical = true;
+      defender.stunned = true;
+      // nota: lo stordimento sarà applicato al turno in cui quel player attacca
+    }
+
+    // invia il turno con indici e flag critico
+    sendToAll({
+      type: "turn",
+      attackerIndex,
+      defenderIndex,
+      attacker: attacker.character,
+      defender: defender.character,
+      dmg,
+      defenderHP: defender.hp,
+      critical
     });
 
-    // Se il colpo è 8 o più → critico → il difensore sarà stordito
-    if(roll >= 8 && defender.hp > 0){
-      defender.stunned = true;
-      sendToAll({ type:"log", message:`💥 Colpo critico! ${defender.character} è stordito e attaccherà con meno forza!`});
-    }
-
+    // scambia i ruoli
     [attacker, defender] = [defender, attacker];
   }
 
   await delay(1000);
-  const winner = p1.hp>0?p1.character:p2.character;
-  sendToAll({ type:"end", winner });
-  gameState.started=false;
-  gameState.players=[];
+  const winner = p1.hp > 0 ? p1.character : p2.character;
+  sendToAll({ type: "end", winner });
+
+  // reset
+  gameState.started = false;
+  gameState.players = [];
 }
 
 function rollDice(){ return Math.floor(Math.random()*8)+1; }

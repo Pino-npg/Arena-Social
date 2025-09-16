@@ -87,19 +87,20 @@ function playWinnerMusic(winnerChar){
 }
 
 // --- WEBSOCKET MESSAGE ---
-ws.onmessage = (event)=>{
+ws.onmessage = (event) => {
   const msg = JSON.parse(event.data);
 
-  if(msg.type === "online"){
+  if (msg.type === "online") {
     onlineCounter.innerText = `Online: ${msg.count}`;
   }
 
-  if(msg.type === "assignIndex"){
+  if (msg.type === "assignIndex") {
     currentPlayer.index = msg.index;
     console.log("🎮 Sei Player", msg.index + 1);
   }
 
-  if(msg.type === "init"){
+  if (msg.type === "init") {
+    // init fornisce l'array ordered [player0, player1]
     players[0].character = msg.players[0].character;
     players[0].hp = msg.players[0].hp;
     players[1].character = msg.players[1].character;
@@ -108,30 +109,43 @@ ws.onmessage = (event)=>{
     startBtn.disabled = false;
   }
 
-  if(msg.type === "turn"){
-    const atkIndex = players.findIndex(p => p.character === msg.attacker);
-    const defIndex = players.findIndex(p => p.character === msg.defender);
+  if (msg.type === "turn") {
+    // usa gli indici inviati dal server per aggiornare i giusti slot (fix per personaggi uguali)
+    const atkIndex = msg.attackerIndex;
+    const defIndex = msg.defenderIndex;
 
+    // aggiorna hp del difensore
     players[defIndex].hp = msg.defenderHP;
-    showDice(atkIndex, msg.dmg);
-    logEl.textContent += `🔴 ${msg.attacker} deals ${msg.dmg} to ${msg.defender}. HP left: ${msg.defenderHP}\n`;
 
+    // mostra il dado dell'attaccante
+    showDice(atkIndex, msg.dmg);
+
+    // log
+    logEl.textContent += `🔴 ${msg.attacker} deals ${msg.dmg} to ${msg.defender}${msg.critical ? ' (CRIT!)' : ''}. HP left: ${msg.defenderHP}\n`;
+
+    // aggiorna immagine per il difensore in base ai suoi HP
     updateCharacterImage(players[defIndex], defIndex);
     updatePlayersUI();
   }
 
-  if(msg.type === "end"){
+  if (msg.type === "end") {
     logEl.textContent += `🏆 Winner: ${msg.winner}!\n`;
     startBtn.disabled = false;
+    // opzionale: suona musica vincitore
     playWinnerMusic(msg.winner);
   }
 
-  if(msg.type === "character" && msg.playerIndex !== currentPlayer.index){
+  if (msg.type === "character") {
+    // server manda playerIndex, name
     players[msg.playerIndex].character = msg.name;
-    // Aggiorna immagine grande del player avversario
-    if(msg.playerIndex === 0) player1Img.src = `img/${msg.name}.png`;
+    // aggiorna immagine grande e piccola
+    if (msg.playerIndex === 0) player1Img.src = `img/${msg.name}.png`;
     else player2Img.src = `img/${msg.name}.png`;
     updatePlayersUI();
+  }
+
+  if (msg.type === "log") {
+    logEl.textContent += msg.message + "\n";
   }
 };
 
