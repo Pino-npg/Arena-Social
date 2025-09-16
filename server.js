@@ -42,10 +42,10 @@ wss.on("connection", ws => {
           hp: 20,
           bonusHP: data.mode==="wallet"?2:0,
           bonusDamage: data.mode==="wallet"?1:0,
-          bonusInitiative: data.mode==="wallet"?1:0
+          bonusInitiative: data.mode==="wallet"?1:0,
+          stunned: false   // 👉 nuovo flag per lo stordimento
         });
 
-        // 👉 comunica al client il suo indice
         ws.send(JSON.stringify({ type: "assignIndex", index: playerIndex }));
       }
 
@@ -97,13 +97,33 @@ async function startBattle(){
   while(p1.hp>0 && p2.hp>0){
     await delay(1500);
 
-    const roll = rollDice();
-    const dmg = roll + attacker.bonusDamage;
+    // --- Colpo critico e stordimento ---
+    let roll = rollDice();
+    let dmg = roll + attacker.bonusDamage;
+
+    // Se l’attaccante era stordito, infligge -1 danno
+    if(attacker.stunned){
+      dmg = Math.max(0, dmg - 1); 
+      attacker.stunned = false; 
+      sendToAll({ type:"log", message:`😵 ${attacker.character} è stordito e infligge 1 danno in meno!`});
+    }
 
     defender.hp -= dmg;
     if(defender.hp<0) defender.hp=0;
 
-    sendToAll({ type:"turn", attacker:attacker.character, defender:defender.character, dmg, defenderHP:defender.hp });
+    sendToAll({ 
+      type:"turn", 
+      attacker:attacker.character, 
+      defender:defender.character, 
+      dmg, 
+      defenderHP:defender.hp 
+    });
+
+    // Se il colpo è 8 o più → critico → il difensore sarà stordito
+    if(roll >= 8 && defender.hp > 0){
+      defender.stunned = true;
+      sendToAll({ type:"log", message:`💥 Colpo critico! ${defender.character} è stordito e attaccherà con meno forza!`});
+    }
 
     [attacker, defender] = [defender, attacker];
   }
