@@ -3,15 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Fight Game - Pino Collection</title>
-
-<!-- CSS -->
-<link rel="stylesheet" href="css/style.css">
-
-<!-- Ethers.js -->
-<script type="module" src="https://cdn.jsdelivr.net/npm/ethers@6.8.3/dist/ethers.min.js"></script>
-
-<!-- Il tuo JS -->
-<script type="module" src="js/fight.js"></script>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
   <!-- Online Counter -->
@@ -41,25 +33,27 @@
   </div>
 
   <!-- Players Display -->
-  <div class="player" id="player1">
-    <h2 class="player-label">Waiting...</h2>
-    <div class="bonus">No bonus</div>
-    <p>HP: <span class="hp">20</span></p>
-    <div class="bar" style="width:100%"></div>
-    <img class="dice" src="img/dice1.png" alt="Dice">
-  </div>
+<div class="player" id="player1">
+  <h2 class="player-label">Waiting...</h2>
+  <div class="bonus">No bonus</div>
+  <p>HP: <span class="hp">20</span></p>
+  <div class="bar" style="width:100%"></div>
+  <img class="dice" src="img/dice1.png" alt="Dice">
+</div>
 
-  <div class="player" id="player2">
-    <h2 class="player-label">Waiting...</h2>
-    <div class="bonus">No bonus</div>
-    <p>HP: <span class="hp">20</span></p>
-    <div class="bar" style="width:100%"></div>
-    <img class="dice" src="img/dice1.png" alt="Dice">
-  </div>
+<div class="player" id="player2">
+  <h2 class="player-label">Waiting...</h2>
+  <div class="bonus">No bonus</div>
+  <p>HP: <span class="hp">20</span></p>
+  <div class="bar" style="width:100%"></div>
+  <img class="dice" src="img/dice1.png" alt="Dice">
+</div>
 
-  <!-- Character Images Large ai lati dei riquadri HP -->
-  <img id="player1-character" class="player-character-large" src="img/Beast.png" alt="Player 1">
-  <img id="player2-character" class="player-character-large" src="img/Beast.png" alt="Player 2">
+<!-- Character Images Large ai lati dei riquadri HP -->
+<img id="player1-character" class="player-character-large" src="img/Beast.png" alt="Player 1">
+<img id="player2-character" class="player-character-large" src="img/Beast.png" alt="Player 2">
+
+
 
   <!-- Battle Log -->
   <pre id="log"></pre>
@@ -67,5 +61,8 @@
   <!-- Audio -->
   <audio id="bgMusic" loop></audio>
   <audio id="winMusic"></audio>
+
+  <!-- Script -->
+  <script type="module" src="fight.js"></script>
 </body>
 </html>

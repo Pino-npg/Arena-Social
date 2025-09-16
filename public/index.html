@@ -1,76 +1,15 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pino Battle</title>
+<title>Fight Game - Pino Collection</title>
 <link rel="stylesheet" href="css/style.css">
-<style>
-  body {
-    margin: 0;
-    font-family: sans-serif;
-    background: url('../img/Arena.png') no-repeat center center fixed;
-    background-size: cover;
-    color: #fff;
-    text-align: center;
-  }
-
-  #characterSelection img {
-    width: 100px;
-    cursor: pointer;
-    margin: 10px;
-    border: 2px solid transparent;
-    border-radius: 10px;
-    transition: transform 0.2s, border-color 0.2s;
-  }
-
-  #characterSelection img.selected {
-    border-color: gold;
-    transform: scale(1.1);
-  }
-
-  button {
-    margin: 10px;
-    padding: 10px 20px;
-    font-size: 1rem;
-    cursor: pointer;
-    border-radius: 8px;
-    border: none;
-    background-color: #ff8c00;
-    color: #fff;
-    transition: background 0.2s;
-  }
-
-  button:hover {
-    background-color: #ffa733;
-  }
-
-  #onlineCounter {
-    margin-top: 20px;
-    font-weight: bold;
-  }
-</style>
+<script type="module" src="js/fight.js"></script>
 </head>
 <body>
-
-<h1>Pino Battle</h1>
-
-<div id="controls">
-  <button id="walletBtn">Connect Wallet</button>
-  <button id="demoBtn">Demo</button>
-</div>
-
-<h2>Seleziona Personaggio</h2>
-<div id="characterSelection">
-  <img src="img/Beast.png" data-name="Beast" alt="Beast">
-  <img src="img/Kongo.png" data-name="Kongo" alt="Kongo">
-  <img src="img/Angel.png" data-name="Angel" alt="Angel">
-</div>
-
-<div id="onlineCounter">Online: 0</div>
-
-<div id="log" style="white-space: pre-line; margin-top: 20px;"></div>
-
-<script type="module" src="js/fight.js"></script>
+  <!-- Redireziona subito a fight.html -->
+  <script>
+    window.location.href = "/fight.html";
+  </script>
 </body>
 </html>

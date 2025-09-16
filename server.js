@@ -1,113 +1,153 @@
-import express from 'express';
-import { WebSocketServer } from 'ws';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import express from "express";
+import { WebSocketServer } from "ws";
+import http from "http";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.static(path.join(__dirname, 'public'))); // serve la cartella public
+const PORT = process.env.PORT || 10000;
 
-const server = app.listen(process.env.PORT || 3000, () => {
-  console.log("Server avviato");
-});
+// Serve static files
+app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(__dirname));
 
+const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-app.use(express.static("public")); // metti qui index.html, fight.js, img/, ecc.
+// Stato globale della partita
+let clients = [];
+let gameState = {
+  players: [],
+  started: false
+};
 
-let players = []; // array dei client con bonus e personaggio
-
-// --- UTILI ---
-function broadcast(msg) {
-  const str = JSON.stringify(msg);
-  wss.clients.forEach(client => {
-    if (client.readyState === 1) client.send(str);
-  });
-}
-
-function sendTurn() {
-  if(players.length < 2) return;
-
-  // semplice esempio: attacco random
-  const attackerIndex = Math.floor(Math.random()*2);
-  const defenderIndex = 1 - attackerIndex;
-
-  const attacker = players[attackerIndex];
-  const defender = players[defenderIndex];
-
-  // calcolo danno base + bonus
-  const dmg = Math.floor(Math.random()*8) + 1 + attacker.bonusDamage;
-  defender.hp -= dmg;
-  if(defender.hp < 0) defender.hp = 0;
-
-  broadcast({
-    type: "turn",
-    attackerIndex,
-    defenderIndex,
-    attacker: attacker.character,
-    defender: defender.character,
-    dmg,
-    defenderHP: defender.hp,
-    critical: dmg >= 8
-  });
-
-  // controlla vittoria
-  if(defender.hp <= 0) {
-    broadcast({ type: "end", winner: attacker.character });
-  }
-}
-
-// --- WEBSOCKET ---
 wss.on("connection", ws => {
-  const playerIndex = players.length;
-  const playerData = { ws, index: playerIndex, mode: null, character: null, hp: 20, bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 };
-  players.push(playerData);
+  console.log("✅ Nuovo client connesso");
+  clients.push(ws);
+  broadcastOnline();
 
-  ws.send(JSON.stringify({ type: "assignIndex", index: playerIndex }));
-  broadcast({ type: "online", count: players.length });
+  ws.on("message", msg => {
+    const data = JSON.parse(msg);
 
-  ws.on("message", msgStr => {
-    const msg = JSON.parse(msgStr);
+    if(data.type === "start" && gameState.players.length < 2){
+      const playerIndex = gameState.players.length;
+      gameState.players.push({
+        ws,
+        mode: data.mode,
+        character: data.character,
+        hp: 20,
+        bonusHP: data.mode==="wallet"?2:0,
+        bonusDamage: data.mode==="wallet"?1:0,
+        bonusInitiative: data.mode==="wallet"?1:0,
+        stunned: false
+      });
 
-    if(msg.type === "start"){
-      playerData.mode = msg.mode;
-      playerData.character = msg.character;
-      if(msg.bonuses){
-        playerData.bonusHP = msg.bonuses.HP || 0;
-        playerData.bonusDamage = msg.bonuses.Damage || 0;
-        playerData.bonusInitiative = msg.bonuses.Initiative || 0;
+      ws.send(JSON.stringify({ type: "assignIndex", index: playerIndex }));
+
+      if(gameState.players.length === 2 && !gameState.started){
+        gameState.started = true;
+        startBattle();
       }
-
-      // Invia inizializzazione
-      broadcast({
-        type: "init",
-        players: players.map(p => ({
-          character: p.character,
-          hp: p.hp + p.bonusHP
-        }))
-      });
-
-      // se due giocatori pronti, manda il primo turno
-      if(players.length === 2 && players.every(p => p.mode)) sendTurn();
-    }
-
-    if(msg.type === "character"){
-      playerData.character = msg.name;
-      broadcast({
-        type: "character",
-        playerIndex: playerIndex,
-        name: msg.name
-      });
     }
   });
 
   ws.on("close", () => {
-    players = players.filter(p => p.ws !== ws);
-    broadcast({ type: "online", count: players.length });
+    console.log("❌ Client disconnesso");
+    clients = clients.filter(c => c!==ws);
+    gameState.players = gameState.players.filter(p => p.ws!==ws);
+    gameState.started = false;
+    broadcastOnline();
   });
 });
 
-// --- EXPRESS SERVER ---
-const PORT = process.env.PORT || 3000;
+function broadcastOnline(){
+  const msg = JSON.stringify({ type:"online", count:clients.length });
+  clients.forEach(ws=>{ if(ws.readyState===1) ws.send(msg) });
+}
+
+function sendToAll(data){
+  const msg = JSON.stringify(data);
+  clients.forEach(ws=>{ if(ws.readyState===1) ws.send(msg) });
+}
+
+// --- Logica battaglia aggiornata ---
+async function startBattle(){
+  const [p1, p2] = gameState.players;
+  if(!p1 || !p2) return;
+
+  // applica bonus vita iniziali
+  p1.hp += p1.bonusHP;
+  p2.hp += p2.bonusHP;
+
+  sendToAll({ type:"init", players: [
+    { character: p1.character, hp: p1.hp },
+    { character: p2.character, hp: p2.hp }
+  ]});
+
+  const init1 = rollDice() + p1.bonusInitiative;
+  const init2 = rollDice() + p2.bonusInitiative;
+  let attacker = init1 >= init2 ? p1 : p2;
+  let defender = attacker === p1 ? p2 : p1;
+
+  sendToAll({ type:"log", message:`🌀 ${attacker.character} starts first!` });
+
+  p1.stunned = false;
+  p2.stunned = false;
+
+  while(p1.hp > 0 && p2.hp > 0){
+    await delay(1500);
+
+    const roll = rollDice();               // tiro reale
+    let dmg = roll + attacker.bonusDamage; // danno base
+    let critical = false;
+
+    // --- STUN LOGIC ---
+    if(attacker.stunned){
+      dmg = Math.max(0, dmg - 1); // riduzione danno
+      attacker.stunned = false;
+      sendToAll({ type:"log", message:`😵 ${attacker.character} is stunned and deals -1 damage this turn.` });
+    }
+
+    // --- CRIT LOGIC ---
+    if(roll >= 8 && defender.hp > 0){
+      critical = true;
+      defender.stunned = true;
+    }
+
+    // applica danno
+    defender.hp -= dmg;
+    if(defender.hp < 0) defender.hp = 0;
+
+    const attackerIndex = gameState.players.indexOf(attacker);
+    const defenderIndex = gameState.players.indexOf(defender);
+
+    // invia turno separando dado e danno
+    sendToAll({
+      type: "turn",
+      attackerIndex,
+      defenderIndex,
+      attacker: attacker.character,
+      defender: defender.character,
+      roll,           // tiro reale del dado
+      dmg,            // danno corretto da stun/bonus
+      defenderHP: defender.hp,
+      critical
+    });
+
+    [attacker, defender] = [defender, attacker];
+  }
+
+  await delay(1000);
+  const winner = p1.hp > 0 ? p1.character : p2.character;
+  sendToAll({ type: "end", winner });
+
+  gameState.started = false;
+  gameState.players = [];
+}
+function rollDice(){ return Math.floor(Math.random()*8)+1; }
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+server.listen(PORT, ()=>console.log(`🚀 Server attivo su porta ${PORT}`));
