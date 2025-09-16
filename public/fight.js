@@ -159,22 +159,44 @@ ws.onmessage = (event) => {
 
 // --- UPDATE UI ---
 function updatePlayersUI(){
-  players.forEach((p,i)=>{
-    document.querySelectorAll('.hp')[i].innerText = p.hp;
-    document.querySelectorAll('.bar')[i].style.width = (p.hp/(20+p.bonusHP)*100)+'%';
+  const playerBoxes = document.querySelectorAll('.player'); // box player
+  const labels = document.querySelectorAll('.player-label'); // h2 sopra la barra
 
-    // Label sopra la barra
+  players.forEach((p, i) => {
+    // aggiorna HP
+    playerBoxes[i].querySelector('.hp').innerText = p.hp;
+
+    // aggiorna barra HP
+    const maxHP = 20 + p.bonusHP;
+    playerBoxes[i].querySelector('.bar').style.width = (p.hp / maxHP * 100) + '%';
+
+    // aggiorna label YOU / ENEMY
     if(currentPlayer.index !== null){
-      if(i === currentPlayer.index){
-        labels[i].innerText = "YOU";
-      } else {
-        labels[i].innerText = "ENEMY";
-      }
+      labels[i].innerText = (i === currentPlayer.index) ? "YOU" : "ENEMY";
     }
 
-    // Aggiorna immagine accanto al riquadro vita
-    updateCharacterImage(p, i);
+    // aggiorna immagine grande
+    if(i === 0) player1Img.src = getCharacterImage(p);
+    else player2Img.src = getCharacterImage(p);
+
+    // aggiorna immagine piccola nel box
+    let smallImg = playerBoxes[i].querySelector('.player-pic');
+    if(smallImg) smallImg.src = getCharacterImage(p);
   });
+}
+
+// --- CALCOLO IMMAGINE IN BASE A HP ---
+function getCharacterImage(player){
+  let hp = player.hp;
+  let src = `img/${player.character}`;
+
+  if(hp <= 0) src += '0';
+  else if(hp <= 5) src += '5';
+  else if(hp <= 10) src += '10';
+  else if(hp <= 15) src += '15';
+
+  src += '.png';
+  return src;
 }
 
 // --- DADI ---
