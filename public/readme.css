@@ -1,0 +1,56 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: "Papyrus", "Times New Roman", serif;
+    background: #2b1a12;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  
+  .pergamena {
+    position: relative;
+    width: 80%;
+    max-width: 1000px;
+    background: url("img/pergamena.png") no-repeat center/cover;
+    padding: 60px 40px;
+    display: flex;
+    justify-content: space-between;
+    box-shadow: 0 0 25px rgba(0,0,0,0.6);
+  }
+  
+  .colonna {
+    width: 45%;
+    color: #3b2b1b;
+    font-size: 1.1rem;
+    line-height: 1.5;
+  }
+  
+  .colonna h2 {
+    text-align: center;
+    margin-bottom: 15px;
+    font-family: "Uncial Antiqua", serif;
+  }
+  
+  .back-container {
+    margin-top: 20px;
+  }
+  
+  .back-btn {
+    text-decoration: none;
+    padding: 10px 20px;
+    background: #5a3d2b;
+    color: #f5e1c0;
+    border: 2px solid #c9a76c;
+    border-radius: 6px;
+    font-family: "Uncial Antiqua", serif;
+    font-size: 1.2rem;
+    transition: 0.3s;
+  }
+  
+  .back-btn:hover {
+    background: #7a5237;
+    color: #fff;
+  }
