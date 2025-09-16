@@ -106,20 +106,17 @@ ws.onmessage = (event) => {
     updatePlayersUI();
   }
 
-  if(msg.type === "turn"){
+  if (msg.type === "turn") {
     const atkIndex = msg.attackerIndex;
     const defIndex = msg.defenderIndex;
-
-    // aggiorna hp del difensore
+  
+    // mostra il dado reale
+    showDice(atkIndex, msg.roll);
+  
+    // log e hp usano il dmg corretto
     players[defIndex].hp = msg.defenderHP;
-
-    // mostra il dado dell'attaccante
-    showDice(atkIndex, msg.dmg);
-
-    // log
     logEl.textContent += `🔴 ${msg.attacker} deals ${msg.dmg} to ${msg.defender}${msg.critical ? ' (CRIT!)' : ''}. HP left: ${msg.defenderHP}\n`;
-
-    // aggiorna immagine per il difensore in base ai suoi HP
+  
     updateCharacterImage(players[defIndex], defIndex);
     updatePlayersUI();
   }

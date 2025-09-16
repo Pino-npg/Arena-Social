@@ -100,8 +100,8 @@ async function startBattle(){
   while(p1.hp > 0 && p2.hp > 0){
     await delay(1500);
 
-    const roll = rollDice();
-    let dmg = roll + attacker.bonusDamage;
+    const roll = rollDice();               // tiro reale
+    let dmg = roll + attacker.bonusDamage; // danno base
     let critical = false;
 
     // --- STUN LOGIC ---
@@ -124,14 +124,15 @@ async function startBattle(){
     const attackerIndex = gameState.players.indexOf(attacker);
     const defenderIndex = gameState.players.indexOf(defender);
 
-    // invia turno
+    // invia turno separando dado e danno
     sendToAll({
       type: "turn",
       attackerIndex,
       defenderIndex,
       attacker: attacker.character,
       defender: defender.character,
-      dmg,            // dmg già corretto da stordimento
+      roll,           // tiro reale del dado
+      dmg,            // danno corretto da stun/bonus
       defenderHP: defender.hp,
       critical
     });
