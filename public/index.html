@@ -1,15 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Fight Game - Pino Collection</title>
-<link rel="stylesheet" href="css/style.css">
-<script type="module" src="js/fight.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pino Battle</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <!-- Redireziona subito a fight.html -->
-  <script>
-    window.location.href = "/fight.html";
-  </script>
+  <!-- HEADER / CONTATORI -->
+  <div id="top-bar">
+    <span id="onlineCounter">Online: 0</span>
+    <button id="walletBtn">Connect Wallet</button>
+    <button id="demoBtn">Demo</button>
+  </div>
+
+  <!-- SELEZIONE PERSONAGGI -->
+  <div id="characterSelection">
+    <img src="img/Beast.png" data-name="Beast" alt="Beast">
+    <img src="img/Warrior.png" data-name="Warrior" alt="Warrior">
+    <img src="img/Mage.png" data-name="Mage" alt="Mage">
+  </div>
+
+  <!-- GIOCO / HUD -->
+  <div class="players">
+    <div class="player" id="player0">
+      <div class="player-label">YOU</div>
+      <img class="player-pic" src="img/Beast.png" alt="Player 1">
+      <div class="bar-container">
+        <div class="bar"></div>
+      </div>
+      <img id="player1-character" src="img/Beast.png" class="large-character">
+      <img class="dice" src="img/dice1.png">
+    </div>
+
+    <div class="player" id="player1">
+      <div class="player-label">ENEMY</div>
+      <img class="player-pic" src="img/Beast.png" alt="Player 2">
+      <div class="bar-container">
+        <div class="bar"></div>
+      </div>
+      <img id="player2-character" src="img/Beast.png" class="large-character">
+      <img class="dice" src="img/dice1.png">
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <pre id="log"></pre>
+
+  <!-- SCRIPT -->
+  <script type="module" src="js/fight.js"></script>
 </body>
 </html>
