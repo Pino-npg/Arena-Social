@@ -25,6 +25,7 @@ const demoBtn = document.getElementById('demoBtn');
 const characterSelection = document.getElementById('characterSelection');
 const logEl = document.getElementById('log');
 const onlineCounter = document.getElementById('onlineCounter');
+const labels = document.querySelectorAll('.player-label');
 
 // Immagini grandi ai lati dei riquadri vita
 const player1Img = document.getElementById('player1-character');
@@ -98,6 +99,13 @@ ws.onmessage = (event) => {
     currentPlayer.index = msg.index;
     console.log("🎮 Sei Player", msg.index + 1);
   }
+  if (currentPlayer.index === 0) {
+    document.querySelector("#player1 h2").innerText = "YOU";
+    document.querySelector("#player2 h2").innerText = "ENEMY";
+  } else {
+    document.querySelector("#player2 h2").innerText = "YOU";
+    document.querySelector("#player1 h2").innerText = "ENEMY";
+  }
 
   if (msg.type === "init") {
     // init fornisce l'array ordered [player0, player1]
@@ -155,9 +163,17 @@ function updatePlayersUI(){
     document.querySelectorAll('.hp')[i].innerText = p.hp;
     document.querySelectorAll('.bar')[i].style.width = (p.hp/(20+p.bonusHP)*100)+'%';
 
+    // Label sopra la barra
+    if(currentPlayer.index !== null){
+      if(i === currentPlayer.index){
+        labels[i].innerText = "YOU";
+      } else {
+        labels[i].innerText = "ENEMY";
+      }
+    }
+
     // Aggiorna immagine accanto al riquadro vita
-    if(i===0) player1Img.src = `img/${p.character}.png`;
-    else player2Img.src = `img/${p.character}.png`;
+    updateCharacterImage(p, i);
   });
 }
 
@@ -169,14 +185,16 @@ function showDice(playerIndex,value){ document.querySelectorAll('.dice')[playerI
 function updateCharacterImage(player,index){
   let hp = player.hp;
   let charName = player.character;
-  let src = charName;
-  if(hp<=0) src+= '0';
-  else if(hp<=5) src+='5';
-  else if(hp<=10) src+='10';
-  else if(hp<=15) src+='15';
-  src+= '.png';
+  let src = `img/${charName}`;
 
-  if(index===0) player1Img.src = src;
+  if(hp <= 0) src += '0';
+  else if(hp <= 5) src += '5';
+  else if(hp <= 10) src += '10';
+  else if(hp <= 15) src += '15';
+
+  src += '.png';
+
+  if(index === 0) player1Img.src = src;
   else player2Img.src = src;
 }
 
