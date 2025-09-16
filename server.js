@@ -1,154 +1,191 @@
-import express from "express";
-import { WebSocketServer } from "ws";
-import http from "http";
-import path from "path";
-import { fileURLToPath } from "url";
+server.js
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// --- WEBSOCKET ---
+const protocol = location.protocol === "https:" ? "wss" : "ws";
+const ws = new WebSocket(`${protocol}://${location.host}`);
 
-const app = express();
-const PORT = process.env.PORT || 10000;
-
-// Serve static files
-app.use(express.static(path.join(__dirname, "public")));
-app.use(express.static(__dirname));
-
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
-
-// Stato globale della partita
-let clients = [];
-let gameState = {
-  players: [],
-  started: false
+// --- PLAYER STATO ---
+let currentPlayer = {
+  index: null,
+  mode: null,
+  character: 'Beast',
+  hp: 20,
+  bonusHP: 0,
+  bonusDamage: 0,
+  bonusInitiative: 0
 };
 
-wss.on("connection", ws => {
-  console.log("✅ Nuovo client connesso");
-  clients.push(ws);
-  broadcastOnline();
+let players = [
+  { name: "Player 1", hp: 20, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 },
+  { name: "Player 2", hp: 20, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 }
+];
 
-  ws.on("message", msg => {
-    const data = JSON.parse(msg);
+// --- ELEMENTI DOM ---
+const walletBtn = document.getElementById('walletBtn');
+const demoBtn = document.getElementById('demoBtn');
+const characterSelection = document.getElementById('characterSelection');
+const logEl = document.getElementById('log');
+const onlineCounter = document.getElementById('onlineCounter');
 
-    if(data.type === "start" && gameState.players.length < 2){
-      const playerIndex = gameState.players.length;
-      gameState.players.push({
-        ws,
-        mode: data.mode,
-        character: data.character,
-        hp: 20,
-        bonusHP: data.mode==="wallet"?2:0,
-        bonusDamage: data.mode==="wallet"?1:0,
-        bonusInitiative: data.mode==="wallet"?1:0,
-        stunned: false
-      });
+// Immagini grandi ai lati dei riquadri vita
+const player1Img = document.getElementById('player1-character');
+const player2Img = document.getElementById('player2-character');
 
-      ws.send(JSON.stringify({ type: "assignIndex", index: playerIndex }));
+// --- AUDIO ---
+let bgMusic = new Audio();
+bgMusic.loop = true;
+let winnerMusic = new Audio();
 
-      if(gameState.players.length === 2 && !gameState.started){
-        gameState.started = true;
-        startBattle();
-      }
+// --- SELEZIONE PERSONAGGI ---
+characterSelection.querySelectorAll('img').forEach(img => {
+  img.addEventListener('click', () => {
+    characterSelection.querySelectorAll('img').forEach(i => i.classList.remove('selected'));
+    img.classList.add('selected');
+    currentPlayer.character = img.dataset.name;
+
+    // Aggiorna immagine grande subito
+    if(currentPlayer.index !== null){
+      if(currentPlayer.index === 0) player1Img.src = `img/${currentPlayer.character}.png`;
+      else player2Img.src = `img/${currentPlayer.character}.png`;
+
+      ws.send(JSON.stringify({
+        type:'character',
+        name:currentPlayer.character,
+        playerIndex: currentPlayer.index
+      }));
     }
-  });
-
-  ws.on("close", () => {
-    console.log("❌ Client disconnesso");
-    clients = clients.filter(c => c!==ws);
-    gameState.players = gameState.players.filter(p => p.ws!==ws);
-    gameState.started = false;
-    broadcastOnline();
   });
 });
 
-function broadcastOnline(){
-  const msg = JSON.stringify({ type:"online", count:clients.length });
-  clients.forEach(ws=>{ if(ws.readyState===1) ws.send(msg) });
+// --- SCELTA MODALITÀ ---
+walletBtn.onclick = () => chooseMode('wallet');
+demoBtn.onclick = () => chooseMode('demo');
+
+function chooseMode(mode){
+  currentPlayer.mode = mode;
+  walletBtn.disabled = true;
+  demoBtn.disabled = true;
+
+  ws.send(JSON.stringify({
+    type:'start',
+    mode: currentPlayer.mode,
+    character: currentPlayer.character
+  }));
+
+  playBattleMusic();
 }
 
-function sendToAll(data){
-  const msg = JSON.stringify(data);
-  clients.forEach(ws=>{ if(ws.readyState===1) ws.send(msg) });
+// --- MUSICA ---
+function playBattleMusic(){
+  bgMusic.src = "img/battle.mp3";
+  bgMusic.play().catch(()=>{});
 }
 
-// --- Logica battaglia aggiornata ---
-async function startBattle(){
-  const [p1, p2] = gameState.players;
-  if(!p1 || !p2) return;
+function playWinnerMusic(winnerChar){
+  bgMusic.pause();
+  winnerMusic.src = `img/${winnerChar}.mp3`;
+  winnerMusic.play().catch(()=>{});
+}
 
-  // applica bonus vita iniziali
-  p1.hp += p1.bonusHP;
-  p2.hp += p2.bonusHP;
+// --- WEBSOCKET MESSAGE ---
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
 
-  sendToAll({ type:"init", players: [
-    { character: p1.character, hp: p1.hp },
-    { character: p2.character, hp: p2.hp }
-  ]});
-
-  const init1 = rollDice() + p1.bonusInitiative;
-  const init2 = rollDice() + p2.bonusInitiative;
-  let attacker = init1 >= init2 ? p1 : p2;
-  let defender = attacker === p1 ? p2 : p1;
-
-  sendToAll({ type:"log", message:`🌀 ${attacker.character} starts first!` });
-
-  p1.stunned = false;
-  p2.stunned = false;
-
-  while(p1.hp > 0 && p2.hp > 0){
-    await delay(1500);
-
-    const roll = rollDice();               // tiro reale
-    let dmg = roll + attacker.bonusDamage; // danno base
-    let critical = false;
-
-    // --- STUN LOGIC ---
-    if(attacker.stunned){
-      dmg = Math.max(0, dmg - 1); // riduzione danno
-      attacker.stunned = false;
-      sendToAll({ type:"log", message:`😵 ${attacker.character} is stunned and deals -1 damage this turn.` });
-    }
-
-    // --- CRIT LOGIC ---
-    if(roll >= 8 && defender.hp > 0){
-      critical = true;
-      defender.stunned = true;
-    }
-
-    // applica danno
-    defender.hp -= dmg;
-    if(defender.hp < 0) defender.hp = 0;
-
-    const attackerIndex = gameState.players.indexOf(attacker);
-    const defenderIndex = gameState.players.indexOf(defender);
-
-    // invia turno separando dado e danno
-    sendToAll({
-      type: "turn",
-      attackerIndex,
-      defenderIndex,
-      attacker: attacker.character,
-      defender: defender.character,
-      roll,           // tiro reale del dado
-      dmg,            // danno corretto da stun/bonus
-      defenderHP: defender.hp,
-      critical
-    });
-
-    [attacker, defender] = [defender, attacker];
+  if(msg.type === "online"){
+    onlineCounter.innerText = `Online: ${msg.count}`;
   }
 
-  await delay(1000);
-  const winner = p1.hp > 0 ? p1.character : p2.character;
-  sendToAll({ type: "end", winner });
+  if(msg.type === "assignIndex"){
+    currentPlayer.index = msg.index;
+    console.log("🎮 Sei Player", msg.index + 1);
+  }
 
-  gameState.started = false;
-  gameState.players = [];
+  if(msg.type === "init"){
+    players[0].character = msg.players[0].character;
+    players[0].hp = msg.players[0].hp;
+    players[1].character = msg.players[1].character;
+    players[1].hp = msg.players[1].hp;
+    updatePlayersUI();
+  }
+
+  if (msg.type === "turn") {
+    const atkIndex = msg.attackerIndex;
+    const defIndex = msg.defenderIndex;
+  
+    // mostra il dado reale
+    showDice(atkIndex, msg.roll);
+  
+    // log e hp usano il dmg corretto
+    players[defIndex].hp = msg.defenderHP;
+    logEl.textContent += `🔴 ${msg.attacker} deals ${msg.dmg} to ${msg.defender}${msg.critical ? ' (CRIT!)' : ''}. HP left: ${msg.defenderHP}\n`;
+  
+    updateCharacterImage(players[defIndex], defIndex);
+    updatePlayersUI();
+  }
+
+  if(msg.type === "end"){
+    logEl.textContent += `🏆 Winner: ${msg.winner}!\n`;
+    playWinnerMusic(msg.winner);
+  }
+
+  if(msg.type === "character"){
+    players[msg.playerIndex].character = msg.name;
+    if(msg.playerIndex === 0) player1Img.src = `img/${msg.name}.png`;
+    else player2Img.src = `img/${msg.name}.png`;
+    updatePlayersUI();
+  }
+
+  if(msg.type === "log"){
+    logEl.textContent += msg.message + "\n";
+  }
+};
+
+// --- UPDATE UI ---
+function updatePlayersUI(){
+  const playerBoxes = document.querySelectorAll('.player');
+
+  players.forEach((p, i) => {
+    // aggiorna HP
+    playerBoxes[i].querySelector('.hp').innerText = p.hp;
+
+    // aggiorna barra HP
+    const maxHP = 20 + p.bonusHP;
+    playerBoxes[i].querySelector('.bar').style.width = (p.hp / maxHP * 100) + '%';
+
+    // aggiorna label YOU / ENEMY
+    playerBoxes[i].querySelector('.player-label').innerText = (i === currentPlayer.index) ? "YOU" : "ENEMY";
+
+    // aggiorna immagine grande
+    if(i === 0) player1Img.src = getCharacterImage(p);
+    else player2Img.src = getCharacterImage(p);
+
+    // aggiorna immagine piccola nel box
+    const smallImg = playerBoxes[i].querySelector('.player-pic');
+    if(smallImg) smallImg.src = getCharacterImage(p);
+  });
 }
 
-function rollDice(){ return Math.floor(Math.random()*8)+1; }
-function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+// --- CALCOLO IMMAGINE IN BASE A HP ---
+function getCharacterImage(player){
+  let hp = player.hp;
+  let src = `img/${player.character}`;
 
-server.listen(PORT, ()=>console.log(`🚀 Server attivo su porta ${PORT}`));
+  if(hp <= 0) src += '0';
+  else if(hp <= 5) src += '5';
+  else if(hp <= 10) src += '10';
+  else if(hp <= 15) src += '15';
+
+  src += '.png';
+  return src;
+}
+
+// --- DADI ---
+function rollDice(){ return Math.floor(Math.random()*8)+1; }
+function showDice(playerIndex,value){ document.querySelectorAll('.dice')[playerIndex].src = `img/dice${value}.png`; }
+
+// --- IMMAGINE PER HP ---
+function updateCharacterImage(player,index){
+  const src = getCharacterImage(player);
+  if(index === 0) player1Img.src = src;
+  else player2Img.src = src;
+}
