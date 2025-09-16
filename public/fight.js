@@ -19,13 +19,11 @@ let players = [
 ];
 
 // --- ELEMENTI DOM ---
-const startBtn = document.getElementById('startBattleBtn');
 const walletBtn = document.getElementById('walletBtn');
 const demoBtn = document.getElementById('demoBtn');
 const characterSelection = document.getElementById('characterSelection');
 const logEl = document.getElementById('log');
 const onlineCounter = document.getElementById('onlineCounter');
-const labels = document.querySelectorAll('.player-label');
 
 // Immagini grandi ai lati dei riquadri vita
 const player1Img = document.getElementById('player1-character');
@@ -91,34 +89,24 @@ function playWinnerMusic(winnerChar){
 ws.onmessage = (event) => {
   const msg = JSON.parse(event.data);
 
-  if (msg.type === "online") {
+  if(msg.type === "online"){
     onlineCounter.innerText = `Online: ${msg.count}`;
   }
 
-  if (msg.type === "assignIndex") {
+  if(msg.type === "assignIndex"){
     currentPlayer.index = msg.index;
     console.log("🎮 Sei Player", msg.index + 1);
   }
-  if (currentPlayer.index === 0) {
-    document.querySelector("#player1 h2").innerText = "YOU";
-    document.querySelector("#player2 h2").innerText = "ENEMY";
-  } else {
-    document.querySelector("#player2 h2").innerText = "YOU";
-    document.querySelector("#player1 h2").innerText = "ENEMY";
-  }
 
-  if (msg.type === "init") {
-    // init fornisce l'array ordered [player0, player1]
+  if(msg.type === "init"){
     players[0].character = msg.players[0].character;
     players[0].hp = msg.players[0].hp;
     players[1].character = msg.players[1].character;
     players[1].hp = msg.players[1].hp;
     updatePlayersUI();
-    startBtn.disabled = false;
   }
 
-  if (msg.type === "turn") {
-    // usa gli indici inviati dal server per aggiornare i giusti slot (fix per personaggi uguali)
+  if(msg.type === "turn"){
     const atkIndex = msg.attackerIndex;
     const defIndex = msg.defenderIndex;
 
@@ -136,31 +124,26 @@ ws.onmessage = (event) => {
     updatePlayersUI();
   }
 
-  if (msg.type === "end") {
+  if(msg.type === "end"){
     logEl.textContent += `🏆 Winner: ${msg.winner}!\n`;
-    startBtn.disabled = false;
-    // opzionale: suona musica vincitore
     playWinnerMusic(msg.winner);
   }
 
-  if (msg.type === "character") {
-    // server manda playerIndex, name
+  if(msg.type === "character"){
     players[msg.playerIndex].character = msg.name;
-    // aggiorna immagine grande e piccola
-    if (msg.playerIndex === 0) player1Img.src = `img/${msg.name}.png`;
+    if(msg.playerIndex === 0) player1Img.src = `img/${msg.name}.png`;
     else player2Img.src = `img/${msg.name}.png`;
     updatePlayersUI();
   }
 
-  if (msg.type === "log") {
+  if(msg.type === "log"){
     logEl.textContent += msg.message + "\n";
   }
 };
 
 // --- UPDATE UI ---
 function updatePlayersUI(){
-  const playerBoxes = document.querySelectorAll('.player'); // box player
-  const labels = document.querySelectorAll('.player-label'); // h2 sopra la barra
+  const playerBoxes = document.querySelectorAll('.player');
 
   players.forEach((p, i) => {
     // aggiorna HP
@@ -171,16 +154,14 @@ function updatePlayersUI(){
     playerBoxes[i].querySelector('.bar').style.width = (p.hp / maxHP * 100) + '%';
 
     // aggiorna label YOU / ENEMY
-    if(currentPlayer.index !== null){
-      labels[i].innerText = (i === currentPlayer.index) ? "YOU" : "ENEMY";
-    }
+    playerBoxes[i].querySelector('.player-label').innerText = (i === currentPlayer.index) ? "YOU" : "ENEMY";
 
     // aggiorna immagine grande
     if(i === 0) player1Img.src = getCharacterImage(p);
     else player2Img.src = getCharacterImage(p);
 
     // aggiorna immagine piccola nel box
-    let smallImg = playerBoxes[i].querySelector('.player-pic');
+    const smallImg = playerBoxes[i].querySelector('.player-pic');
     if(smallImg) smallImg.src = getCharacterImage(p);
   });
 }
@@ -205,24 +186,7 @@ function showDice(playerIndex,value){ document.querySelectorAll('.dice')[playerI
 
 // --- IMMAGINE PER HP ---
 function updateCharacterImage(player,index){
-  let hp = player.hp;
-  let charName = player.character;
-  let src = `img/${charName}`;
-
-  if(hp <= 0) src += '0';
-  else if(hp <= 5) src += '5';
-  else if(hp <= 10) src += '10';
-  else if(hp <= 15) src += '15';
-
-  src += '.png';
-
+  const src = getCharacterImage(player);
   if(index === 0) player1Img.src = src;
   else player2Img.src = src;
 }
-
-// --- LOCAL START BATTLE ---
-startBtn.onclick = ()=>{
-  logEl.textContent = "⚔️ Battle started...\n";
-  startBtn.disabled = true;
-  playBattleMusic();
-};

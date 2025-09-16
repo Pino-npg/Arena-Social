@@ -31,25 +31,23 @@ wss.on("connection", ws => {
 
   ws.on("message", msg => {
     const data = JSON.parse(msg);
-    
-    if(data.type === "start" && !gameState.started) {
-      if(gameState.players.length < 2){
-        const playerIndex = gameState.players.length;
-        gameState.players.push({
-          ws,
-          mode: data.mode,
-          character: data.character,
-          hp: 20,
-          bonusHP: data.mode==="wallet"?2:0,
-          bonusDamage: data.mode==="wallet"?1:0,
-          bonusInitiative: data.mode==="wallet"?1:0,
-          stunned: false   // 👉 nuovo flag per lo stordimento
-        });
 
-        ws.send(JSON.stringify({ type: "assignIndex", index: playerIndex }));
-      }
+    if(data.type === "start" && gameState.players.length < 2){
+      const playerIndex = gameState.players.length;
+      gameState.players.push({
+        ws,
+        mode: data.mode,
+        character: data.character,
+        hp: 20,
+        bonusHP: data.mode==="wallet"?2:0,
+        bonusDamage: data.mode==="wallet"?1:0,
+        bonusInitiative: data.mode==="wallet"?1:0,
+        stunned: false
+      });
 
-      if(gameState.players.length === 2) {
+      ws.send(JSON.stringify({ type: "assignIndex", index: playerIndex }));
+
+      if(gameState.players.length === 2 && !gameState.started){
         gameState.started = true;
         startBattle();
       }
@@ -75,7 +73,7 @@ function sendToAll(data){
   clients.forEach(ws=>{ if(ws.readyState===1) ws.send(msg) });
 }
 
-// --- Logica battaglia (aggiornata) ---
+// --- Logica battaglia aggiornata ---
 async function startBattle(){
   const [p1, p2] = gameState.players;
   if(!p1 || !p2) return;
@@ -96,7 +94,6 @@ async function startBattle(){
 
   sendToAll({ type:"log", message:`🌀 ${attacker.character} starts first!` });
 
-  // inizializza lo stato stordito
   p1.stunned = false;
   p2.stunned = false;
 
@@ -107,41 +104,38 @@ async function startBattle(){
     let dmg = roll + attacker.bonusDamage;
     let critical = false;
 
-    // se l'attaccante è stordito applica -1 al danno (min 0) e resetta lo stato
+    // --- STUN LOGIC ---
     if(attacker.stunned){
-      dmg = Math.max(0, dmg - 1);
+      dmg = Math.max(0, dmg - 1); // riduzione danno
       attacker.stunned = false;
-      sendToAll({ type:"log", message: `😵 ${attacker.character} is stunned and deals -1 damage this turn.` });
+      sendToAll({ type:"log", message:`😵 ${attacker.character} is stunned and deals -1 damage this turn.` });
+    }
+
+    // --- CRIT LOGIC ---
+    if(roll >= 8 && defender.hp > 0){
+      critical = true;
+      defender.stunned = true;
     }
 
     // applica danno
     defender.hp -= dmg;
     if(defender.hp < 0) defender.hp = 0;
 
-    // calcola indici (assicurati di prendere gli indici reali dalla array)
     const attackerIndex = gameState.players.indexOf(attacker);
     const defenderIndex = gameState.players.indexOf(defender);
 
-    // se il roll è un 8 o più -> critico -> stordisci il difensore
-    if(roll >= 8 && defender.hp > 0){
-      critical = true;
-      defender.stunned = true;
-      // nota: lo stordimento sarà applicato al turno in cui quel player attacca
-    }
-
-    // invia il turno con indici e flag critico
+    // invia turno
     sendToAll({
       type: "turn",
       attackerIndex,
       defenderIndex,
       attacker: attacker.character,
       defender: defender.character,
-      dmg,
+      dmg,            // dmg già corretto da stordimento
       defenderHP: defender.hp,
       critical
     });
 
-    // scambia i ruoli
     [attacker, defender] = [defender, attacker];
   }
 
@@ -149,7 +143,6 @@ async function startBattle(){
   const winner = p1.hp > 0 ? p1.character : p2.character;
   sendToAll({ type: "end", winner });
 
-  // reset
   gameState.started = false;
   gameState.players = [];
 }
