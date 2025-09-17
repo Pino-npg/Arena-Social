@@ -1,3 +1,6 @@
+// fight.js
+import { pinoRank } from './pinoRank.js'; // importa il mapping dei token
+
 // --- WEBSOCKET ---
 const protocol = location.protocol === "https:" ? "wss" : "ws";
 const ws = new WebSocket(`${protocol}://${location.host}`);
@@ -56,8 +59,51 @@ characterSelection.querySelectorAll('img').forEach(img => {
 });
 
 // --- SCELTA MODALITÀ ---
-walletBtn.onclick = () => chooseMode('wallet');
+
+// DEMO (nessun bonus)
 demoBtn.onclick = () => chooseMode('demo');
+
+// WALLET (bonus da pinoRank)
+walletBtn.onclick = async () => {
+  if (!window.ethereum) {
+    alert("Wallet not found!");
+    return;
+  }
+
+  try {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    const signer = await provider.getSigner();
+    const address = await signer.getAddress();
+    console.log("Wallet connected:", address);
+
+    // --- Calcolo bonus ---
+    let bonusHP = 0, bonusDamage = 0, bonusInitiative = 0;
+
+    // Esempio: token dell'utente
+    // Qui puoi sostituire con query reale su OpenSea o contract
+    const userTokens = [1, 5, 502]; // array dei tokenId posseduti dal wallet
+    userTokens.forEach(id => {
+      const b = pinoRank[id];
+      if(b){
+        bonusHP += b.bonusHP;
+        bonusDamage += b.bonusDamage;
+        bonusInitiative += b.bonusInitiative;
+      }
+    });
+
+    currentPlayer.bonusHP = bonusHP;
+    currentPlayer.bonusDamage = bonusDamage;
+    currentPlayer.bonusInitiative = bonusInitiative;
+
+    console.log("Bonuses applied:", bonusHP, bonusDamage, bonusInitiative);
+
+    chooseMode('wallet'); // avvia il gioco
+  } catch(err) {
+    console.error(err);
+    alert("Wallet connection failed");
+  }
+};
 
 function chooseMode(mode){
   currentPlayer.mode = mode;
@@ -67,7 +113,12 @@ function chooseMode(mode){
   ws.send(JSON.stringify({
     type:'start',
     mode: currentPlayer.mode,
-    character: currentPlayer.character
+    character: currentPlayer.character,
+    bonuses: {
+      HP: currentPlayer.bonusHP,
+      Damage: currentPlayer.bonusDamage,
+      Initiative: currentPlayer.bonusInitiative
+    }
   }));
 
   playBattleMusic();
