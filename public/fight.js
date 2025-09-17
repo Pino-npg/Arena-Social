@@ -1,5 +1,6 @@
 // fight.js
 import { pinoRank } from './pinoRank.js'; // mapping tokenId -> bonus
+import { ethers } from "https://cdn.ethers.io/lib/ethers-6.6.0.esm.min.js"; // ethers v6 in browser
 
 // --- WEBSOCKET ---
 const protocol = location.protocol === "https:" ? "wss" : "ws";
