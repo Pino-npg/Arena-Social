@@ -187,3 +187,16 @@ function updateCharacterImage(player,index){
   if(index === 0) player1Img.src = src;
   else player2Img.src = src;
 }
+
+// --- RULES TOGGLE ---
+const rulesBtn = document.getElementById("rulesBtn");
+const rulesOverlay = document.getElementById("rulesOverlay");
+
+rulesBtn.addEventListener("click", () => {
+  rulesOverlay.style.display = "flex";
+});
+
+// clic ovunque sull’overlay per chiudere
+rulesOverlay.addEventListener("click", () => {
+  rulesOverlay.style.display = "none";
+});
