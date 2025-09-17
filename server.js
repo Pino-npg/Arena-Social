@@ -98,7 +98,7 @@ async function startBattle(){
   p2.stunned = false;
 
   while(p1.hp > 0 && p2.hp > 0){
-    await delay(1500);
+    await delay(3000);
 
     const roll = rollDice();               // tiro reale
     let dmg = roll + attacker.bonusDamage; // danno base
