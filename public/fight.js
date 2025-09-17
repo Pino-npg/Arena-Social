@@ -1,3 +1,4 @@
+//fight.js
 // --- WEBSOCKET ---
 const protocol = location.protocol === "https:" ? "wss" : "ws";
 const ws = new WebSocket(`${protocol}://${location.host}`);
@@ -7,15 +8,15 @@ let currentPlayer = {
   index: null,
   mode: null,
   character: 'Beast',
-  hp: 20,
+  hp: 30,
   bonusHP: 0,
   bonusDamage: 0,
   bonusInitiative: 0
 };
 
 let players = [
-  { name: "Player 1", hp: 20, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 },
-  { name: "Player 2", hp: 20, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 }
+  { name: "Player 1", hp: 30, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 },
+  { name: "Player 2", hp: 30, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 }
 ];
 
 // --- ELEMENTI DOM ---
@@ -147,7 +148,7 @@ function updatePlayersUI(){
     playerBoxes[i].querySelector('.hp').innerText = p.hp;
 
     // aggiorna barra HP
-    const maxHP = 20 + p.bonusHP;
+    const maxHP = 30 + p.bonusHP;
     playerBoxes[i].querySelector('.bar').style.width = (p.hp / maxHP * 100) + '%';
 
     // aggiorna label YOU / ENEMY
@@ -169,9 +170,9 @@ function getCharacterImage(player){
   let src = `img/${player.character}`;
 
   if(hp <= 0) src += '0';
-  else if(hp <= 5) src += '5';
-  else if(hp <= 10) src += '10';
+  else if(hp <= 8) src += '8';
   else if(hp <= 15) src += '15';
+  else if(hp <= 22) src += '22';
 
   src += '.png';
   return src;

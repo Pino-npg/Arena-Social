@@ -106,7 +106,7 @@ button:hover {
 .player-character-large {
   position: absolute;
   top: 250px;          /* più in basso rispetto a prima */
-  width: 280px;        /* grande come il box */
+  width: 300px;        /* grande come il box */
   z-index: 2;
 }
 

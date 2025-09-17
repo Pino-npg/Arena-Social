@@ -1,3 +1,4 @@
+//server.js
 import express from "express";
 import { WebSocketServer } from "ws";
 import http from "http";
@@ -38,7 +39,7 @@ wss.on("connection", ws => {
         ws,
         mode: data.mode,
         character: data.character,
-        hp: 20,
+        hp: 30,
         bonusHP: data.mode==="wallet"?2:0,
         bonusDamage: data.mode==="wallet"?1:0,
         bonusInitiative: data.mode==="wallet"?1:0,
@@ -98,7 +99,7 @@ async function startBattle(){
   p2.stunned = false;
 
   while(p1.hp > 0 && p2.hp > 0){
-    await delay(1500);
+    await delay(3000);
 
     const roll = rollDice();               // tiro reale
     let dmg = roll + attacker.bonusDamage; // danno base
@@ -140,7 +141,7 @@ async function startBattle(){
     [attacker, defender] = [defender, attacker];
   }
 
-  await delay(1000);
+  await delay(3000);
   const winner = p1.hp > 0 ? p1.character : p2.character;
   sendToAll({ type: "end", winner });
 
