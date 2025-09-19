@@ -1,164 +1,234 @@
-import express from "express";
-import { WebSocketServer } from "ws";
-import http from "http";
-import path from "path";
-import { fileURLToPath } from "url";
+// --- WEBSOCKET ---
+const protocol = location.protocol === "https:" ? "wss" : "ws";
+const ws = new WebSocket(`${protocol}://${location.host}`);
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const app = express();
-const PORT = process.env.PORT || 10000;
-
-// Serve static files
-app.use(express.static(path.join(__dirname, "public")));
-app.use(express.static(__dirname));
-
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
-
-// Stato globale della partita
-let clients = [];
-let gameState = {
-  players: [],
-  started: false
+// --- PLAYER STATO ---
+let currentPlayer = {
+  index: null,
+  mode: null,
+  character: 'Beast',
+  nickname: '',
+  hp: 30,
+  bonusHP: 0,
+  bonusDamage: 0,
+  bonusInitiative: 0
 };
 
-wss.on("connection", ws => {
-  console.log("✅ Nuovo client connesso");
-  clients.push(ws);
-  broadcastOnline();
+let players = [
+  { name: "Player 1", hp: 30, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 },
+  { name: "Player 2", hp: 30, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 }
+];
 
-  ws.on("message", msg => {
-    const data = JSON.parse(msg);
+// --- TORNEI ---
+let tournament4 = { players: [], semi: [], final: null, winner: null };
+let tournament8 = { players: [], quarter: [], semi: [], final: null, winner: null };
 
-    // START
-    if(data.type === "start" && gameState.players.length < 2){
-      const playerIndex = gameState.players.length;
-      gameState.players.push({
-        ws,
-        mode: data.mode,
-        character: data.character,
-        nickname: data.nickname || `Player ${playerIndex + 1}`,
-        hp: 30,
-        bonusHP: data.mode==="wallet"?2:0,
-        bonusDamage: data.mode==="wallet"?1:0,
-        bonusInitiative: data.mode==="wallet"?1:0,
-        stunned: false
-      });
+// --- ELEMENTI DOM ---
+const walletBtn = document.getElementById('walletBtn');
+const demoBtn = document.getElementById('demoBtn');
+const characterSelection = document.getElementById('characterSelection');
+const logEl = document.getElementById('log');
+const onlineCounter = document.getElementById('onlineCounter');
+const player1Img = document.getElementById('player1-character');
+const player2Img = document.getElementById('player2-character');
+const tournament4Board = document.getElementById('tournament4Board'); 
+const tournament8Board = document.getElementById('tournament8Board');
+const nicknameInput = document.getElementById('nicknameInput');
 
-      ws.send(JSON.stringify({ type: "assignIndex", index: playerIndex }));
+// --- AUDIO ---
+let bgMusic = new Audio();
+bgMusic.loop = true;
+let winnerMusic = new Audio();
 
-      if(gameState.players.length === 2 && !gameState.started){
-        gameState.started = true;
-        startBattle();
-      }
-    }
-
-    // UPDATE NICKNAME
-    if(data.type === "nickname" && typeof data.nickname === "string"){
-      const player = gameState.players[data.playerIndex];
-      if(player){
-        player.nickname = data.nickname;
-        sendToAll({
-          type: "nickname",
-          playerIndex: data.playerIndex,
-          nickname: data.nickname
-        });
-      }
-    }
-  });
-
-  ws.on("close", () => {
-    console.log("❌ Client disconnesso");
-    clients = clients.filter(c => c!==ws);
-    gameState.players = gameState.players.filter(p => p.ws!==ws);
-    gameState.started = false;
-    broadcastOnline();
+// --- SELEZIONE PERSONAGGI ---
+characterSelection.querySelectorAll('img').forEach(img => {
+  // Ridimensiona del 20%
+  img.style.width = '80px';
+  img.style.height = '80px';
+  img.addEventListener('click', () => {
+    characterSelection.querySelectorAll('img').forEach(i => i.classList.remove('selected'));
+    img.classList.add('selected');
+    currentPlayer.character = img.dataset.name;
+    updateLargeImage();
+    ws.send(JSON.stringify({
+      type:'character',
+      name:currentPlayer.character,
+      playerIndex: currentPlayer.index
+    }));
   });
 });
 
-function broadcastOnline(){
-  const msg = JSON.stringify({ type:"online", count:clients.length });
-  clients.forEach(ws=>{ if(ws.readyState===1) ws.send(msg) });
+// --- SCELTA MODALITÀ ---
+demoBtn.style.display = "block"; // solo scritta Demo
+walletBtn.style.display = "none"; // nascondi connect wallet
+
+demoBtn.onclick = () => chooseMode('demo');
+
+function chooseMode(mode){
+  currentPlayer.mode = mode;
+  ws.send(JSON.stringify({
+    type:'start',
+    mode: currentPlayer.mode,
+    character: currentPlayer.character
+  }));
+  playBattleMusic();
 }
 
-function sendToAll(data){
-  const msg = JSON.stringify(data);
-  clients.forEach(ws=>{ if(ws.readyState===1) ws.send(msg) });
+// --- MUSICA ---
+function playBattleMusic(){
+  bgMusic.src = "img/battle.mp3";
+  bgMusic.play().catch(()=>{});
+}
+function playWinnerMusic(winnerChar){
+  bgMusic.pause();
+  winnerMusic.src = `img/${winnerChar}.mp3`;
+  winnerMusic.play().catch(()=>{});
 }
 
-// --- Logica battaglia aggiornata ---
-async function startBattle(){
-  const [p1, p2] = gameState.players;
-  if(!p1 || !p2) return;
+// --- WEBSOCKET MESSAGE ---
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
 
-  p1.hp += p1.bonusHP;
-  p2.hp += p2.bonusHP;
+  if(msg.type === "online") onlineCounter.innerText = `Online: ${msg.count}`;
+  if(msg.type === "assignIndex") currentPlayer.index = msg.index;
+  if(msg.type === "init"){
+    players[0].character = msg.players[0].character;
+    players[0].hp = msg.players[0].hp;
+    players[1].character = msg.players[1].character;
+    players[1].hp = msg.players[1].hp;
+    updatePlayersUI();
+  }
+  if(msg.type === "turn"){
+    const atkIndex = msg.attackerIndex;
+    const defIndex = msg.defenderIndex;
+    showDice(atkIndex, msg.roll);
+    players[defIndex].hp = msg.defenderHP;
+    logEl.textContent += `🔴 ${msg.attacker} deals ${msg.dmg} to ${msg.defender}${msg.critical ? ' (CRIT!)' : ''}. HP left: ${msg.defenderHP}\n`;
+    updateCharacterImage(players[defIndex], defIndex);
+    updatePlayersUI();
+  }
+  if(msg.type === "end"){
+    logEl.textContent += `🏆 Winner: ${msg.winner}!\n`;
+    playWinnerMusic(msg.winner);
+    handleTournamentWinner(msg.winner);
+  }
+  if(msg.type === "character"){
+    players[msg.playerIndex].character = msg.name;
+    updateLargeImage();
+    updatePlayersUI();
+  }
+  if(msg.type === "log") logEl.textContent += msg.message + "\n";
+};
 
-  sendToAll({ type:"init", players: [
-    { character: p1.character, hp: p1.hp, nickname: p1.nickname },
-    { character: p2.character, hp: p2.hp, nickname: p2.nickname }
-  ]});
+// --- NICKNAME INPUT ---
+nicknameInput.addEventListener('input', () => {
+  currentPlayer.nickname = nicknameInput.value.trim();
+  updatePlayersUI();
+});
 
-  const init1 = rollDice() + p1.bonusInitiative;
-  const init2 = rollDice() + p2.bonusInitiative;
-  let attacker = init1 >= init2 ? p1 : p2;
-  let defender = attacker === p1 ? p2 : p1;
+// --- TORNEO LOGICA ---
+function handleTournamentWinner(winnerChar){
+  if(currentPlayer.mode !== "demo") return;
 
-  sendToAll({ type:"log", message:`🌀 ${attacker.character} starts first!` });
-
-  p1.stunned = false;
-  p2.stunned = false;
-
-  while(p1.hp > 0 && p2.hp > 0){
-    await delay(3000);
-
-    const roll = rollDice();
-    let dmg = roll + attacker.bonusDamage;
-    let critical = false;
-
-    if(attacker.stunned){
-      dmg = Math.max(0, dmg - 1);
-      attacker.stunned = false;
-      sendToAll({ type:"log", message:`😵 ${attacker.character} is stunned and deals -1 damage this turn.` });
-    }
-
-    if(roll >= 8 && defender.hp > 0){
-      critical = true;
-      defender.stunned = true;
-    }
-
-    defender.hp -= dmg;
-    if(defender.hp < 0) defender.hp = 0;
-
-    const attackerIndex = gameState.players.indexOf(attacker);
-    const defenderIndex = gameState.players.indexOf(defender);
-
-    sendToAll({
-      type: "turn",
-      attackerIndex,
-      defenderIndex,
-      attacker: attacker.character,
-      defender: defender.character,
-      roll,
-      dmg,
-      defenderHP: defender.hp,
-      critical
-    });
-
-    [attacker, defender] = [defender, attacker];
+  if(tournament4.players.length < 4){
+    tournament4.players.push({name: winnerChar});
+    updateTournamentBoard(4);
+    if(tournament4.players.length === 4) runTournament4();
   }
 
-  await delay(3000);
-  const winner = p1.hp > 0 ? p1.character : p2.character;
-  sendToAll({ type: "end", winner });
-
-  gameState.started = false;
-  gameState.players = [];
+  if(tournament8.players.length < 8){
+    tournament8.players.push({name: winnerChar});
+    updateTournamentBoard(8);
+    if(tournament8.players.length === 8) runTournament8();
+  }
 }
 
-function rollDice(){ return Math.floor(Math.random()*8)+1; }
-function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function updateTournamentBoard(size){
+  const board = size === 4 ? tournament4Board : tournament8Board;
+  const list = size === 4 ? tournament4.players : tournament8.players;
 
-server.listen(PORT, ()=>console.log(`🚀 Server attivo su porta ${PORT}`));
+  // Aggiorna solo i slot già esistenti
+  list.forEach((p,i)=>{
+    const slot = board.querySelector(`#${size===4 ? 't4' : 't8'}-p${i+1}`);
+    if(slot) slot.innerText = p.name;
+  });
+}
+
+// --- TORNEO 0-4 ---
+async function runTournament4(){
+  for(let i=0;i<2;i++){
+    await simulateMatch(tournament4.players[i*2], tournament4.players[i*2+1]);
+    await delay(5000);
+  }
+  await simulateMatch(tournament4.players[0], tournament4.players[1]);
+  tournament4.winner = tournament4.players[0].name;
+  showFinalWinner(tournament4.winner);
+}
+
+// --- TORNEO 0-8 ---
+async function runTournament8(){
+  for(let i=0;i<4;i++){
+    await simulateMatch(tournament8.players[i*2], tournament8.players[i*2+1]);
+    await delay(5000);
+  }
+  for(let i=0;i<2;i++){
+    await simulateMatch(tournament8.players[i*2], tournament8.players[i*2+1]);
+    await delay(5000);
+  }
+  await simulateMatch(tournament8.players[0], tournament8.players[1]);
+  tournament8.winner = tournament8.players[0].name;
+  showFinalWinner(tournament8.winner);
+}
+
+// --- SIMULAZIONE MATCH ---
+async function simulateMatch(p1,p2){
+  logEl.textContent += `⚔️ ${p1.name} VS ${p2.name}\n`;
+  await delay(2000);
+  let winner = Math.random() > 0.5 ? p1.name : p2.name;
+  logEl.textContent += `🏆 Winner: ${winner}\n`;
+  playWinnerMusic(winner);
+  p1.name = winner;
+}
+
+// --- MOSTRA VINCITORE ---
+function showFinalWinner(winner){
+  const fullScreenImg = document.createElement('img');
+  fullScreenImg.src = `img/${winner}W.webp`;
+  fullScreenImg.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;';
+  document.body.appendChild(fullScreenImg);
+}
+
+// --- UPDATE UI ---
+function updatePlayersUI(){
+  const playerBoxes = document.querySelectorAll('.player');
+  players.forEach((p,i)=>{
+    playerBoxes[i].querySelector('.hp').innerText = p.hp;
+    const maxHP = 30 + p.bonusHP;
+    playerBoxes[i].querySelector('.bar').style.width = (p.hp/maxHP*100)+'%';
+    playerBoxes[i].querySelector('.player-label').innerText = (i===currentPlayer.index ? (currentPlayer.nickname||"YOU") : "ENEMY");
+    updateLargeImage();
+  });
+}
+
+function updateLargeImage(){
+  if(currentPlayer.index===0) player1Img.src=`img/${currentPlayer.character}.png`;
+  else player2Img.src=`img/${currentPlayer.character}.png`;
+}
+
+function getCharacterImage(player){
+  let hp = player.hp;
+  let src = `img/${player.character}`;
+  if(hp<=0) src+='0';
+  else if(hp<=8) src+='8';
+  else if(hp<=15) src+='15';
+  else if(hp<=22) src+='22';
+  return src+'.png';
+}
+
+// --- DADI ---
+function rollDice(){ return Math.floor(Math.random()*8)+1; }
+function showDice(playerIndex,value){ document.querySelectorAll('.dice')[playerIndex].src=`img/dice${value}.png`; }
+function updateCharacterImage(player,index){ const src=getCharacterImage(player); if(index===0) player1Img.src=src; else player2Img.src=src; }
+
+// --- UTILITY ---
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }

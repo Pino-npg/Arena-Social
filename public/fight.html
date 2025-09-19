@@ -12,9 +12,9 @@
 
   <!-- Menu laterale -->
   <div id="leftMenu">RULES</div>
-  <div id="rightMenu">ONLINE</div>
+  <div id="rightMenu">ONLINE: <span id="onlineCounter">0</span></div>
 
-  <!-- Favicon / piccola icona -->
+  <!-- Favicon -->
   <div id="favicon">
     <img src="img/favicon.png" alt="Flavicon" width="50">
   </div>
@@ -37,61 +37,98 @@
     <img src="img/Taurus.png" data-name="Taurus">
     <img src="img/WereWolf.png" data-name="WereWolf">
   </div>
-  
-  <!-- Mini-tabelloni torneo -->
-  <div id="tournament4Board" class="tournament-board">
-    <div class="semi semi1">
-      <div class="slot" id="t4-p1">P1</div>
-      <div class="slot" id="t4-p2">P2</div>
-    </div>
-    <div class="semi semi2">
-      <div class="slot" id="t4-p3">P3</div>
-      <div class="slot" id="t4-p4">P4</div>
-    </div>
-    <div class="final">
-      <div class="slot" id="t4-f1">Finale</div>
-    </div>
-    <div class="winner">
-      <div class="slot" id="t4-winner">Winner</div>
-    </div>
+
+  <!-- Demo scritta -->
+  <div id="demoText">Demo</div>
+
+  <!-- Pulsanti tornei -->
+  <div class="modeButtons">
+    <button id="btn1vs1">1vs1</button>
+    <button id="btnT4">Tournament 0-4</button>
+    <button id="btnT8">Tournament 0-8</button>
   </div>
 
-  <div id="tournament8Board" class="tournament-board">
-    <div class="quarter q1">
-      <div class="slot" id="t8-p1">P1</div>
-      <div class="slot" id="t8-p2">P2</div>
-    </div>
-    <div class="quarter q2">
-      <div class="slot" id="t8-p3">P3</div>
-      <div class="slot" id="t8-p4">P4</div>
-    </div>
-    <div class="quarter q3">
-      <div class="slot" id="t8-p5">P5</div>
-      <div class="slot" id="t8-p6">P6</div>
-    </div>
-    <div class="quarter q4">
-      <div class="slot" id="t8-p7">P7</div>
-      <div class="slot" id="t8-p8">P8</div>
-    </div>
+  <!-- Tornei -->
+  <div id="tournament4Board" class="tournament-board"></div>
+  <div id="tournament8Board" class="tournament-board"></div>
 
-    <div class="semi">
-      <div class="slot" id="t8-s1">Semi1</div>
-      <div class="slot" id="t8-s2">Semi2</div>
-    </div>
-    <div class="final">
-      <div class="slot" id="t8-f1">Finale</div>
-    </div>
-    <div class="winner">
-      <div class="slot" id="t8-winner">Winner</div>
-    </div>
+  <!-- Torneo 4 giocatori -->
+<div id="tournament4Board" class="tournament-board hidden">
+  <div class="semi semi1">
+    <div class="slot" id="t4-p1">P1</div>
+    <div class="slot" id="t4-p2">P2</div>
+  </div>
+  <div class="semi semi2">
+    <div class="slot" id="t4-p3">P3</div>
+    <div class="slot" id="t4-p4">P4</div>
+  </div>
+  <div class="final">
+    <div class="slot" id="t4-f1">Finale</div>
+  </div>
+  <div class="winner">
+    <div class="slot" id="t4-winner">Winner</div>
+  </div>
+</div>
+
+<!-- Torneo 8 giocatori -->
+<div id="tournament8Board" class="tournament-board hidden">
+  <!-- Quarti -->
+  <div class="quarter q1">
+    <div class="slot" id="t8-p1">P1</div>
+    <div class="slot" id="t8-p2">P2</div>
+  </div>
+  <div class="quarter q2">
+    <div class="slot" id="t8-p3">P3</div>
+    <div class="slot" id="t8-p4">P4</div>
+  </div>
+  <div class="quarter q3">
+    <div class="slot" id="t8-p5">P5</div>
+    <div class="slot" id="t8-p6">P6</div>
+  </div>
+  <div class="quarter q4">
+    <div class="slot" id="t8-p7">P7</div>
+    <div class="slot" id="t8-p8">P8</div>
   </div>
 
-  <!-- Online Counter -->
-  <div id="onlineCounter">Online: 0</div>
+  <!-- Semifinali -->
+  <div class="semi">
+    <div class="slot" id="t8-s1">Semi1</div>
+    <div class="slot" id="t8-s2">Semi2</div>
+  </div>
 
-  <!-- Player Characters Large -->
-  <img id="player1-character" class="player-character-large" src="img/Beast.png" alt="Player 1">
-  <img id="player2-character" class="player-character-large" src="img/Beast.png" alt="Player 2">
+  <!-- Finale -->
+  <div class="final">
+    <div class="slot" id="t8-f1">Finale</div>
+  </div>
+
+  <!-- Vincitore -->
+  <div class="winner">
+    <div class="slot" id="t8-winner">Winner</div>
+  </div>
+</div>
+
+  <!-- Player Cards -->
+  <div class="player-wrapper">
+    <div class="player" id="player1">
+      <h2 class="player-label">Waiting...</h2>
+      <div class="bonus">No bonus</div>
+      <p>HP: <span class="hp">30</span></p>
+      <div class="bar" style="width:100%"></div>
+      <img class="dice" src="img/dice1.png" alt="Dice">
+    </div>
+   
+    <img id="player1-character" class="player-character-large" src="img/Beast.png" alt="Player 1">
+
+    <img id="player2-character" class="player-character-large" src="img/Beast.png" alt="Player 2">
+
+    <div class="player" id="player2">
+      <h2 class="player-label">Waiting...</h2>
+      <div class="bonus">No bonus</div>
+      <p>HP: <span class="hp">30</span></p>
+      <div class="bar" style="width:100%"></div>
+      <img class="dice" src="img/dice1.png" alt="Dice">
+    </div>
+  </div>
 
   <!-- Battle Log -->
   <pre id="log"></pre>
