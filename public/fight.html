@@ -1,51 +1,20 @@
-//fight.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Fight Game - Pino Collection</title>
+<title>IИFΞЯИФ - Demo</title>
 <link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" href="img/favicon.png">
 </head>
 <body>
+
+  <!-- HEADER -->
   <div id="rulesBtn">RULES</div>
-
-<div id="rulesOverlay">
-  <div id="rulesContent">
-    <h2>Rules</h2>
-    <p><strong>DEMO (free)</strong><br>
-    Just pure fun with no bonuses, have fun with your favorite character.<br>
-    Choose your character and click on demo mode.<br>
-    The game start when the second player click on demo mode.<br>
-    An initiative dice roll determines who will be the first to strike.<br>
-    Each player has 30 health points and deals 1D8 damage.<br>
-    If a player deals 8 damage, the opponent is stunned for one<br>
-    turn and will subtract 1 damage from his next attack.</p>
-
-    <p><strong>CONNECT WALLET (free)</strong><br>
-    Dedicated to those who own my NFTs.<br>
-    Bonus:</p>
-    <ul>
-      <li><strong>Pino Collection</strong><br>
-        10 special characters: +7 health, +2 damage, +2 initiative<br>
-        Any: +5 health, +2 damage<br>
-      </li>
-      <li><strong>Any YUMI</strong>: +5 health</li>
-    </ul>
-  </div>
-</div>
-  <!-- Online Counter -->
   <div id="onlineCounter">Online: 0</div>
+  <h1 id="gameTitle">IИFΞЯИФ</h1>
+  <img id="faviconDisplay" src="img/favicon.png" alt="favicon">
 
-  <h1>Fight Game - Pino Collection</h1>
-
-  <!-- Mode Selection -->
-  <div class="modeButtons">
-    <h3>Select Mode:</h3>
-    <button id="walletBtn">Connect Wallet</button>
-    <button id="demoBtn">Demo</button>
-  </div>
-
-  <!-- Character Selection -->
+  <!-- CHARACTER SELECTION -->
   <div class="characters-selection" id="characterSelection">
     <img src="img/Beast.png" data-name="Beast">
     <img src="img/Clown.png" data-name="Clown">
@@ -60,27 +29,35 @@
   </div>
 
   <!-- Players Display -->
-<div class="player" id="player1">
-  <h2 class="player-label">Waiting...</h2>
-  <div class="bonus">No bonus</div>
-  <p>HP: <span class="hp">30</span></p>
-  <div class="bar" style="width:100%"></div>
-  <img class="dice" src="img/dice1.png" alt="Dice">
-</div>
+  <div class="player" id="player1">
+    <h2 class="player-label">Waiting...</h2>
+    <input type="text" class="nickname" placeholder="Your Nick" style="display:none">
+    <div class="bonus">No bonus</div>
+    <p>HP: <span class="hp">30</span></p>
+    <div class="bar" style="width:100%"></div>
+    <img class="dice" src="img/dice1.png" alt="Dice">
+  </div>
 
-<div class="player" id="player2">
-  <h2 class="player-label">Waiting...</h2>
-  <div class="bonus">No bonus</div>
-  <p>HP: <span class="hp">30</span></p>
-  <div class="bar" style="width:100%"></div>
-  <img class="dice" src="img/dice1.png" alt="Dice">
-</div>
+  <div class="player" id="player2">
+    <h2 class="player-label">Waiting...</h2>
+    <input type="text" class="nickname" placeholder="Your Nick" style="display:none">
+    <div class="bonus">No bonus</div>
+    <p>HP: <span class="hp">30</span></p>
+    <div class="bar" style="width:100%"></div>
+    <img class="dice" src="img/dice1.png" alt="Dice">
+  </div>
 
-<!-- Character Images Large ai lati dei riquadri HP -->
-<img id="player1-character" class="player-character-large" src="img/Beast.png" alt="Player 1">
-<img id="player2-character" class="player-character-large" src="img/Beast.png" alt="Player 2">
+  <!-- Character Images Large ai lati dei riquadri HP -->
+  <img id="player1-character" class="player-character-large" src="img/Beast.png" alt="Player 1">
+  <img id="player2-character" class="player-character-large" src="img/Beast.png" alt="Player 2">
 
-
+  <!-- Mode Selection -->
+  <div class="modeButtons">
+    <h3>Select Demo Mode:</h3>
+    <button id="demo1vs1">1vs1</button>
+    <button id="demoTournament4">Tournament 0-4</button>
+    <button id="demoTournament8">Tournament 0-8</button>
+  </div>
 
   <!-- Battle Log -->
   <pre id="log"></pre>

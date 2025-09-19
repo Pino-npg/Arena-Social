@@ -1,4 +1,3 @@
-//fight.js
 // --- WEBSOCKET ---
 const protocol = location.protocol === "https:" ? "wss" : "ws";
 const ws = new WebSocket(`${protocol}://${location.host}`);
@@ -11,24 +10,25 @@ let currentPlayer = {
   hp: 30,
   bonusHP: 0,
   bonusDamage: 0,
-  bonusInitiative: 0
+  bonusInitiative: 0,
+  nickname: ""
 };
 
 let players = [
-  { name: "Player 1", hp: 30, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 },
-  { name: "Player 2", hp: 30, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 }
+  { name: "Player 1", hp: 30, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0, nickname:"" },
+  { name: "Player 2", hp: 30, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0, nickname:"" }
 ];
 
 // --- ELEMENTI DOM ---
-const walletBtn = document.getElementById('walletBtn');
-const demoBtn = document.getElementById('demoBtn');
 const characterSelection = document.getElementById('characterSelection');
 const logEl = document.getElementById('log');
 const onlineCounter = document.getElementById('onlineCounter');
-
-// Immagini grandi ai lati dei riquadri vita
 const player1Img = document.getElementById('player1-character');
 const player2Img = document.getElementById('player2-character');
+
+const demo1vs1 = document.getElementById('demo1vs1');
+const demoTournament4 = document.getElementById('demoTournament4');
+const demoTournament8 = document.getElementById('demoTournament8');
 
 // --- AUDIO ---
 let bgMusic = new Audio();
@@ -42,8 +42,12 @@ characterSelection.querySelectorAll('img').forEach(img => {
     img.classList.add('selected');
     currentPlayer.character = img.dataset.name;
 
-    // Aggiorna immagine grande subito
     if(currentPlayer.index !== null){
+      // nickname input solo mobile
+      const inputBox = document.querySelectorAll('.player')[currentPlayer.index].querySelector('.nickname');
+      if(window.innerWidth <= 768){
+        inputBox.style.display = 'block';
+      }
       if(currentPlayer.index === 0) player1Img.src = `img/${currentPlayer.character}.png`;
       else player2Img.src = `img/${currentPlayer.character}.png`;
 
@@ -56,30 +60,32 @@ characterSelection.querySelectorAll('img').forEach(img => {
   });
 });
 
-// --- SCELTA MODALITÀ ---
-walletBtn.onclick = () => chooseMode('wallet');
-demoBtn.onclick = () => chooseMode('demo');
-
-function chooseMode(mode){
+// --- SCELTA MODALITÀ DEMO ---
+function chooseDemoMode(mode){
   currentPlayer.mode = mode;
-  walletBtn.disabled = true;
-  demoBtn.disabled = true;
+  demo1vs1.disabled = true;
+  demoTournament4.disabled = true;
+  demoTournament8.disabled = true;
 
   ws.send(JSON.stringify({
     type:'start',
     mode: currentPlayer.mode,
-    character: currentPlayer.character
+    character: currentPlayer.character,
+    nickname: currentPlayer.nickname
   }));
 
   playBattleMusic();
 }
+
+demo1vs1.onclick = () => chooseDemoMode('demo1vs1');
+demoTournament4.onclick = () => chooseDemoMode('demoTournament4');
+demoTournament8.onclick = () => chooseDemoMode('demoTournament8');
 
 // --- MUSICA ---
 function playBattleMusic(){
   bgMusic.src = "img/battle.mp3";
   bgMusic.play().catch(()=>{});
 }
-
 function playWinnerMusic(winnerChar){
   bgMusic.pause();
   winnerMusic.src = `img/${winnerChar}.mp3`;
@@ -90,13 +96,12 @@ function playWinnerMusic(winnerChar){
 ws.onmessage = (event) => {
   const msg = JSON.parse(event.data);
 
-  if(msg.type === "online"){
-    onlineCounter.innerText = `Online: ${msg.count}`;
-  }
-
-  if(msg.type === "assignIndex"){
+  if(msg.type === "online") onlineCounter.innerText = `Online: ${msg.count}`;
+  if(msg.type === "assignIndex") {
     currentPlayer.index = msg.index;
     console.log("🎮 Sei Player", msg.index + 1);
+    const inputBox = document.querySelectorAll('.player')[currentPlayer.index].querySelector('.nickname');
+    if(window.innerWidth <= 768) inputBox.style.display = 'block';
   }
 
   if(msg.type === "init"){
@@ -107,17 +112,14 @@ ws.onmessage = (event) => {
     updatePlayersUI();
   }
 
-  if (msg.type === "turn") {
+  if(msg.type === "turn"){
     const atkIndex = msg.attackerIndex;
     const defIndex = msg.defenderIndex;
-  
-    // mostra il dado reale
-    showDice(atkIndex, msg.roll);
-  
-    // log e hp usano il dmg corretto
+
+    showDice(atkIndex,msg.roll);
     players[defIndex].hp = msg.defenderHP;
     logEl.textContent += `🔴 ${msg.attacker} deals ${msg.dmg} to ${msg.defender}${msg.critical ? ' (CRIT!)' : ''}. HP left: ${msg.defenderHP}\n`;
-  
+
     updateCharacterImage(players[defIndex], defIndex);
     updatePlayersUI();
   }
@@ -134,33 +136,20 @@ ws.onmessage = (event) => {
     updatePlayersUI();
   }
 
-  if(msg.type === "log"){
-    logEl.textContent += msg.message + "\n";
-  }
+  if(msg.type === "log") logEl.textContent += msg.message + "\n";
 };
 
 // --- UPDATE UI ---
 function updatePlayersUI(){
   const playerBoxes = document.querySelectorAll('.player');
-
   players.forEach((p, i) => {
-    // aggiorna HP
     playerBoxes[i].querySelector('.hp').innerText = p.hp;
-
-    // aggiorna barra HP
     const maxHP = 30 + p.bonusHP;
     playerBoxes[i].querySelector('.bar').style.width = (p.hp / maxHP * 100) + '%';
-
-    // aggiorna label YOU / ENEMY
-    playerBoxes[i].querySelector('.player-label').innerText = (i === currentPlayer.index) ? "YOU" : "ENEMY";
-
-    // aggiorna immagine grande
+    const label = playerBoxes[i].querySelector('.player-label');
+    label.innerText = (i === currentPlayer.index) ? (p.nickname || "YOU") : "ENEMY";
     if(i === 0) player1Img.src = getCharacterImage(p);
     else player2Img.src = getCharacterImage(p);
-
-    // aggiorna immagine piccola nel box
-    const smallImg = playerBoxes[i].querySelector('.player-pic');
-    if(smallImg) smallImg.src = getCharacterImage(p);
   });
 }
 
@@ -168,21 +157,17 @@ function updatePlayersUI(){
 function getCharacterImage(player){
   let hp = player.hp;
   let src = `img/${player.character}`;
-
-  if(hp <= 0) src += '0';
-  else if(hp <= 8) src += '8';
-  else if(hp <= 15) src += '15';
-  else if(hp <= 22) src += '22';
-
-  src += '.png';
+  if(hp <= 0) src+='0';
+  else if(hp <= 8) src+='8';
+  else if(hp <= 15) src+='15';
+  else if(hp <= 22) src+='22';
+  src+='.png';
   return src;
 }
 
 // --- DADI ---
 function rollDice(){ return Math.floor(Math.random()*8)+1; }
 function showDice(playerIndex,value){ document.querySelectorAll('.dice')[playerIndex].src = `img/dice${value}.png`; }
-
-// --- IMMAGINE PER HP ---
 function updateCharacterImage(player,index){
   const src = getCharacterImage(player);
   if(index === 0) player1Img.src = src;
@@ -192,12 +177,5 @@ function updateCharacterImage(player,index){
 // --- RULES TOGGLE ---
 const rulesBtn = document.getElementById("rulesBtn");
 const rulesOverlay = document.getElementById("rulesOverlay");
-
-rulesBtn.addEventListener("click", () => {
-  rulesOverlay.style.display = "flex";
-});
-
-// clic ovunque sull’overlay per chiudere
-rulesOverlay.addEventListener("click", () => {
-  rulesOverlay.style.display = "none";
-});
+rulesBtn.addEventListener("click",()=>rulesOverlay.style.display="flex");
+rulesOverlay.addEventListener("click",()=>rulesOverlay.style.display="none");
