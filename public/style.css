@@ -12,14 +12,7 @@
     color: white;
     text-align: center;
     min-height: 100vh;
-    overflow: hidden;
-    background: #000; /* fallback */
-  }
-  
-  /* ===============================
-     SFONDO ARENA
-     =============================== */
-  .arena-bg {
+    overflow-x: hidden;
     background: url("img/Arena.png") no-repeat center center fixed;
     background-size: cover;
   }
@@ -34,12 +27,13 @@
     background: rgba(0,0,0,0.6);
     border-radius: 6px;
     font-size: 14px;
+    z-index: 1000;
   }
   #leftMenu { left: 10px; cursor: pointer; }
   #rightMenu { right: 10px; }
   
   /* ===============================
-     TITOLI E FAVICON
+     TITOLI
      =============================== */
   #mainTitle {
     margin-top: 60px;
@@ -50,106 +44,14 @@
     transform: perspective(400px) rotateX(10deg);
   }
   
-  #favicon {
-    margin: 20px 0;
-  }
-  
-  /* ===============================
-     NICKNAME
-     =============================== */
-  #nicknameBox {
-    margin-top: 30px;
-  }
-  
-  #nicknameInput {
-    padding: 10px;
-    font-size: 16px;
-    border-radius: 6px;
-    border: none;
-  }
-  
-  #nicknameBtn {
-    padding: 10px 15px;
-    font-size: 18px;
-    border: none;
-    background: #FFD700;
-    color: black;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-  
-  #nicknameBtn:hover {
-    background: orange;
-  }
-  
-  /* ===============================
-     PAGINA SELEZIONE PERSONAGGI
-     =============================== */
-  .characters-selection {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 15px;
-    max-width: 900px;
-    margin: 30px auto;
-  }
-  
-  .characters-selection img {
-    width: 120px;
-    height: 120px;
-    object-fit: contain;
-    border: 3px solid transparent;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: transform 0.2s, border 0.2s;
-  }
-  
-  .characters-selection img:hover {
-    transform: scale(1.1);
-  }
-  
-  .characters-selection img.selected {
-    border: 3px solid #FFD700;
-    box-shadow: 0 0 15px gold;
-  }
-  
-  #demoText {
-    margin: 20px 0;
-    font-size: 18px;
-  }
-  
-  /* ===============================
-     PULSANTI MODALITA'
-     =============================== */
-  .mode-buttons button {
-    padding: 10px 20px;
-    margin: 0 10px;
-    font-size: 16px;
-    border: none;
-    border-radius: 6px;
-    background: #333;
-    color: white;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-  
-  .mode-buttons button:hover {
-    background: #FFD700;
-    color: black;
-  }
-  
-  .mode-buttons button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  
   /* ===============================
      FIGHT PAGE
      =============================== */
-  .fight-area {
+  #fight-container {
     display: flex;
     justify-content: space-around;
-    align-items: flex-end;
+    align-items: flex-start;
+    flex-wrap: wrap;
     margin-top: 50px;
     gap: 20px;
   }
@@ -161,45 +63,34 @@
     align-items: center;
   }
   
-  .player h2 {
+  .player-info {
+    text-align: center;
     margin-bottom: 10px;
   }
   
-  .bar {
+  .hp-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .hp-bar {
+    width: 150px;
     height: 20px;
     background: red;
     border: 2px solid #fff;
     border-radius: 6px;
-    margin-bottom: 10px;
-    width: 100%;
     transition: width 0.5s ease-in-out;
   }
   
-  .champ-large {
+  .champion-img {
     width: 220px;
     height: 220px;
     object-fit: contain;
     margin-top: 10px;
     transition: transform 0.3s;
-  }
-  
-  /* ===============================
-     PULSANTE DADI
-     =============================== */
-  #rollDice {
-    margin-top: 30px;
-    padding: 15px 25px;
-    font-size: 18px;
-    border: none;
+    border: 2px solid #fff;
     border-radius: 8px;
-    background: #FFD700;
-    color: black;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-  
-  #rollDice:hover {
-    background: orange;
   }
   
   /* ===============================
@@ -210,7 +101,8 @@
     justify-content: center;
     align-items: flex-start;
     gap: 20px;
-    margin-top: 20px;
+    margin-top: 30px;
+    flex-wrap: wrap;
   }
   
   #log {
@@ -249,28 +141,32 @@
   }
   
   /* ===============================
+     PULSANTE DADI
+     =============================== */
+  #rollDice {
+    margin-top: 30px;
+    padding: 15px 25px;
+    font-size: 18px;
+    border: none;
+    border-radius: 8px;
+    background: #FFD700;
+    color: black;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  #rollDice:hover { background: orange; }
+  
+  /* ===============================
      MEDIA QUERIES
      =============================== */
   @media (max-width: 768px) {
-    #mainTitle { font-size: 2rem; letter-spacing: 2px; }
-    #favicon img { width: 40px; }
-    #nicknameInput { width: 140px; font-size: 0.9rem; }
-  
-    .characters-selection { gap: 8px; }
-    .characters-selection img { width: 60px; height: 60px; }
-  
-    .mode-buttons { flex-direction: column; gap: 10px; }
-    .mode-buttons button { width: 100%; max-width: 220px; }
-  
-    .fight-area { flex-direction: column; gap: 30px; }
+    #fight-container { flex-direction: column; gap: 30px; }
     .player { width: 70%; }
-  
-    #combat-log-container { flex-direction: column; gap: 10px; margin-top: 15px; }
+    .champion-img { width: 150px; height: 150px; }
+    #combat-log-container { flex-direction: column; gap: 10px; }
+    #log, #chatBox { width: 90%; }
   }
   
   @media (min-width: 769px) and (max-width: 1024px) {
-    #mainTitle { font-size: 2.5rem; }
-    .characters-selection img { width: 70px; height: 70px; }
-    .mode-buttons button { padding: 8px 16px; }
-    .champ-large { width: 180px; height: 180px; }
+    .champion-img { width: 180px; height: 180px; }
   }
