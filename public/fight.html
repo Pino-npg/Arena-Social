@@ -1,30 +1,51 @@
+//fight.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>IИFΞЯNФ - Fight Game</title>
+<title>Fight Game - Pino Collection</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="rulesBtn">RULES</div>
 
-  <!-- Titolo centrale -->
-  <h1 id="mainTitle">IИFΞЯNФ</h1>
+<div id="rulesOverlay">
+  <div id="rulesContent">
+    <h2>Rules</h2>
+    <p><strong>DEMO (free)</strong><br>
+    Just pure fun with no bonuses, have fun with your favorite character.<br>
+    Choose your character and click on demo mode.<br>
+    The game start when the second player click on demo mode.<br>
+    An initiative dice roll determines who will be the first to strike.<br>
+    Each player has 30 health points and deals 1D8 damage.<br>
+    If a player deals 8 damage, the opponent is stunned for one<br>
+    turn and will subtract 1 damage from his next attack.</p>
 
-  <!-- Menu laterale -->
-  <div id="leftMenu">RULES</div>
-  <div id="rightMenu">ONLINE: <span id="onlineCounter">0</span></div>
+    <p><strong>CONNECT WALLET (free)</strong><br>
+    Dedicated to those who own my NFTs.<br>
+    Bonus:</p>
+    <ul>
+      <li><strong>Pino Collection</strong><br>
+        10 special characters: +7 health, +2 damage, +2 initiative<br>
+        Any: +5 health, +2 damage<br>
+      </li>
+      <li><strong>Any YUMI</strong>: +5 health</li>
+    </ul>
+  </div>
+</div>
+  <!-- Online Counter -->
+  <div id="onlineCounter">Online: 0</div>
 
-  <!-- Favicon -->
-  <div id="favicon">
-    <img src="img/favicon.png" alt="Flavicon" width="50">
+  <h1>Fight Game - Pino Collection</h1>
+
+  <!-- Mode Selection -->
+  <div class="modeButtons">
+    <h3>Select Mode:</h3>
+    <button id="walletBtn">Connect Wallet</button>
+    <button id="demoBtn">Demo</button>
   </div>
 
-  <!-- Nickname input -->
-  <div id="nicknameBox">
-    <input type="text" id="nicknameInput" placeholder="Enter your nickname">
-  </div>
-
-  <!-- Personaggi selezionabili -->
+  <!-- Character Selection -->
   <div class="characters-selection" id="characterSelection">
     <img src="img/Beast.png" data-name="Beast">
     <img src="img/Clown.png" data-name="Clown">
@@ -38,93 +59,28 @@
     <img src="img/WereWolf.png" data-name="WereWolf">
   </div>
 
-  <!-- Demo scritta -->
-  <div id="demoText">Demo</div>
+  <!-- Players Display -->
+<div class="player" id="player1">
+  <h2 class="player-label">Waiting...</h2>
+  <div class="bonus">No bonus</div>
+  <p>HP: <span class="hp">30</span></p>
+  <div class="bar" style="width:100%"></div>
+  <img class="dice" src="img/dice1.png" alt="Dice">
+</div>
 
-  <!-- Pulsanti tornei -->
-  <div class="modeButtons">
-    <button id="btn1vs1">1vs1</button>
-    <button id="btnT4">Tournament 0-4</button>
-    <button id="btnT8">Tournament 0-8</button>
-  </div>
+<div class="player" id="player2">
+  <h2 class="player-label">Waiting...</h2>
+  <div class="bonus">No bonus</div>
+  <p>HP: <span class="hp">30</span></p>
+  <div class="bar" style="width:100%"></div>
+  <img class="dice" src="img/dice1.png" alt="Dice">
+</div>
 
-  <!-- Torneo 4 giocatori -->
-  <div id="tournament4Board" class="tournament-board hidden">
-    <div class="semi semi1">
-      <div class="slot" id="t4-p1">P1</div>
-      <div class="slot" id="t4-p2">P2</div>
-    </div>
-    <div class="semi semi2">
-      <div class="slot" id="t4-p3">P3</div>
-      <div class="slot" id="t4-p4">P4</div>
-    </div>
-    <div class="final">
-      <div class="slot" id="t4-f1">Finale</div>
-    </div>
-    <div class="winner">
-      <div class="slot" id="t4-winner">Winner</div>
-    </div>
-  </div>
+<!-- Character Images Large ai lati dei riquadri HP -->
+<img id="player1-character" class="player-character-large" src="img/Beast.png" alt="Player 1">
+<img id="player2-character" class="player-character-large" src="img/Beast.png" alt="Player 2">
 
-  <!-- Torneo 8 giocatori -->
-  <div id="tournament8Board" class="tournament-board hidden">
-    <!-- Quarti -->
-    <div class="quarter q1">
-      <div class="slot" id="t8-p1">P1</div>
-      <div class="slot" id="t8-p2">P2</div>
-    </div>
-    <div class="quarter q2">
-      <div class="slot" id="t8-p3">P3</div>
-      <div class="slot" id="t8-p4">P4</div>
-    </div>
-    <div class="quarter q3">
-      <div class="slot" id="t8-p5">P5</div>
-      <div class="slot" id="t8-p6">P6</div>
-    </div>
-    <div class="quarter q4">
-      <div class="slot" id="t8-p7">P7</div>
-      <div class="slot" id="t8-p8">P8</div>
-    </div>
 
-    <!-- Semifinali -->
-    <div class="semi">
-      <div class="slot" id="t8-s1">Semi1</div>
-      <div class="slot" id="t8-s2">Semi2</div>
-    </div>
-
-    <!-- Finale -->
-    <div class="final">
-      <div class="slot" id="t8-f1">Finale</div>
-    </div>
-
-    <!-- Vincitore -->
-    <div class="winner">
-      <div class="slot" id="t8-winner">Winner</div>
-    </div>
-  </div>
-
-  <!-- Player Cards -->
-  <div class="player-wrapper">
-    <div class="player" id="player1">
-      <h2 class="player-label">Waiting...</h2>
-      <div class="bonus">No bonus</div>
-      <p>HP: <span class="hp">30</span></p>
-      <div class="bar" style="width:100%"></div>
-      <img class="dice" src="img/dice1.png" alt="Dice">
-    </div>
-   
-    <img id="player1-character" class="player-character-large" src="img/Beast.png" alt="Player 1">
-
-    <img id="player2-character" class="player-character-large" src="img/Beast.png" alt="Player 2">
-
-    <div class="player" id="player2">
-      <h2 class="player-label">Waiting...</h2>
-      <div class="bonus">No bonus</div>
-      <p>HP: <span class="hp">30</span></p>
-      <div class="bar" style="width:100%"></div>
-      <img class="dice" src="img/dice1.png" alt="Dice">
-    </div>
-  </div>
 
   <!-- Battle Log -->
   <pre id="log"></pre>
@@ -135,6 +91,5 @@
 
   <!-- Script -->
   <script type="module" src="fight.js"></script>
-
 </body>
 </html>
