@@ -1,4 +1,3 @@
-//server.js
 import express from "express";
 import { WebSocketServer } from "ws";
 import http from "http";
@@ -33,12 +32,14 @@ wss.on("connection", ws => {
   ws.on("message", msg => {
     const data = JSON.parse(msg);
 
+    // START
     if(data.type === "start" && gameState.players.length < 2){
       const playerIndex = gameState.players.length;
       gameState.players.push({
         ws,
         mode: data.mode,
         character: data.character,
+        nickname: data.nickname || `Player ${playerIndex + 1}`,
         hp: 30,
         bonusHP: data.mode==="wallet"?2:0,
         bonusDamage: data.mode==="wallet"?1:0,
@@ -51,6 +52,19 @@ wss.on("connection", ws => {
       if(gameState.players.length === 2 && !gameState.started){
         gameState.started = true;
         startBattle();
+      }
+    }
+
+    // UPDATE NICKNAME
+    if(data.type === "nickname" && typeof data.nickname === "string"){
+      const player = gameState.players[data.playerIndex];
+      if(player){
+        player.nickname = data.nickname;
+        sendToAll({
+          type: "nickname",
+          playerIndex: data.playerIndex,
+          nickname: data.nickname
+        });
       }
     }
   });
@@ -79,13 +93,12 @@ async function startBattle(){
   const [p1, p2] = gameState.players;
   if(!p1 || !p2) return;
 
-  // applica bonus vita iniziali
   p1.hp += p1.bonusHP;
   p2.hp += p2.bonusHP;
 
   sendToAll({ type:"init", players: [
-    { character: p1.character, hp: p1.hp },
-    { character: p2.character, hp: p2.hp }
+    { character: p1.character, hp: p1.hp, nickname: p1.nickname },
+    { character: p2.character, hp: p2.hp, nickname: p2.nickname }
   ]});
 
   const init1 = rollDice() + p1.bonusInitiative;
@@ -101,39 +114,35 @@ async function startBattle(){
   while(p1.hp > 0 && p2.hp > 0){
     await delay(3000);
 
-    const roll = rollDice();               // tiro reale
-    let dmg = roll + attacker.bonusDamage; // danno base
+    const roll = rollDice();
+    let dmg = roll + attacker.bonusDamage;
     let critical = false;
 
-    // --- STUN LOGIC ---
     if(attacker.stunned){
-      dmg = Math.max(0, dmg - 1); // riduzione danno
+      dmg = Math.max(0, dmg - 1);
       attacker.stunned = false;
       sendToAll({ type:"log", message:`😵 ${attacker.character} is stunned and deals -1 damage this turn.` });
     }
 
-    // --- CRIT LOGIC ---
     if(roll >= 8 && defender.hp > 0){
       critical = true;
       defender.stunned = true;
     }
 
-    // applica danno
     defender.hp -= dmg;
     if(defender.hp < 0) defender.hp = 0;
 
     const attackerIndex = gameState.players.indexOf(attacker);
     const defenderIndex = gameState.players.indexOf(defender);
 
-    // invia turno separando dado e danno
     sendToAll({
       type: "turn",
       attackerIndex,
       defenderIndex,
       attacker: attacker.character,
       defender: defender.character,
-      roll,           // tiro reale del dado
-      dmg,            // danno corretto da stun/bonus
+      roll,
+      dmg,
       defenderHP: defender.hp,
       critical
     });
@@ -148,6 +157,7 @@ async function startBattle(){
   gameState.started = false;
   gameState.players = [];
 }
+
 function rollDice(){ return Math.floor(Math.random()*8)+1; }
 function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
 

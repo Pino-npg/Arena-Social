@@ -2,19 +2,30 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>IИFΞЯИФ - Demo</title>
+<title>IИFΞЯNФ - Fight Game</title>
 <link rel="stylesheet" href="style.css">
-<link rel="icon" type="image/png" href="img/favicon.png">
 </head>
 <body>
 
-  <!-- HEADER -->
-  <div id="rulesBtn">RULES</div>
-  <div id="onlineCounter">Online: 0</div>
-  <h1 id="gameTitle">IИFΞЯИФ</h1>
-  <img id="faviconDisplay" src="img/favicon.png" alt="favicon">
+  <!-- Titolo centrale -->
+  <h1 id="mainTitle">IИFΞЯNФ</h1>
 
-  <!-- CHARACTER SELECTION -->
+  <!-- Menu laterale -->
+  <div id="leftMenu">RULES</div>
+  <div id="rightMenu">ONLINE</div>
+
+  <!-- Flavicon / piccola icona -->
+  <div id="flavicon">
+    <img src="img/flavicon.png" alt="Flavicon" width="50">
+  </div>
+
+  <!-- Nickname input -->
+  <div id="nicknameBox">
+    <input type="text" id="nicknameInput" placeholder="Enter your nickname">
+    <button id="setNicknameBtn">Set Nickname</button>
+  </div>
+
+  <!-- Personaggi selezionabili -->
   <div class="characters-selection" id="characterSelection">
     <img src="img/Beast.png" data-name="Beast">
     <img src="img/Clown.png" data-name="Clown">
@@ -28,10 +39,39 @@
     <img src="img/WereWolf.png" data-name="WereWolf">
   </div>
 
-  <!-- Players Display -->
+  <div id="nicknameContainer">
+    <input type="text" id="nicknameInput" placeholder="Enter your nickname">
+  </div>
+  
+  <!-- Mini-tabelloni torneo -->
+  <div id="tournament4Board"></div>
+  <div id="tournament8Board"></div>
+
+  <!-- Modalità -->
+  <div class="modeButtons">
+    <button id="demoBtn">Demo</button>
+    <button id="walletBtn" disabled>Connect Wallet</button>
+  </div>
+
+  <!-- Tornei -->
+  <div class="tournamentButtons">
+    <h3>Demo:</h3>
+    <button disabled>1vs1</button>
+    <button disabled>Tournament 0-4</button>
+    <button disabled>Tournament 0-8</button>
+
+    <h3>Connect Wallet (disabled for now):</h3>
+    <button disabled>1vs1</button>
+    <button disabled>Tournament 0-4</button>
+    <button disabled>Tournament 0-8</button>
+  </div>
+
+  <!-- Online Counter -->
+  <div id="onlineCounter">Online: 0</div>
+
+  <!-- Player Cards -->
   <div class="player" id="player1">
     <h2 class="player-label">Waiting...</h2>
-    <input type="text" class="nickname" placeholder="Your Nick" style="display:none">
     <div class="bonus">No bonus</div>
     <p>HP: <span class="hp">30</span></p>
     <div class="bar" style="width:100%"></div>
@@ -40,24 +80,15 @@
 
   <div class="player" id="player2">
     <h2 class="player-label">Waiting...</h2>
-    <input type="text" class="nickname" placeholder="Your Nick" style="display:none">
     <div class="bonus">No bonus</div>
     <p>HP: <span class="hp">30</span></p>
     <div class="bar" style="width:100%"></div>
     <img class="dice" src="img/dice1.png" alt="Dice">
   </div>
 
-  <!-- Character Images Large ai lati dei riquadri HP -->
+  <!-- Player Characters Large -->
   <img id="player1-character" class="player-character-large" src="img/Beast.png" alt="Player 1">
   <img id="player2-character" class="player-character-large" src="img/Beast.png" alt="Player 2">
-
-  <!-- Mode Selection -->
-  <div class="modeButtons">
-    <h3>Select Demo Mode:</h3>
-    <button id="demo1vs1">1vs1</button>
-    <button id="demoTournament4">Tournament 0-4</button>
-    <button id="demoTournament8">Tournament 0-8</button>
-  </div>
 
   <!-- Battle Log -->
   <pre id="log"></pre>
@@ -68,5 +99,6 @@
 
   <!-- Script -->
   <script type="module" src="fight.js"></script>
+
 </body>
 </html>
