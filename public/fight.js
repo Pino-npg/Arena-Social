@@ -133,12 +133,14 @@ nicknameInput.addEventListener('input', () => {
 function handleTournamentWinner(winnerChar){
   if(currentPlayer.mode !== "demo") return;
 
+  // Torneo 4
   if(tournament4.players.length < 4){
     tournament4.players.push({name: winnerChar});
     updateTournamentBoard(4);
     if(tournament4.players.length === 4) runTournament4();
   }
 
+  // Torneo 8
   if(tournament8.players.length < 8){
     tournament8.players.push({name: winnerChar});
     updateTournamentBoard(8);
@@ -146,57 +148,87 @@ function handleTournamentWinner(winnerChar){
   }
 }
 
+// --- UPDATE BOARD ---
 function updateTournamentBoard(size){
-  const board = size === 4 ? tournament4Board : tournament8Board;
-  board.innerHTML = "";
-  const list = size === 4 ? tournament4.players : tournament8.players;
-  list.forEach((p,i) => {
-    const div = document.createElement('div');
-    div.className = "tournament-player";
-    div.innerText = p.name;
-    board.appendChild(div);
-  });
+  if(size===4){
+    const slots = ['t4-p1','t4-p2','t4-p3','t4-p4','t4-f1','t4-winner'];
+    tournament4.players.forEach((p,i)=>{
+      if(i<4) document.getElementById(slots[i]).innerText = p.name;
+    });
+    if(tournament4.final) document.getElementById('t4-f1').innerText = tournament4.final;
+    if(tournament4.winner) document.getElementById('t4-winner').innerText = tournament4.winner;
+  } else {
+    const slots = ['t8-p1','t8-p2','t8-p3','t8-p4','t8-p5','t8-p6','t8-p7','t8-p8','t8-s1','t8-s2','t8-f1','t8-winner'];
+    tournament8.players.forEach((p,i)=>{
+      if(i<8) document.getElementById(slots[i]).innerText = p.name;
+    });
+    if(tournament8.semi.length) {
+      document.getElementById('t8-s1').innerText = tournament8.semi[0];
+      document.getElementById('t8-s2').innerText = tournament8.semi[1];
+    }
+    if(tournament8.final) document.getElementById('t8-f1').innerText = tournament8.final;
+    if(tournament8.winner) document.getElementById('t8-winner').innerText = tournament8.winner;
+  }
 }
 
 // --- TORNEO 0-4 ---
 async function runTournament4(){
+  tournament4.semi = [];
+  // semifinali
   for(let i=0;i<2;i++){
-    await simulateMatch(tournament4.players[i*2], tournament4.players[i*2+1]);
-    await delay(5000);
+    const winner = await simulateMatch(tournament4.players[i*2], tournament4.players[i*2+1]);
+    tournament4.semi.push(winner);
+    updateTournamentBoard(4);
   }
-  await simulateMatch(tournament4.players[0], tournament4.players[1]);
-  tournament4.winner = tournament4.players[0].name;
-  showFinalWinner(tournament4.winner);
+  // finale
+  const finalWinner = await simulateMatch({name: tournament4.semi[0]}, {name: tournament4.semi[1]});
+  tournament4.final = `${tournament4.semi[0]} VS ${tournament4.semi[1]}`;
+  tournament4.winner = finalWinner;
+  updateTournamentBoard(4);
+  showFinalWinner(finalWinner);
 }
 
 // --- TORNEO 0-8 ---
 async function runTournament8(){
+  tournament8.semi = [];
+  // quarti
+  const quarters = [];
   for(let i=0;i<4;i++){
-    await simulateMatch(tournament8.players[i*2], tournament8.players[i*2+1]);
-    await delay(5000);
+    const winner = await simulateMatch(tournament8.players[i*2], tournament8.players[i*2+1]);
+    quarters.push(winner);
+    updateTournamentBoard(8);
   }
+  // semifinali
   for(let i=0;i<2;i++){
-    await simulateMatch(tournament8.players[i*2], tournament8.players[i*2+1]);
-    await delay(5000);
+    const winner = await simulateMatch({name: quarters[i*2]}, {name: quarters[i*2+1]});
+    tournament8.semi.push(winner);
+    updateTournamentBoard(8);
   }
-  await simulateMatch(tournament8.players[0], tournament8.players[1]);
-  tournament8.winner = tournament8.players[0].name;
-  showFinalWinner(tournament8.winner);
+  // finale
+  const finalWinner = await simulateMatch({name: tournament8.semi[0]}, {name: tournament8.semi[1]});
+  tournament8.final = `${tournament8.semi[0]} VS ${tournament8.semi[1]}`;
+  tournament8.winner = finalWinner;
+  updateTournamentBoard(8);
+  showFinalWinner(finalWinner);
 }
 
 // --- SIMULAZIONE MATCH ---
 async function simulateMatch(p1,p2){
   logEl.textContent += `⚔️ ${p1.name} VS ${p2.name}\n`;
   await delay(2000);
-  let winner = Math.random() > 0.5 ? p1.name : p2.name;
+  const winner = Math.random() > 0.5 ? p1.name : p2.name;
   logEl.textContent += `🏆 Winner: ${winner}\n`;
   playWinnerMusic(winner);
-  p1.name = winner;
+  await delay(1000);
+  return winner;
 }
 
 // --- MOSTRA VINCITORE ---
 function showFinalWinner(winner){
+  let existing = document.getElementById('finalWinnerImg');
+  if(existing) existing.remove();
   const fullScreenImg = document.createElement('img');
+  fullScreenImg.id = 'finalWinnerImg';
   fullScreenImg.src = `img/${winner}W.webp`;
   fullScreenImg.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;';
   document.body.appendChild(fullScreenImg);
@@ -210,8 +242,6 @@ function updatePlayersUI(){
     const maxHP = 30 + p.bonusHP;
     playerBoxes[i].querySelector('.bar').style.width = (p.hp/maxHP*100)+'%';
     playerBoxes[i].querySelector('.player-label').innerText = (i===currentPlayer.index ? (currentPlayer.nickname||"YOU") : "ENEMY");
-    const smallImg = playerBoxes[i].querySelector('.player-pic');
-    if(smallImg) smallImg.src = getCharacterImage(p);
     updateLargeImage();
   });
 }
@@ -239,8 +269,10 @@ function updateCharacterImage(player,index){ const src=getCharacterImage(player)
 // --- RULES TOGGLE ---
 const rulesBtn = document.getElementById("rulesBtn");
 const rulesOverlay = document.getElementById("rulesOverlay");
-rulesBtn.addEventListener("click",()=>{ rulesOverlay.style.display="flex"; });
-rulesOverlay.addEventListener("click",()=>{ rulesOverlay.style.display="none"; });
+if(rulesBtn && rulesOverlay){
+  rulesBtn.addEventListener("click",()=>{ rulesOverlay.style.display="flex"; });
+  rulesOverlay.addEventListener("click",()=>{ rulesOverlay.style.display="none"; });
+}
 
 // --- UTILITY ---
 function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
