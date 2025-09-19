@@ -1,203 +1,150 @@
-//fight.js
-// --- WEBSOCKET ---
-const protocol = location.protocol === "https:" ? "wss" : "ws";
-const ws = new WebSocket(`${protocol}://${location.host}`);
+// =======================
+// Fight 1vs1 - WebSocket
+// =======================
 
-// --- PLAYER STATO ---
-let currentPlayer = {
-  index: null,
-  mode: null,
-  character: 'Beast',
-  hp: 30,
-  bonusHP: 0,
-  bonusDamage: 0,
-  bonusInitiative: 0
-};
+// Recupera nickname e campione
+const playerName = localStorage.getItem("nickname") || "Player";
+const champion = localStorage.getItem("champion") || "Beast";
 
-let players = [
-  { name: "Player 1", hp: 30, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 },
-  { name: "Player 2", hp: 30, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 }
-];
+document.getElementById("p1-name").textContent = playerName;
+document.getElementById("p1-champion").src = `img/${champion}.png`;
 
-// --- ELEMENTI DOM ---
-const walletBtn = document.getElementById('walletBtn');
-const demoBtn = document.getElementById('demoBtn');
-const characterSelection = document.getElementById('characterSelection');
-const logEl = document.getElementById('log');
-const onlineCounter = document.getElementById('onlineCounter');
+// Stato iniziale
+let myHP = 80;
+let enemyHP = 80;
+let myStunned = false;
+let enemyStunned = false;
 
-// Immagini grandi ai lati dei riquadri vita
-const player1Img = document.getElementById('player1-character');
-const player2Img = document.getElementById('player2-character');
+// Elementi DOM
+const myHPBar = document.getElementById("p1-bar");
+const enemyHPBar = document.getElementById("p2-bar");
+const myHPText = document.getElementById("p1-hp");
+const enemyHPText = document.getElementById("p2-hp");
+const enemyNameEl = document.getElementById("p2-name");
+const myChampionImg = document.getElementById("p1-champion");
+const enemyChampionImg = document.getElementById("p2-champion");
+const log = document.getElementById("log");
+const diceBtn = document.getElementById("rollDice");
 
-// --- AUDIO ---
-let bgMusic = new Audio();
-bgMusic.loop = true;
-let winnerMusic = new Audio();
+// Aggiorna barre HP e immagini in base a soglie
+function updateHP(){
+  myHPText.textContent = myHP;
+  myHPBar.style.width = `${(myHP/80)*100}%`;
+  enemyHPText.textContent = enemyHP;
+  enemyHPBar.style.width = `${(enemyHP/80)*100}%`;
 
-// --- SELEZIONE PERSONAGGI ---
-characterSelection.querySelectorAll('img').forEach(img => {
-  img.addEventListener('click', () => {
-    characterSelection.querySelectorAll('img').forEach(i => i.classList.remove('selected'));
-    img.classList.add('selected');
-    currentPlayer.character = img.dataset.name;
+  // Cambia immagine se HP < 40 o < 15
+  if(myHP <= 15) myChampionImg.src = `img/${champion}_crit.png`;
+  else if(myHP <= 40) myChampionImg.src = `img/${champion}_damaged.png`;
+  else myChampionImg.src = `img/${champion}.png`;
 
-    // Aggiorna immagine grande subito
-    if(currentPlayer.index !== null){
-      if(currentPlayer.index === 0) player1Img.src = `img/${currentPlayer.character}.png`;
-      else player2Img.src = `img/${currentPlayer.character}.png`;
+  if(enemyHP <= 15) enemyChampionImg.src = `img/${enemyNameEl.textContent}_crit.png`;
+  else if(enemyHP <= 40) enemyChampionImg.src = `img/${enemyNameEl.textContent}_damaged.png`;
+  else enemyChampionImg.src = `img/${enemyNameEl.textContent}.png`;
+}
+updateHP();
 
-      ws.send(JSON.stringify({
-        type:'character',
-        name:currentPlayer.character,
-        playerIndex: currentPlayer.index
-      }));
-    }
-  });
+// =======================
+// WS connection
+// =======================
+const ws = new WebSocket("ws://localhost:10000");
+
+ws.addEventListener("open", () => {
+  ws.send(JSON.stringify({ type: "join", name: playerName, champion }));
 });
 
-// --- SCELTA MODALITÀ ---
-walletBtn.onclick = () => chooseMode('wallet');
-demoBtn.onclick = () => chooseMode('demo');
+// Ricezione messaggi
+ws.addEventListener("message", (e) => {
+  const msg = JSON.parse(e.data);
 
-function chooseMode(mode){
-  currentPlayer.mode = mode;
-  walletBtn.disabled = true;
-  demoBtn.disabled = true;
+  switch(msg.type){
+    case "online":
+      document.getElementById("onlineCounter").textContent = msg.count;
+      break;
+
+    case "init":
+      enemyNameEl.textContent = msg.players[1].character;
+      enemyChampionImg.src = `img/${msg.players[1].character}.png`;
+      myHP = msg.players[0].hp;
+      enemyHP = msg.players[1].hp;
+      updateHP();
+      log.textContent += `🌀 Inizio combattimento!\n`;
+      break;
+
+    case "turn":
+      if(msg.attacker === playerName) break; // mio turno già gestito localmente
+      myHP = msg.defenderHP;
+      myStunned = msg.critical;
+      let logMsg = `🎲 ${msg.attacker} tira ${msg.roll} → ${msg.dmg} danni!`;
+      if(msg.critical) logMsg += ` 😵 ${playerName} stordito!`;
+      log.textContent += logMsg + "\n";
+      updateHP();
+      if(myHP<=0) diceBtn.disabled=true;
+      break;
+
+    case "end":
+      const winnerEmoji = msg.winner===playerName?"🏆":"💀";
+      log.textContent += `${winnerEmoji} ${msg.winner} ha vinto!\n`;
+      diceBtn.disabled = true;
+      break;
+
+    case "chat":
+      chatLog.textContent += msg.sender+": "+msg.text+"\n";
+      chatLog.scrollTop = chatLog.scrollHeight;
+      break;
+  }
+});
+
+// =======================
+// Funzione turno
+// =======================
+diceBtn.addEventListener("click", () => {
+  let roll = Math.floor(Math.random()*8)+1;
+  let dmg = roll;
+
+  if(myStunned){
+    dmg = Math.max(0,dmg-1);
+    myStunned=false;
+    log.textContent += `${playerName} era stordito: -1 al danno!\n`;
+  }
+
+  let logMsg = `🎲 ${playerName} tira ${roll} → ${dmg} danni!`;
+
+  if(roll===8){
+    enemyStunned = true;
+    logMsg += ` 😵 ${enemyNameEl.textContent} stordito!`;
+  }
+
+  enemyHP -= dmg;
+  if(enemyHP<0) enemyHP=0;
+  updateHP();
+  log.textContent += logMsg + "\n";
 
   ws.send(JSON.stringify({
-    type:'start',
-    mode: currentPlayer.mode,
-    character: currentPlayer.character
+    type:"attack",
+    roll,
+    dmg,
+    enemyHP,
+    enemyStunned,
+    log: logMsg
   }));
 
-  playBattleMusic();
-}
-
-// --- MUSICA ---
-function playBattleMusic(){
-  bgMusic.src = "img/battle.mp3";
-  bgMusic.play().catch(()=>{});
-}
-
-function playWinnerMusic(winnerChar){
-  bgMusic.pause();
-  winnerMusic.src = `img/${winnerChar}.mp3`;
-  winnerMusic.play().catch(()=>{});
-}
-
-// --- WEBSOCKET MESSAGE ---
-ws.onmessage = (event) => {
-  const msg = JSON.parse(event.data);
-
-  if(msg.type === "online"){
-    onlineCounter.innerText = `Online: ${msg.count}`;
+  if(enemyHP <= 0) {
+    log.textContent += `🏆 ${playerName} VINCE!\n`;
+    diceBtn.disabled = true;
   }
-
-  if(msg.type === "assignIndex"){
-    currentPlayer.index = msg.index;
-    console.log("🎮 Sei Player", msg.index + 1);
-  }
-
-  if(msg.type === "init"){
-    players[0].character = msg.players[0].character;
-    players[0].hp = msg.players[0].hp;
-    players[1].character = msg.players[1].character;
-    players[1].hp = msg.players[1].hp;
-    updatePlayersUI();
-  }
-
-  if (msg.type === "turn") {
-    const atkIndex = msg.attackerIndex;
-    const defIndex = msg.defenderIndex;
-  
-    // mostra il dado reale
-    showDice(atkIndex, msg.roll);
-  
-    // log e hp usano il dmg corretto
-    players[defIndex].hp = msg.defenderHP;
-    logEl.textContent += `🔴 ${msg.attacker} deals ${msg.dmg} to ${msg.defender}${msg.critical ? ' (CRIT!)' : ''}. HP left: ${msg.defenderHP}\n`;
-  
-    updateCharacterImage(players[defIndex], defIndex);
-    updatePlayersUI();
-  }
-
-  if(msg.type === "end"){
-    logEl.textContent += `🏆 Winner: ${msg.winner}!\n`;
-    playWinnerMusic(msg.winner);
-  }
-
-  if(msg.type === "character"){
-    players[msg.playerIndex].character = msg.name;
-    if(msg.playerIndex === 0) player1Img.src = `img/${msg.name}.png`;
-    else player2Img.src = `img/${msg.name}.png`;
-    updatePlayersUI();
-  }
-
-  if(msg.type === "log"){
-    logEl.textContent += msg.message + "\n";
-  }
-};
-
-// --- UPDATE UI ---
-function updatePlayersUI(){
-  const playerBoxes = document.querySelectorAll('.player');
-
-  players.forEach((p, i) => {
-    // aggiorna HP
-    playerBoxes[i].querySelector('.hp').innerText = p.hp;
-
-    // aggiorna barra HP
-    const maxHP = 30 + p.bonusHP;
-    playerBoxes[i].querySelector('.bar').style.width = (p.hp / maxHP * 100) + '%';
-
-    // aggiorna label YOU / ENEMY
-    playerBoxes[i].querySelector('.player-label').innerText = (i === currentPlayer.index) ? "YOU" : "ENEMY";
-
-    // aggiorna immagine grande
-    if(i === 0) player1Img.src = getCharacterImage(p);
-    else player2Img.src = getCharacterImage(p);
-
-    // aggiorna immagine piccola nel box
-    const smallImg = playerBoxes[i].querySelector('.player-pic');
-    if(smallImg) smallImg.src = getCharacterImage(p);
-  });
-}
-
-// --- CALCOLO IMMAGINE IN BASE A HP ---
-function getCharacterImage(player){
-  let hp = player.hp;
-  let src = `img/${player.character}`;
-
-  if(hp <= 0) src += '0';
-  else if(hp <= 8) src += '8';
-  else if(hp <= 15) src += '15';
-  else if(hp <= 22) src += '22';
-
-  src += '.png';
-  return src;
-}
-
-// --- DADI ---
-function rollDice(){ return Math.floor(Math.random()*8)+1; }
-function showDice(playerIndex,value){ document.querySelectorAll('.dice')[playerIndex].src = `img/dice${value}.png`; }
-
-// --- IMMAGINE PER HP ---
-function updateCharacterImage(player,index){
-  const src = getCharacterImage(player);
-  if(index === 0) player1Img.src = src;
-  else player2Img.src = src;
-}
-
-// --- RULES TOGGLE ---
-const rulesBtn = document.getElementById("rulesBtn");
-const rulesOverlay = document.getElementById("rulesOverlay");
-
-rulesBtn.addEventListener("click", () => {
-  rulesOverlay.style.display = "flex";
 });
 
-// clic ovunque sull’overlay per chiudere
-rulesOverlay.addEventListener("click", () => {
-  rulesOverlay.style.display = "none";
+// =======================
+// Chat
+// =======================
+const chatLog = document.getElementById("chatLog");
+const chatInput = document.getElementById("chatInput");
+
+chatInput.addEventListener("keypress", (e) => {
+  if(e.key === "Enter" && chatInput.value.trim()) {
+    const text = chatInput.value.trim();
+    ws.send(JSON.stringify({ type: "chat", text, sender: playerName }));
+    chatInput.value = "";
+  }
 });

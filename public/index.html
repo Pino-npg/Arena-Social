@@ -1,15 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Fight Game - Pino Collection</title>
-<link rel="stylesheet" href="css/style.css">
-<script type="module" src="js/fight.js"></script>
+  <meta charset="UTF-8">
+  <title>IИFΞЯИФ ДЯΞИД</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-<body>
-  <!-- Redireziona subito a fight.html -->
-  <script>
-    window.location.href = "/fight.html";
-  </script>
+<body class="arena-bg">
+
+  <!-- Menù -->
+  <div id="leftMenu">RULES</div>
+  <div id="rightMenu">ONLINE: <span id="onlineCounter">0</span></div>
+
+  <!-- Titolo -->
+  <h1 id="mainTitle">IИFΞЯИФ ДЯΞИД</h1>
+
+  <!-- Favicon -->
+  <div id="favicon">
+    <img src="img/favicon.png" alt="favicon" width="60">
+  </div>
+
+  <!-- Nickname -->
+  <div id="nicknameBox">
+    <label for="nicknameInput">Nickname:</label>
+    <input type="text" id="nicknameInput" placeholder="Enter nickname">
+    <button id="nicknameBtn">→</button>
+  </div>
+
+  <script src="main.js"></script>
 </body>
 </html>
