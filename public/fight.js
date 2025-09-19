@@ -24,8 +24,8 @@ let tournament4 = { players: [], semi: [], final: null, winner: null };
 let tournament8 = { players: [], quarter: [], semi: [], final: null, winner: null };
 
 // --- ELEMENTI DOM ---
-const walletBtn = document.getElementById('walletBtn');
 const demoBtn = document.getElementById('demoBtn');
+const walletBtn = document.getElementById('walletBtn');
 const characterSelection = document.getElementById('characterSelection');
 const logEl = document.getElementById('log');
 const onlineCounter = document.getElementById('onlineCounter');
@@ -34,6 +34,7 @@ const player2Img = document.getElementById('player2-character');
 const tournament4Board = document.getElementById('tournament4Board'); 
 const tournament8Board = document.getElementById('tournament8Board');
 const nicknameInput = document.getElementById('nicknameInput');
+const setNicknameBtn = document.getElementById('setNicknameBtn');
 
 // --- AUDIO ---
 let bgMusic = new Audio();
@@ -42,7 +43,6 @@ let winnerMusic = new Audio();
 
 // --- SELEZIONE PERSONAGGI ---
 characterSelection.querySelectorAll('img').forEach(img => {
-  // Ridimensiona del 20%
   img.style.width = '80px';
   img.style.height = '80px';
   img.addEventListener('click', () => {
@@ -52,15 +52,25 @@ characterSelection.querySelectorAll('img').forEach(img => {
     updateLargeImage();
     ws.send(JSON.stringify({
       type:'character',
-      name:currentPlayer.character,
+      name: currentPlayer.character,
       playerIndex: currentPlayer.index
     }));
   });
 });
 
+// --- NICKNAME ---
+function setNickname() {
+  currentPlayer.nickname = nicknameInput.value.trim() || "YOU";
+  updatePlayersUI();
+}
+setNicknameBtn.addEventListener('click', setNickname);
+nicknameInput.addEventListener('keypress', e => {
+  if(e.key === "Enter") setNickname();
+});
+
 // --- SCELTA MODALITÀ ---
-demoBtn.style.display = "block"; // solo scritta Demo
-walletBtn.style.display = "none"; // nascondi connect wallet
+demoBtn.style.display = "block"; 
+walletBtn.style.display = "none";
 
 demoBtn.onclick = () => chooseMode('demo');
 
@@ -120,12 +130,6 @@ ws.onmessage = (event) => {
   if(msg.type === "log") logEl.textContent += msg.message + "\n";
 };
 
-// --- NICKNAME INPUT ---
-nicknameInput.addEventListener('input', () => {
-  currentPlayer.nickname = nicknameInput.value.trim();
-  updatePlayersUI();
-});
-
 // --- TORNEO LOGICA ---
 function handleTournamentWinner(winnerChar){
   if(currentPlayer.mode !== "demo") return;
@@ -146,8 +150,6 @@ function handleTournamentWinner(winnerChar){
 function updateTournamentBoard(size){
   const board = size === 4 ? tournament4Board : tournament8Board;
   const list = size === 4 ? tournament4.players : tournament8.players;
-
-  // Aggiorna solo i slot già esistenti
   list.forEach((p,i)=>{
     const slot = board.querySelector(`#${size===4 ? 't4' : 't8'}-p${i+1}`);
     if(slot) slot.innerText = p.name;
@@ -158,7 +160,7 @@ function updateTournamentBoard(size){
 async function runTournament4(){
   for(let i=0;i<2;i++){
     await simulateMatch(tournament4.players[i*2], tournament4.players[i*2+1]);
-    await delay(5000);
+    await delay(500);
   }
   await simulateMatch(tournament4.players[0], tournament4.players[1]);
   tournament4.winner = tournament4.players[0].name;
@@ -169,11 +171,11 @@ async function runTournament4(){
 async function runTournament8(){
   for(let i=0;i<4;i++){
     await simulateMatch(tournament8.players[i*2], tournament8.players[i*2+1]);
-    await delay(5000);
+    await delay(500);
   }
   for(let i=0;i<2;i++){
     await simulateMatch(tournament8.players[i*2], tournament8.players[i*2+1]);
-    await delay(5000);
+    await delay(500);
   }
   await simulateMatch(tournament8.players[0], tournament8.players[1]);
   tournament8.winner = tournament8.players[0].name;
@@ -183,7 +185,7 @@ async function runTournament8(){
 // --- SIMULAZIONE MATCH ---
 async function simulateMatch(p1,p2){
   logEl.textContent += `⚔️ ${p1.name} VS ${p2.name}\n`;
-  await delay(2000);
+  await delay(200);
   let winner = Math.random() > 0.5 ? p1.name : p2.name;
   logEl.textContent += `🏆 Winner: ${winner}\n`;
   playWinnerMusic(winner);
@@ -229,6 +231,6 @@ function getCharacterImage(player){
 function rollDice(){ return Math.floor(Math.random()*8)+1; }
 function showDice(playerIndex,value){ document.querySelectorAll('.dice')[playerIndex].src=`img/dice${value}.png`; }
 function updateCharacterImage(player,index){ const src=getCharacterImage(player); if(index===0) player1Img.src=src; else player2Img.src=src; }
-// --- UTILITY ---
 
+// --- UTILITY ---
 function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
