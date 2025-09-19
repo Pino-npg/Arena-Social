@@ -27,20 +27,30 @@ const log = document.getElementById("log");
 const diceBtn = document.getElementById("rollDice");
 
 // Aggiorna barre HP e immagini in base a soglie
-function updateHP(){
+function updateHP() {
   myHPText.textContent = myHP;
-  myHPBar.style.width = `${(myHP/80)*100}%`;
+  myHPBar.style.width = `${(myHP / 80) * 100}%`;
   enemyHPText.textContent = enemyHP;
-  enemyHPBar.style.width = `${(enemyHP/80)*100}%`;
+  enemyHPBar.style.width = `${(enemyHP / 80) * 100}%`;
 
-  // Cambia immagine se HP < 40 o < 15
-  if(myHP <= 15) myChampionImg.src = `img/${champion}_crit.png`;
-  else if(myHP <= 40) myChampionImg.src = `img/${champion}_damaged.png`;
+  // ========================
+  // Cambia immagine in base a HP
+  // ========================
+
+  // Player
+  if (myHP <= 0) myChampionImg.src = `img/${champion}0.png`;
+  else if (myHP <= 20) myChampionImg.src = `img/${champion}20.png`;
+  else if (myHP <= 40) myChampionImg.src = `img/${champion}40.png`;
+  else if (myHP <= 60) myChampionImg.src = `img/${champion}60.png`;
   else myChampionImg.src = `img/${champion}.png`;
 
-  if(enemyHP <= 15) enemyChampionImg.src = `img/${enemyNameEl.textContent}_crit.png`;
-  else if(enemyHP <= 40) enemyChampionImg.src = `img/${enemyNameEl.textContent}_damaged.png`;
-  else enemyChampionImg.src = `img/${enemyNameEl.textContent}.png`;
+  // Nemico
+  const enemyName = enemyNameEl.textContent;
+  if (enemyHP <= 0) enemyChampionImg.src = `img/${enemyName}0.png`;
+  else if (enemyHP <= 20) enemyChampionImg.src = `img/${enemyName}20.png`;
+  else if (enemyHP <= 40) enemyChampionImg.src = `img/${enemyName}40.png`;
+  else if (enemyHP <= 60) enemyChampionImg.src = `img/${enemyName}60.png`;
+  else enemyChampionImg.src = `img/${enemyName}.png`;
 }
 updateHP();
 
