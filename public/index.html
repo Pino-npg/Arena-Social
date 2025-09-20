@@ -1,31 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="it">
 <head>
   <meta charset="UTF-8">
   <title>IИFΞЯИФ ДЯΞИД</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="img/favicon.png">
+  <script src="main.js" defer></script>
 </head>
 <body class="arena-bg">
-
-  <!-- Menù -->
-  <div id="leftMenu">RULES</div>
-  <div id="rightMenu">ONLINE: <span id="onlineCounter">0</span></div>
-
-  <!-- Titolo -->
-  <h1 id="mainTitle">IИFΞЯИФ ДЯΞИД</h1>
-
-  <!-- Favicon -->
-  <div id="favicon">
-    <img src="img/favicon.png" alt="favicon" width="60">
+  <div class="container">
+    <h1>ИNФΞЯNФ DЯΞID</h1>
+    <p>Inserisci il tuo nickname per iniziare:</p>
+    <input type="text" id="nicknameInput" placeholder="Nickname">
+    <button id="nicknameBtn">Vai</button>
+    <div id="onlineDisplay">Online: <span id="onlineCounter">0</span></div>
+    <div class="rules">
+      <h3>Regole</h3>
+      <ul>
+        <li>Ogni giocatore ha 80 HP</li>
+        <li>Tiri dado 1-8 per attacco</li>
+        <li>Critico 8+ stordisce l’avversario</li>
+      </ul>
+    </div>
   </div>
-
-  <!-- Nickname -->
-  <div id="nicknameBox">
-    <label for="nicknameInput">Nickname:</label>
-    <input type="text" id="nicknameInput" placeholder="Enter nickname">
-    <button id="nicknameBtn">→</button>
-  </div>
-
-  <script src="main.js"></script>
 </body>
 </html>

@@ -1,16 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <title>Selezione Campione</title>
-    <link rel="stylesheet" href="style.css">
-  </head>
-  <body class="arena-bg">
-  
-    <h1 id="mainTitle">Scegli il tuo campione</h1>
-  
-    <div id="nicknameDisplay" style="margin-top: 10px; font-size: 18px; color: #FFD700;"></div>
-  <!-- Champions -->
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Seleziona Campione</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="select.js" defer></script>
+</head>
+<body class="arena-bg">
+  <h1>Scegli il tuo campione</h1>
+  <div id="nicknameDisplay"></div>
   <div class="characters-selection">
     <img class="champ" src="img/Beast.png" data-name="Beast">
     <img class="champ" src="img/Clown.png" data-name="Clown">
@@ -23,15 +21,9 @@
     <img class="champ" src="img/Taurus.png" data-name="Taurus">
     <img class="champ" src="img/WereWolf.png" data-name="WereWolf">
   </div>
-
-  <!-- Modalità -->
-  <div id="demoText">Demo</div>
   <div class="mode-buttons">
     <button data-mode="1v1">1vs1</button>
-    <button data-mode="t4">0-4</button>
-    <button data-mode="t8">0-8</button>
+    <button data-mode="t8">Torneo 8 (altro repo)</button>
   </div>
-
-  <script src="select.js"></script>
 </body>
 </html>
