@@ -63,9 +63,11 @@ function connectWS() {
     // Invia clientId se esiste
     if (clientId) ws.send(JSON.stringify({ type: "rejoinRoom", clientId }));
 
-    // Imposta nickname e champion
+    // Imposta nickname
     ws.send(JSON.stringify({ type: "setNickname", nickname: playerName }));
-    ws.send(JSON.stringify({ type: "setChampion", champion }));
+
+    // Invia START subito con campione e modalità
+    ws.send(JSON.stringify({ type: "start", character: champion, mode: "normal" }));
   });
 
   ws.addEventListener("message", (e) => {
@@ -81,16 +83,13 @@ function connectWS() {
         if (onlineCounter) onlineCounter.textContent = msg.count;
         break;
 
-      case "roomStarted":
-        handleRoomStarted(msg.players);
-        break;
-
       case "init":
         handleInit(msg);
         break;
 
       case "turn":
-        if (msg.defenderId === clientId) myHP = msg.defenderHP;
+        const isDefender = msg.defenderIndex === 0; // assumi p1=0
+        if (isDefender) myHP = msg.defenderHP;
         else enemyHP = msg.defenderHP;
         addLog(`🎲 ${msg.attacker} tira ${msg.roll} → ${msg.dmg} danni!`);
         updateHP();
@@ -103,6 +102,14 @@ function connectWS() {
       case "chat":
         chatLog.innerHTML += `<div><strong>${msg.sender}:</strong> ${msg.text}</div>`;
         chatLog.scrollTop = chatLog.scrollHeight;
+        break;
+
+      case "log":
+        addLog(msg.message);
+        break;
+
+      case "assignIndex":
+        // Il server conferma il playerIndex
         break;
     }
   });
@@ -120,38 +127,24 @@ connectWS();
 // =======================
 // Handlers
 // =======================
-function handleRoomStarted(players) {
-  const me = players.find(p => p.id === clientId);
-  const enemy = players.find(p => p.id !== clientId);
+function handleInit(msg) {
+  if (!msg.players) return;
+
+  const me = msg.players[0];
+  const enemy = msg.players[1];
 
   if (!me || !enemy) return;
 
   myHP = me.hp || 80;
   enemyHP = enemy.hp || 80;
-  enemyName = enemy.nickname;
-  enemyChampion = enemy.champion;
+  enemyName = enemy.character;
+  enemyChampion = enemy.character;
 
   enemyNameEl.textContent = enemyName;
   enemyChampionImg.src = `img/${enemyChampion}.png`;
 
   addLog("🌀 Inizio combattimento!");
   updateHP();
-}
-
-function handleInit(msg) {
-  if (msg.myState && msg.enemy) {
-    myHP = msg.myState.hp || 80;
-    enemyHP = msg.enemy.hp || 80;
-    enemyName = msg.enemy.nickname;
-    enemyChampion = msg.enemy.champion;
-
-    enemyNameEl.textContent = enemyName;
-    enemyChampionImg.src = `img/${enemyChampion}.png`;
-    addLog("🔄 Riconnessione: stato combattimento aggiornato");
-    updateHP();
-  } else if (msg.players) {
-    handleRoomStarted(msg.players);
-  }
 }
 
 // =======================
