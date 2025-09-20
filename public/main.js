@@ -1,4 +1,26 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // === RULES OVERLAY ===
+  const rulesBtn = document.getElementById("rules");
+  const rulesOverlay = document.getElementById("rulesOverlay");
+  const closeRules = document.getElementById("closeRules");
+
+  rulesBtn.addEventListener("click", () => {
+    rulesOverlay.classList.remove("hidden");
+  });
+
+  if (closeRules) {
+    closeRules.addEventListener("click", () => {
+      rulesOverlay.classList.add("hidden");
+    });
+  }
+
+  rulesOverlay.addEventListener("click", (e) => {
+    if (e.target === rulesOverlay) {
+      rulesOverlay.classList.add("hidden");
+    }
+  });
+
+  // === NICKNAME ===
   const nicknameInput = document.getElementById("nicknameInput");
   const nicknameBtn = document.getElementById("nicknameBtn");
   const champs = document.querySelectorAll(".champ");
@@ -7,7 +29,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let selectedChampion = null;
 
-  // Salva nickname
   nicknameBtn.addEventListener("click", () => {
     const nick = nicknameInput.value.trim();
     if (!nick) {
@@ -18,20 +39,23 @@ document.addEventListener("DOMContentLoaded", () => {
     alert(`Nickname saved: ${nick}`);
   });
 
-  // Selezione campione
-  champs.forEach(champ => {
+  // === SCELTA CAMPIONE ===
+  champs.forEach((champ) => {
     champ.addEventListener("click", () => {
-      champs.forEach(c => c.classList.remove("selected"));
+      champs.forEach((c) => c.classList.remove("selected"));
       champ.classList.add("selected");
       selectedChampion = champ.dataset.name;
       localStorage.setItem("champion", selectedChampion);
     });
   });
 
-  // Bottoni modalità
+  // === BOTTONI MODALITÀ ===
   btn1v1.addEventListener("click", () => {
-    if (!selectedChampion) return alert("Select a champion!");
-    alert("Qui si andrà alla modalità 1vs1");
+    const nick = localStorage.getItem("nickname");
+    const champ = localStorage.getItem("champion");
+    if (!nick) return alert("Insert a nickname!");
+    if (!champ) return alert("Select a champion!");
+    window.location.href = "fight.html"; // vai alla pagina fight
   });
 
   btnTournament.addEventListener("click", () => {

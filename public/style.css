@@ -5,31 +5,36 @@ body {
   font-family: 'Segoe UI', Arial, sans-serif;
   color: white;
   text-align: center;
-  height: 100vh;
-  position: relative;
+  min-height: 100vh;
 }
 
+/* Barra superiore */
 .top-bar {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: 10px 20px;
   font-size: 18px;
   color: #ffd700;
 }
 
+/* Titolo centrale */
 .main-title {
-  font-size: 48px;
-  margin-top: 20px;
+  font-size: 64px;
+  margin: 20px 0;
   color: #ff3333;
-  text-shadow: 0 0 10px #ff0000, 0 0 20px #ff3333;
+  text-shadow: 0 0 10px #ff0000, 0 0 20px #ff3333, 0 0 40px #ff0000;
+  letter-spacing: 4px;
 }
 
+/* Logo */
 .logo img {
-  margin: 20px auto;
-  width: 100px;
-  height: 100px;
+  margin: 10px auto;
+  width: 120px;
+  height: 120px;
 }
 
+/* Nickname */
 .nickname-box {
   margin: 20px;
 }
@@ -46,6 +51,7 @@ body {
   cursor: pointer;
 }
 
+/* Selezione personaggi */
 .characters-selection {
   display: flex;
   flex-wrap: wrap;
@@ -73,6 +79,7 @@ body {
   box-shadow: 0 0 10px #ff0000;
 }
 
+/* Bottoni */
 .mode-buttons {
   margin: 30px;
 }
@@ -84,92 +91,57 @@ body {
   cursor: pointer;
 }
 
-/* ------------------------------
-   MEDIA QUERY PER SMARTPHONE
-   ------------------------------ */
-   @media (max-width: 768px) {
-    body {
-      padding: 10px;
-      font-size: 14px;
-    }
-  
-    #mainTitle {
-      font-size: 2rem;
-      letter-spacing: 2px;
-    }
-  
-    #favicon img {
-      width: 40px;
-    }
-  
-    #nicknameInput {
-      width: 140px;
-      font-size: 0.9rem;
-    }
-  
-    /* Personaggi più piccoli e disposti meglio */
-    .characters-selection {
-      gap: 8px;
-    }
-  
-    .characters-selection img {
-      width: 60px;
-      height: 60px;
-    }
-  
-    /* Pulsanti in colonna per non schiacciare tutto */
-    .modeButtons {
-      flex-direction: column;
-      gap: 10px;
-    }
-  
-    .modeButtons button {
-      width: 100%;
-      max-width: 220px;
-    }
-  
-    /* Player info impilati */
-    .player-wrapper {
-      flex-direction: column;
-      gap: 20px;
-    }
-  
-    .player {
-      width: 100%;
-      max-width: 240px;
-    }
-  
-    .player-character-large {
-      width: 90px;
-      height: 90px;
-    }
-  
-    /* Chat compatta */
-    .chat-box {
-      max-width: 90%;
-      font-size: 0.85rem;
-    }
+/* Overlay rules */
+#rulesOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+#rulesOverlay.hidden {
+  display: none;
+}
+
+#rulesContent {
+  background: #222;
+  color: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 500px;
+  text-align: left;
+  position: relative;
+}
+
+#closeRules {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  color: #fff;
+  cursor: pointer;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .main-title {
+    font-size: 40px;
   }
-  
-  /* ------------------------------
-     MEDIA QUERY PER TABLET
-     ------------------------------ */
-  @media (min-width: 769px) and (max-width: 1024px) {
-    #mainTitle {
-      font-size: 2.5rem;
-    }
-  
-    .characters-selection img {
-      width: 70px;
-      height: 70px;
-    }
-  
-    .modeButtons button {
-      padding: 8px 16px;
-    }
-  
-    .player-character-large {
-      width: 120px;
-      height: 120px;
-    }
+
+  .characters-selection img {
+    width: 70px;
+    height: 70px;
   }
+
+  .mode-buttons button {
+    display: block;
+    margin: 10px auto;
+    width: 80%;
+    max-width: 200px;
+  }
+}

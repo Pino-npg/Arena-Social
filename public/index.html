@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>IИFΞЯИФ ДЯΞИД</title>
+  <title>IИFΞЯИФ ΛRΞNΛ</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" type="image/png" href="img/favicon.png">
   <script src="main.js" defer></script>
@@ -12,22 +12,29 @@
   <!-- Barra superiore -->
   <div class="top-bar">
     <div id="rules">📜</div>
-    <div id="rulesOverlay">
-      <div id="rulesContent">
-        <h2>Rules</h2>
-        <p><strong>DEMO (free)</strong><br>
-        Just pure fun with no bonuses, have fun with your favorite character.<br>
-        Choose yourNickname and character and click on 1vs1 mode or Tournament.<br>
-        The game start when the second player click on demo mode.<br>
-        An initiative dice roll determines who will be the first to strike.<br>
-        Each player has 80 health points and deals 1D8 damage.<br>
-        If a player deals 8 damage, the opponent is stunned for one<br>
-        turn and will subtract 1 damage from his next attack.</p>
     <div id="online">Online: <span id="onlineCounter">0</span></div>
   </div>
 
+  <!-- Overlay Rules -->
+  <div id="rulesOverlay" class="hidden">
+    <div id="rulesContent">
+      <button id="closeRules">✖</button>
+      <h2>Rules</h2>
+      <p><strong>DEMO (free)</strong><br>
+      Just pure fun with no bonuses, have fun with your favorite character.<br>
+      Choose your Nickname and character and click on 1vs1 mode or Tournament.<br>
+      The game starts when the second player clicks on demo mode.<br>
+      Initiative dice roll decides who strikes first.<br>
+      Each player has 80 health points and deals 1D8 damage.<br>
+      If a player deals 8 damage, the opponent is stunned one turn<br>
+      and subtracts 1 damage from their next attack.</p>
+      <button id="closeRules">Close</button>
+      </p>
+    </div>
+  </div>
+
   <!-- Titolo centrale -->
-  <h1 class="main-title">IИFΞЯИФ ДЯΞИД</h1>
+  <h1 class="main-title">IИFΞЯИФ ΛRΞNΛ</h1>
 
   <!-- Logo / favicon grande -->
   <div class="logo">
@@ -36,7 +43,7 @@
 
   <!-- Nickname -->
   <div class="nickname-box">
-    <input type="text" id="nicknameInput" placeholder="Inserisci nickname">
+    <input type="text" id="nicknameInput" placeholder="Insert nickname">
     <button id="nicknameBtn">OK</button>
   </div>
 
