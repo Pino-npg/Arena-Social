@@ -2,9 +2,16 @@
 // Fight 1vs1 - WebSocket Completo
 // =======================
 
+// Dati utente salvati dal select
 const playerName = localStorage.getItem("nickname") || "Player";
 const champion = localStorage.getItem("champion") || "Beast";
 let clientId = localStorage.getItem("clientId");
+
+// Mostra il nickname sopra l’arena (aggiunto rispetto al tuo codice)
+document.addEventListener("DOMContentLoaded", () => {
+  const nickEl = document.getElementById("nicknameDisplay");
+  if (nickEl) nickEl.innerText = `You: ${playerName}`;
+});
 
 // DOM
 const myHPText = document.getElementById("p1-hp");
@@ -46,7 +53,10 @@ function updateHP(){
 let ws;
 
 function connectWS(){
-  ws = new WebSocket("ws://localhost:10000");
+  // ⚠️ QUI: in locale usa ws://localhost:10000
+  // su Render deve diventare automatico: ws(s)://location.host
+  const protocol = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${protocol}://${location.host}`);
 
   ws.addEventListener("open", ()=>{
     addLog("🔌 Connesso al server");
