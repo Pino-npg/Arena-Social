@@ -7,14 +7,15 @@ document.addEventListener("DOMContentLoaded", () => {
   nicknameDisplay.textContent = `Nickname: ${nickname}`;
 
   let selectedChampion = null;
-  modeBtns.forEach(btn => btn.disabled = true);
+
+  modeBtns.forEach(btn => btn.disabled=true);
 
   champs.forEach(champ => {
     champ.addEventListener("click", () => {
       champs.forEach(c=>c.classList.remove("selected"));
       champ.classList.add("selected");
       selectedChampion = champ.dataset.name;
-      modeBtns.forEach(btn=>btn.disabled=false);
+      modeBtns.forEach(btn => btn.disabled=false);
     });
   });
 
@@ -24,7 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.setItem("champion", selectedChampion);
       localStorage.setItem("mode", btn.dataset.mode);
       if(btn.dataset.mode==="1v1") window.location.href="fight.html";
-      else window.location.href="https://github.com/tuoRepoTorneo8";
+      else window.location.href="tournament.html"; // repo2
     });
   });
 });

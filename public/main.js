@@ -4,9 +4,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   nicknameBtn.addEventListener("click", () => {
     const nick = nicknameInput.value.trim();
-    if(!nick) return alert("Inserisci un nickname!");
+    if (!nick) { alert("Inserisci un nickname!"); return; }
     localStorage.setItem("nickname", nick);
-    window.location.href="select.html";
+    window.location.href = "select.html";
   });
 
   nicknameInput.addEventListener("keypress", e => {
