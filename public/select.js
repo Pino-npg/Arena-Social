@@ -1,3 +1,4 @@
+// Pagina 2 - Scelta campione + modalità
 const champs = document.querySelectorAll(".champ");
 const modeBtns = document.querySelectorAll(".mode-buttons button");
 
