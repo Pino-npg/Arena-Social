@@ -1,4 +1,3 @@
-// server.js
 import express from "express";
 import http from "http";
 import { WebSocketServer } from "ws";
@@ -6,58 +5,38 @@ import { randomUUID } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// --- Percorsi ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// --- Express ---
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Static files
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
-
-// Debug endpoint
-app.get("/api/rooms", (req, res) => {
-  res.json(Array.from(rooms.values()));
-});
-
-// --- HTTP server + WebSocket ---
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
 
 // --- In-memory state ---
 const clients = new Map(); // clientId => { ws, nickname, roomId, champion }
 const rooms = new Map();   // roomId => { id, type, players: [clientId], status, fightState, fightInterval, target }
 
-// --- Helpers ---
-function createRoom(type, opts = {}) {
-  const id = randomUUID();
-  const room = {
-    id,
-    type,
-    players: [],
-    status: "waiting",
-    target: opts.target || null,
-    fightState: null,
-    fightInterval: null,
-  };
-  rooms.set(id, room);
-  return room;
-}
-
+// Helpers
 function send(ws, obj) {
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+  if (ws?.readyState === 1) ws.send(JSON.stringify(obj));
 }
 
 function broadcast(obj) {
   const s = JSON.stringify(obj);
-  for (const { ws } of clients.values()) {
-    if (ws?.readyState === 1) ws.send(s);
+  for (const client of clients.values()) {
+    if (client.ws?.readyState === 1) client.ws.send(s);
   }
 }
 
+// Conteggio online
+function broadcastOnline() {
+  const count = Array.from(clients.values()).filter(c => c.ws?.readyState === 1).length;
+  broadcast({ type: "online", count });
+}
+
+// Stanze
 function broadcastRooms() {
   const payload = {
     type: "rooms",
@@ -66,14 +45,10 @@ function broadcastRooms() {
       type: r.type,
       playersCount: r.players.length,
       status: r.status,
-      target: r.target,
+      target: r.target
     }))
   };
   broadcast(payload);
-}
-
-function broadcastOnline() {
-  broadcast({ type: "online", count: clients.size });
 }
 
 function clientByWs(ws) {
@@ -87,14 +62,11 @@ function joinRoom(clientId, roomId) {
   const room = rooms.get(roomId);
   if (!client || !room) return;
 
-  if (room.status !== "waiting") {
-    send(client.ws, { type: "error", message: "Room already running" });
-    return;
-  }
+  if (room.players.includes(clientId)) return; // già dentro
 
-  const maxPlayers = room.type === "1v1" ? 2 : (room.type === "t4" ? 4 : 8);
+  const maxPlayers = room.type === "1v1" ? 2 : room.type === "t4" ? 4 : 8;
   if (room.players.length >= maxPlayers) {
-    send(client.ws, { type: "error", message: "Room is full" });
+    send(client.ws, { type: "error", message: "Room piena" });
     return;
   }
 
@@ -103,35 +75,9 @@ function joinRoom(clientId, roomId) {
   room.players.push(clientId);
   client.roomId = room.id;
 
-  const playersInfo = room.players.map(id => ({
-    id,
-    nickname: clients.get(id).nickname,
-    champion: clients.get(id).champion || "Beast"
-  }));
+  broadcastRoomUpdate(room);
 
-  for (const pid of room.players) {
-    const c = clients.get(pid);
-    if (c?.ws?.readyState === 1) send(c.ws, { type: "roomJoined", roomId: room.id, roomType: room.type, players: playersInfo });
-  }
-
-  broadcastRooms();
-
-  if (room.players.length === maxPlayers) {
-    room.status = "running";
-    const startPayload = {
-      type: "roomStarted",
-      roomId: room.id,
-      roomType: room.type,
-      target: room.target,
-      players: playersInfo
-    };
-    for (const pid of room.players) send(clients.get(pid).ws, startPayload);
-
-    if (room.type === "1v1") startFight(room);
-
-    createRoom(room.type, { target: room.target });
-    broadcastRooms();
-  }
+  if (room.players.length === maxPlayers) startFight(room);
 }
 
 function leaveRoom(clientId) {
@@ -144,54 +90,57 @@ function leaveRoom(clientId) {
   room.players = room.players.filter(id => id !== clientId);
   client.roomId = null;
 
-  if (room.players.length === 0 && room.status === "waiting") {
-    const sameTypeWaiting = Array.from(rooms.values()).filter(r => r.type === room.type && r.status === "waiting");
-    if (sameTypeWaiting.length > 1) rooms.delete(room.id);
-  } else {
-    const playersInfo = room.players.map(id => ({ id, nickname: clients.get(id).nickname, champion: clients.get(id).champion || "Beast" }));
-    for (const pid of room.players) {
-      const c = clients.get(pid);
-      if (c?.ws?.readyState === 1) send(c.ws, { type: "roomUpdated", roomId: room.id, players: playersInfo });
-    }
+  if (room.players.length === 0 && room.status === "waiting") rooms.delete(room.id);
+  else broadcastRoomUpdate(room);
+}
+
+function broadcastRoomUpdate(room) {
+  const playersInfo = room.players.map(id => {
+    const c = clients.get(id);
+    return { id, nickname: c.nickname, champion: c.champion };
+  });
+
+  for (const pid of room.players) {
+    const c = clients.get(pid);
+    if (c.ws?.readyState === 1) send(c.ws, { type: "roomUpdated", roomId: room.id, players: playersInfo, status: room.status });
   }
 
   broadcastRooms();
 }
 
-// --- Fight logic 1v1 automatic ---
+// --- Fight logic ---
 function startFight(room) {
-  if (room.type !== "1v1" || room.status !== "running") return;
-  const [p1Id, p2Id] = room.players;
-  const p1 = clients.get(p1Id);
-  const p2 = clients.get(p2Id);
+  room.status = "running";
 
-  const fightState = {
-    players: [
-      { id: p1Id, nickname: p1.nickname, champion: p1.champion || "Beast", hp: 80 },
-      { id: p2Id, nickname: p2.nickname, champion: p2.champion || "Beast", hp: 80 }
-    ],
+  const playersInfo = room.players.map(id => {
+    const c = clients.get(id);
+    return { id, nickname: c.nickname, champion: c.champion, hp: 80 };
+  });
+
+  room.fightState = {
+    players: playersInfo.map(p => ({ ...p })),
     turn: 0
   };
-  room.fightState = fightState;
 
-  // Invia stato iniziale
+  // Invia init
   for (const pid of room.players) {
     const c = clients.get(pid);
-    if (c?.ws?.readyState === 1) send(c.ws, { type: "init", players: fightState.players });
+    if (c.ws?.readyState === 1) send(c.ws, { type: "init", players: room.fightState.players, myState: room.fightState.players.find(p => p.id === pid), enemy: room.fightState.players.find(p => p.id !== pid) });
   }
 
-  // Logica combattimento automatico
+  // Interval automatico
   room.fightInterval = setInterval(() => {
-    const attackerIdx = fightState.turn % 2;
-    const defenderIdx = (fightState.turn + 1) % 2;
-    const attacker = fightState.players[attackerIdx];
-    const defender = fightState.players[defenderIdx];
+    const fs = room.fightState;
+    const attackerIdx = fs.turn % 2;
+    const defenderIdx = (fs.turn + 1) % 2;
+    const attacker = fs.players[attackerIdx];
+    const defender = fs.players[defenderIdx];
 
     if (attacker.hp <= 0 || defender.hp <= 0) {
       const winner = attacker.hp > 0 ? attacker.nickname : defender.nickname;
       for (const pid of room.players) {
         const c = clients.get(pid);
-        if (c?.ws?.readyState === 1) send(c.ws, { type: "end", winner });
+        if (c.ws?.readyState === 1) send(c.ws, { type: "end", winner });
       }
       clearInterval(room.fightInterval);
       return;
@@ -204,79 +153,77 @@ function startFight(room) {
 
     for (const pid of room.players) {
       const c = clients.get(pid);
-      if (c?.ws?.readyState === 1) {
-        send(c.ws, {
-          type: "turn",
-          attacker: attacker.nickname,
-          defender: defender.nickname,
-          defenderHP: defender.hp,
-          roll,
-          dmg
-        });
-      }
+      if (c.ws?.readyState === 1) send(c.ws, {
+        type: "turn",
+        attacker: attacker.nickname,
+        defender: defender.nickname,
+        defenderId: defender.id,
+        defenderHP: defender.hp,
+        roll,
+        dmg
+      });
     }
 
-    fightState.turn++;
+    fs.turn++;
   }, 2000);
 }
 
 // --- Persistent lobby ---
-createRoom("1v1", { target: "/fight.html" });
-createRoom("t4", { target: "/tournament4.html" });
-createRoom("t8", { target: "/tournament8.html" });
+function createRoom(type, target) {
+  const id = randomUUID();
+  rooms.set(id, { id, type, players: [], status: "waiting", fightState: null, fightInterval: null, target });
+}
 
-// --- WebSocket connection ---
-wss.on("connection", (ws) => {
+createRoom("1v1", "/fight.html");
+createRoom("t4", "/tournament4.html");
+createRoom("t8", "/tournament8.html");
+
+// --- WebSocket ---
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+
+wss.on("connection", ws => {
   const clientId = randomUUID();
   clients.set(clientId, { ws, nickname: "Anon", roomId: null, champion: "Beast" });
 
-  // Invio welcome e stanze
   send(ws, { type: "welcome", clientId });
-  send(ws, { type: "rooms", rooms: Array.from(rooms.values()).map(r => ({
-    id: r.id, type: r.type, playersCount: r.players.length, status: r.status, target: r.target
-  })) });
   broadcastOnline();
+  broadcastRooms();
 
-  ws.on("message", (raw) => {
+  ws.on("message", msgRaw => {
     let data;
-    try { data = JSON.parse(raw); } catch (e) { send(ws, { type: "error", message: "invalid json" }); return; }
+    try { data = JSON.parse(msgRaw); } catch { return; }
 
     const clientEntry = clientByWs(ws);
     if (!clientEntry) return;
-    const { id: clientId } = clientEntry;
-    const client = clients.get(clientId);
+    const { id } = clientEntry;
+    const client = clients.get(id);
 
     switch (data.type) {
       case "setNickname":
-        client.nickname = String(data.nickname || "").slice(0, 32);
+        client.nickname = data.nickname?.slice(0,32) || "Anon";
         broadcastRooms();
         break;
 
       case "setChampion":
-        client.champion = String(data.champion || "Beast");
-        broadcastRooms();
+        client.champion = data.champion || "Beast";
         break;
 
       case "joinRoom":
-        joinRoom(clientId, data.roomId);
+        joinRoom(id, data.roomId);
         break;
 
       case "leaveRoom":
-        leaveRoom(clientId);
+        leaveRoom(id);
         break;
 
       case "rejoinRoom":
         if (client.roomId) {
           const room = rooms.get(client.roomId);
           if (room?.fightState) {
-            const myState = room.fightState.players.find(p => p.id === clientId);
-            const enemy = room.fightState.players.find(p => p.id !== clientId);
-            send(ws, {
-              type: "init",
-              players: room.fightState.players,
-              myState,
-              enemy
-            });
+            const myState = room.fightState.players.find(p => p.id === id);
+            const enemy = room.fightState.players.find(p => p.id !== id);
+            send(ws, { type: "init", players: room.fightState.players, myState, enemy });
           }
         }
         break;
@@ -286,21 +233,15 @@ wss.on("connection", (ws) => {
           if (c.ws?.readyState === 1) send(c.ws, { type: "chat", sender: data.sender, text: data.text });
         }
         break;
-
-      case "ping":
-        send(ws, { type: "pong" });
-        break;
     }
   });
 
   ws.on("close", () => {
     const clientEntry = clientByWs(ws);
     if (!clientEntry) return;
-    const clientId = clientEntry.id;
-    const client = clients.get(clientId);
+    const client = clients.get(clientEntry.id);
     client.ws = null; // offline
     broadcastOnline();
-    broadcastRooms();
   });
 });
 
