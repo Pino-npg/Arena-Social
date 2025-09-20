@@ -1,5 +1,5 @@
 // =======================
-// Fight 1vs1 - WebSocket + Online Counter
+// Fight 1vs1 - WebSocket Ottimizzato
 // =======================
 
 // Recupera nickname e campione
@@ -49,7 +49,7 @@ function updateHP() {
   myHPBar.style.width = `${(myHP / 80) * 100}%`;
   enemyHPBar.style.width = `${(enemyHP / 80) * 100}%`;
 
-  // Aggiorna immagini player
+  // Aggiorna immagini
   if (myHP <= 0) myChampionImg.src = `img/${champion}0.png`;
   else if (myHP <= 20) myChampionImg.src = `img/${champion}20.png`;
   else if (myHP <= 40) myChampionImg.src = `img/${champion}40.png`;
@@ -76,11 +76,10 @@ function connectWS() {
     addLog("🔌 Connessione al server stabilita");
 
     // Invia clientId se esiste
-    if(clientId) ws.send(JSON.stringify({ type: "rejoinRoom", clientId }));
+    if (clientId) ws.send(JSON.stringify({ type: "rejoinRoom", clientId }));
 
-    // Imposta nickname e champion
+    // Imposta nickname
     ws.send(JSON.stringify({ type: "setNickname", nickname: playerName }));
-    ws.send(JSON.stringify({ type: "setChampion", champion }));
   });
 
   ws.addEventListener("message", (e) => {
@@ -93,24 +92,44 @@ function connectWS() {
         break;
 
       case "online":
-        if(onlineCounter) onlineCounter.textContent = msg.count;
+        if (onlineCounter) onlineCounter.textContent = msg.count;
         break;
 
-      case "init":
+      case "roomStarted":
         const me = msg.players.find(p => p.id === clientId);
         const enemy = msg.players.find(p => p.id !== clientId);
-        if(me) myHP = me.hp;
-        if(enemy) {
-          enemyHP = enemy.hp;
-          enemyNameEl.textContent = enemy.nickname;
-          enemyChampionImg.src = `img/${enemy.champion}.png`;
-        }
+        myHP = me.hp || 80;
+        enemyHP = enemy.hp || 80;
+        enemyNameEl.textContent = enemy.nickname;
+        enemyChampionImg.src = `img/${enemy.champion}.png`;
         updateHP();
         addLog("🌀 Inizio combattimento!");
         break;
 
+      case "init":
+        // Riconnessione
+        if (msg.myState && msg.enemy) {
+          myHP = msg.myState.hp || 80;
+          enemyHP = msg.enemy.hp || 80;
+          enemyNameEl.textContent = msg.enemy.nickname;
+          enemyChampionImg.src = `img/${msg.enemy.champion}.png`;
+          updateHP();
+          addLog("🔄 Riconnessione: stato combattimento aggiornato");
+        } else if (msg.players) {
+          // nuovo combattimento
+          const me = msg.players.find(p => p.id === clientId);
+          const enemy = msg.players.find(p => p.id !== clientId);
+          myHP = me.hp || 80;
+          enemyHP = enemy.hp || 80;
+          enemyNameEl.textContent = enemy.nickname;
+          enemyChampionImg.src = `img/${enemy.champion}.png`;
+          updateHP();
+          addLog("🌀 Inizio combattimento!");
+        }
+        break;
+
       case "turn":
-        if(msg.defenderId === clientId) myHP = msg.defenderHP;
+        if (msg.defenderId === clientId) myHP = msg.defenderHP;
         else enemyHP = msg.defenderHP;
 
         let logMsg = `🎲 ${msg.attacker} tira ${msg.roll} → ${msg.dmg} danni!`;
@@ -143,9 +162,9 @@ connectWS();
 // Chat
 // =======================
 chatInput.addEventListener("keypress", (e) => {
-  if(e.key === "Enter" && chatInput.value.trim()) {
+  if (e.key === "Enter" && chatInput.value.trim()) {
     const text = chatInput.value.trim();
-    if(ws && ws.readyState === WebSocket.OPEN) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: "chat", text, sender: playerName }));
       chatInput.value = "";
     }
