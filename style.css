@@ -1,0 +1,82 @@
+body {
+  margin: 0;
+  font-family: "Trebuchet MS", sans-serif;
+  background: radial-gradient(circle at center, #1a1a1a, #000);
+  color: #f5f5f5;
+  text-align: center;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 20px;
+  font-size: 18px;
+  color: #ffd700;
+}
+
+.main-title {
+  font-size: 48px;
+  margin-top: 20px;
+  color: #ff3333;
+  text-shadow: 0 0 10px #ff0000, 0 0 20px #ff3333;
+}
+
+.logo img {
+  margin: 20px auto;
+  width: 100px;
+  height: 100px;
+}
+
+.nickname-box {
+  margin: 20px;
+}
+
+.nickname-box input {
+  padding: 10px;
+  font-size: 18px;
+}
+
+.nickname-box button {
+  padding: 10px 20px;
+  font-size: 18px;
+  margin-left: 10px;
+  cursor: pointer;
+}
+
+.characters-selection {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 15px;
+  margin: 20px;
+}
+
+.characters-selection img {
+  width: 100px;
+  height: 100px;
+  border: 2px solid #444;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.2s, border 0.2s;
+}
+
+.characters-selection img:hover {
+  transform: scale(1.1);
+  border-color: #ffd700;
+}
+
+.characters-selection img.selected {
+  border-color: #ff3333;
+  box-shadow: 0 0 10px #ff0000;
+}
+
+.mode-buttons {
+  margin: 30px;
+}
+
+.mode-buttons button {
+  padding: 15px 30px;
+  margin: 0 10px;
+  font-size: 20px;
+  cursor: pointer;
+}
