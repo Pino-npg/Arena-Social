@@ -1,9 +1,12 @@
 body {
   margin: 0;
-  font-family: "Trebuchet MS", sans-serif;
-  background: radial-gradient(circle at center, #1a1a1a, #000);
-  color: #f5f5f5;
+  padding: 0;
+  background: url('img/Arena.png') center/cover no-repeat;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  color: white;
   text-align: center;
+  height: 100vh;
+  position: relative;
 }
 
 .top-bar {
@@ -80,3 +83,93 @@ body {
   font-size: 20px;
   cursor: pointer;
 }
+
+/* ------------------------------
+   MEDIA QUERY PER SMARTPHONE
+   ------------------------------ */
+   @media (max-width: 768px) {
+    body {
+      padding: 10px;
+      font-size: 14px;
+    }
+  
+    #mainTitle {
+      font-size: 2rem;
+      letter-spacing: 2px;
+    }
+  
+    #favicon img {
+      width: 40px;
+    }
+  
+    #nicknameInput {
+      width: 140px;
+      font-size: 0.9rem;
+    }
+  
+    /* Personaggi più piccoli e disposti meglio */
+    .characters-selection {
+      gap: 8px;
+    }
+  
+    .characters-selection img {
+      width: 60px;
+      height: 60px;
+    }
+  
+    /* Pulsanti in colonna per non schiacciare tutto */
+    .modeButtons {
+      flex-direction: column;
+      gap: 10px;
+    }
+  
+    .modeButtons button {
+      width: 100%;
+      max-width: 220px;
+    }
+  
+    /* Player info impilati */
+    .player-wrapper {
+      flex-direction: column;
+      gap: 20px;
+    }
+  
+    .player {
+      width: 100%;
+      max-width: 240px;
+    }
+  
+    .player-character-large {
+      width: 90px;
+      height: 90px;
+    }
+  
+    /* Chat compatta */
+    .chat-box {
+      max-width: 90%;
+      font-size: 0.85rem;
+    }
+  }
+  
+  /* ------------------------------
+     MEDIA QUERY PER TABLET
+     ------------------------------ */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    #mainTitle {
+      font-size: 2.5rem;
+    }
+  
+    .characters-selection img {
+      width: 70px;
+      height: 70px;
+    }
+  
+    .modeButtons button {
+      padding: 8px 16px;
+    }
+  
+    .player-character-large {
+      width: 120px;
+      height: 120px;
+    }
+  }

@@ -11,11 +11,11 @@ document.addEventListener("DOMContentLoaded", () => {
   nicknameBtn.addEventListener("click", () => {
     const nick = nicknameInput.value.trim();
     if (!nick) {
-      alert("Inserisci un nickname!");
+      alert("Insert nickname!");
       return;
     }
     localStorage.setItem("nickname", nick);
-    alert(`Nickname salvato: ${nick}`);
+    alert(`Nickname saved: ${nick}`);
   });
 
   // Selezione campione
@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Bottoni modalità
   btn1v1.addEventListener("click", () => {
-    if (!selectedChampion) return alert("Seleziona un campione!");
+    if (!selectedChampion) return alert("Select a champion!");
     alert("Qui si andrà alla modalità 1vs1");
   });
 
