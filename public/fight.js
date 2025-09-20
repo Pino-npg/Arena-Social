@@ -1,12 +1,12 @@
 // --- WEBSOCKET ---
 const protocol = location.protocol === "https:" ? "wss" : "ws";
-const ws = new WebSocket(`ws://${location.hostname}:${location.port || 10000}`);
+const ws = new WebSocket(`${protocol}://${location.hostname}:${location.port}`);
+
 // --- PLAYER STATO ---
-const MAX_HP = 80;
-let currentPlayer = { index: null, mode: null, character: 'Beast', hp: MAX_HP };
+let currentPlayer = { index: null, mode: null, character: 'Beast', hp: 80 };
 let players = [
-  { name: "Player 1", hp: MAX_HP, character: 'Beast' },
-  { name: "Player 2", hp: MAX_HP, character: 'Beast' }
+  { name: "Player 1", hp: 80, character: 'Beast' },
+  { name: "Player 2", hp: 80, character: 'Beast' }
 ];
 
 // --- ELEMENTI DOM ---
@@ -35,7 +35,6 @@ function chooseMode(mode){
 let bgMusic = new Audio("img/battle.mp3"); 
 bgMusic.loop = true; 
 bgMusic.play().catch(()=>{});
-
 let winnerMusic = new Audio();
 
 function playWinnerMusic(winnerChar){
@@ -52,26 +51,36 @@ ws.onmessage = (e) => {
     case "online":
       onlineCounter.innerText = `Online: ${msg.count}`;
       break;
+
     case "assignIndex":
       currentPlayer.index = msg.index;
+      console.log("Sei Player", currentPlayer.index + 1);
       break;
+
     case "init":
-      players = msg.players.map(p => ({ ...p, hp: MAX_HP }));
+      players = msg.players;
       updatePlayersUI();
       break;
+
     case "turn":
       players[msg.defenderIndex].hp = msg.defenderHP;
-      logEl.textContent += `${msg.attacker} deals ${msg.dmg} to ${msg.defender}\n`;
+      logEl.textContent += `${msg.attacker} deals ${msg.dmg} to ${msg.defender}${msg.critical ? ' (CRIT!)' : ''}\n`;
       updatePlayersUI();
       break;
+
     case "end":
       logEl.textContent += `🏆 Winner: ${msg.winner}\n`;
       playWinnerMusic(msg.winner);
       break;
+
     case "character":
       players[msg.playerIndex].character = msg.name;
       playerImgs[msg.playerIndex].src = `img/${msg.name}.png`;
       updatePlayersUI();
+      break;
+
+    case "log":
+      logEl.textContent += msg.message + "\n";
       break;
   }
 };
@@ -80,8 +89,8 @@ ws.onmessage = (e) => {
 function updatePlayersUI(){
   players.forEach((p,i)=>{
     document.querySelectorAll('.hp')[i].innerText = p.hp;
-    // barra HP aggiornata con MAX_HP
-    document.querySelectorAll('.bar')[i].style.width = (p.hp / MAX_HP * 100) + '%';
+    const maxHP = 80; // puoi aggiungere bonus se vuoi
+    document.querySelectorAll('.bar')[i].style.width = (p.hp/maxHP*100)+'%';
     document.querySelectorAll('.player-label')[i].innerText = (i===currentPlayer.index)?'YOU':'ENEMY';
     playerImgs[i].src = `img/${p.character}.png`;
   });
