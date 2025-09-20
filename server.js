@@ -1,4 +1,4 @@
-// server.js (Lobby / Hall)
+// server.js
 import express from "express";
 import http from "http";
 import { WebSocketServer } from "ws";
@@ -12,11 +12,11 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// serve static files (public folder)
+// Serve static files
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
 
-// simple HTTP endpoint to inspect rooms (debug)
+// Debug endpoint rooms
 app.get("/api/rooms", (req, res) => {
   res.json(Array.from(rooms.values()));
 });
@@ -24,65 +24,68 @@ app.get("/api/rooms", (req, res) => {
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-// --- In memory state ---
-const clients = new Map(); // clientId => { ws, nickname, roomId }
-const rooms = new Map();   // roomId => { id, type, players: [clientId], status, target }
+// --- In-memory state ---
+const clients = new Map(); // clientId => { ws, nickname, roomId, champion }
+const rooms = new Map();   // roomId => { id, type, players: [clientId], status, target, fightState, fightInterval }
 
-// helper: create a room
+// --- Helpers ---
 function createRoom(type, opts = {}) {
   const id = randomUUID();
   const room = {
     id,
-    type,                       // '1v1' | 't4' | 't8'
-    players: [],                // clientIds
-    status: "waiting",          // 'waiting' | 'running'
+    type,
+    players: [],
+    status: "waiting",
     createdAt: Date.now(),
-    target: opts.target || null // optional target URL (e.g. '/fight.html' or external)
+    target: opts.target || null,
+    fightState: null,
+    fightInterval: null
   };
   rooms.set(id, room);
   return room;
 }
 
-// Initialize some persistent lobby slots: one 1v1, one t4, one t8
-createRoom("1v1", { target: "/fight.html" });
-createRoom("t4", { target: "/tournament4.html" });
-createRoom("t8", { target: "/tournament8.html" });
-
-// Broadcast helpers
 function send(ws, obj) {
   if (!ws || ws.readyState !== 1) return;
   ws.send(JSON.stringify(obj));
 }
+
 function broadcast(obj) {
   const s = JSON.stringify(obj);
   for (const { ws } of clients.values()) {
     if (ws.readyState === 1) ws.send(s);
   }
 }
+
 function broadcastRooms() {
-  const payload = { type: "rooms", rooms: Array.from(rooms.values()).map(r => ({
-    id: r.id, type: r.type, playersCount: r.players.length, status: r.status, target: r.target
-  }))};
+  const payload = {
+    type: "rooms",
+    rooms: Array.from(rooms.values()).map(r => ({
+      id: r.id,
+      type: r.type,
+      playersCount: r.players.length,
+      status: r.status,
+      target: r.target
+    }))
+  };
   broadcast(payload);
 }
+
 function broadcastOnline() {
   broadcast({ type: "online", count: clients.size });
 }
 
-// utility: find client entry by ws
 function clientByWs(ws) {
   for (const [id, c] of clients.entries()) if (c.ws === ws) return { id, ...c };
   return null;
 }
 
-// join room logic
+// --- Room management ---
 function joinRoom(clientId, roomId) {
   const client = clients.get(clientId);
   const room = rooms.get(roomId);
-  if (!client || !room) {
-    send(client.ws, { type: "error", message: "Room or client not found" });
-    return;
-  }
+  if (!client || !room) return;
+
   if (room.status !== "waiting") {
     send(client.ws, { type: "error", message: "Room already running" });
     return;
@@ -94,27 +97,24 @@ function joinRoom(clientId, roomId) {
     return;
   }
 
-  // leave previous room if any
   if (client.roomId) leaveRoom(clientId);
 
   room.players.push(clientId);
   client.roomId = room.id;
 
-  // notify room players about new membership
-  const playersInfo = room.players.map(id => ({ id, nickname: clients.get(id).nickname }));
+  const playersInfo = room.players.map(id => ({
+    id, nickname: clients.get(id).nickname
+  }));
+
   for (const pid of room.players) {
     const c = clients.get(pid);
-    if (c && c.ws.readyState === 1) {
-      send(c.ws, { type: "roomJoined", roomId: room.id, roomType: room.type, players: playersInfo });
-    }
+    if (c?.ws?.readyState === 1) send(c.ws, { type: "roomJoined", roomId: room.id, roomType: room.type, players: playersInfo });
   }
 
   broadcastRooms();
 
-  // auto-start if full for tournaments / 1v1
   if (room.players.length === maxPlayers) {
     room.status = "running";
-    // inform players that room started and provide target (client decides how to open it)
     const startPayload = {
       type: "roomStarted",
       roomId: room.id,
@@ -122,56 +122,114 @@ function joinRoom(clientId, roomId) {
       target: room.target,
       players: playersInfo
     };
-    for (const pid of room.players) {
-      const c = clients.get(pid);
-      if (c && c.ws.readyState === 1) send(c.ws, startPayload);
-    }
+    for (const pid of room.players) send(clients.get(pid).ws, startPayload);
 
-    // create a new empty slot of same type (so lobby always shows an open slot)
+    if (room.type === "1v1") startFight(room);
+
     createRoom(room.type, { target: room.target });
     broadcastRooms();
   }
 }
 
-// leave room logic
 function leaveRoom(clientId) {
   const client = clients.get(clientId);
   if (!client || !client.roomId) return;
+
   const room = rooms.get(client.roomId);
   if (!room) {
     client.roomId = null;
     return;
   }
+
   room.players = room.players.filter(id => id !== clientId);
   client.roomId = null;
 
-  // if room is empty and it was a user-created non-template room, delete it.
-  // We'll keep template rooms (type t4/t8/1v1) — here we delete only if createdAt is recent AND no players
   if (room.players.length === 0 && room.status === "waiting") {
-    // keep template rooms — detect templates by checking createdAt older than some threshold?
-    // For simplicity: if there are more than one room of same type waiting and this one is empty, delete it.
     const sameTypeWaiting = Array.from(rooms.values()).filter(r => r.type === room.type && r.status === "waiting");
     if (sameTypeWaiting.length > 1) rooms.delete(room.id);
   } else {
-    // notify remaining players
     const playersInfo = room.players.map(id => ({ id, nickname: clients.get(id).nickname }));
     for (const pid of room.players) {
       const c = clients.get(pid);
-      if (c && c.ws.readyState === 1) send(c.ws, { type: "roomUpdated", roomId: room.id, players: playersInfo });
+      if (c?.ws?.readyState === 1) send(c.ws, { type: "roomUpdated", roomId: room.id, players: playersInfo });
     }
   }
 
   broadcastRooms();
 }
 
-// WebSocket connection
+// --- Fight logic 1v1 automatic ---
+function startFight(room) {
+  if (room.type !== "1v1" || room.status !== "running") return;
+  const [p1Id, p2Id] = room.players;
+  const p1 = clients.get(p1Id);
+  const p2 = clients.get(p2Id);
+
+  const fightState = {
+    players: [
+      { id: p1Id, nickname: p1.nickname, champion: p1.champion || "Beast", hp: 80 },
+      { id: p2Id, nickname: p2.nickname, champion: p2.champion || "Beast", hp: 80 }
+    ],
+    turn: 0
+  };
+  room.fightState = fightState;
+
+  for (const pid of room.players) {
+    const c = clients.get(pid);
+    if (c?.ws?.readyState === 1) send(c.ws, { type: "init", players: fightState.players });
+  }
+
+  room.fightInterval = setInterval(() => {
+    const attackerIdx = fightState.turn % 2;
+    const defenderIdx = (fightState.turn + 1) % 2;
+    const attacker = fightState.players[attackerIdx];
+    const defender = fightState.players[defenderIdx];
+
+    if (attacker.hp <= 0 || defender.hp <= 0) {
+      const winner = attacker.hp > 0 ? attacker.nickname : defender.nickname;
+      for (const pid of room.players) {
+        const c = clients.get(pid);
+        if (c?.ws?.readyState === 1) send(c.ws, { type: "end", winner });
+      }
+      clearInterval(room.fightInterval);
+      return;
+    }
+
+    const roll = Math.floor(Math.random() * 6) + 1;
+    const dmg = roll * 2;
+    defender.hp -= dmg;
+    defender.hp = Math.max(0, defender.hp);
+
+    for (const pid of room.players) {
+      const c = clients.get(pid);
+      if (c?.ws?.readyState === 1) {
+        send(c.ws, {
+          type: "turn",
+          attacker: attacker.nickname,
+          defender: defender.nickname,
+          defenderHP: defender.hp,
+          roll,
+          dmg,
+          critical: false
+        });
+      }
+    }
+
+    fightState.turn++;
+  }, 2000);
+}
+
+// --- Persistent lobby ---
+createRoom("1v1", { target: "/fight.html" });
+createRoom("t4", { target: "/tournament4.html" });
+createRoom("t8", { target: "/tournament8.html" });
+
+// --- WebSocket ---
 wss.on("connection", (ws) => {
   const clientId = randomUUID();
-  clients.set(clientId, { ws, nickname: "Anon", roomId: null });
+  clients.set(clientId, { ws, nickname: "Anon", roomId: null, champion: "Beast" });
 
-  // welcome + clientId
   send(ws, { type: "welcome", clientId });
-  // send current rooms and online
   send(ws, { type: "rooms", rooms: Array.from(rooms.values()).map(r => ({
     id: r.id, type: r.type, playersCount: r.players.length, status: r.status, target: r.target
   })) });
@@ -191,15 +249,16 @@ wss.on("connection", (ws) => {
         broadcastRooms();
         break;
 
+      case "setChampion":
+        clients.get(clientId).champion = String(data.champion || "Beast");
+        break;
+
       case "createRoom":
-        {
-          const type = data.roomType || "1v1";
-          const target = data.target || (type === "1v1" ? "/fight.html" : type === "t4" ? "/tournament4.html" : "/tournament8.html");
-          const r = createRoom(type, { target });
-          // auto join creator (optional)
-          joinRoom(clientId, r.id);
-          broadcastRooms();
-        }
+        const type = data.roomType || "1v1";
+        const target = data.target || (type === "1v1" ? "/fight.html" : type === "t4" ? "/tournament4.html" : "/tournament8.html");
+        const r = createRoom(type, { target });
+        joinRoom(clientId, r.id);
+        broadcastRooms();
         break;
 
       case "joinRoom":
@@ -216,27 +275,26 @@ wss.on("connection", (ws) => {
         })) });
         break;
 
+      case "chat":
+        for (const c of clients.values()) {
+          if (c.ws?.readyState === 1) send(c.ws, { type: "chat", sender: data.sender, text: data.text });
+        }
+        break;
+
       case "ping":
         send(ws, { type: "pong" });
         break;
-
-      default:
-        // unknown type: just ignore or echo for debug
-        send(ws, { type: "error", message: "unknown message type" });
     }
   });
 
   ws.on("close", () => {
     const clientEntry = clientByWs(ws);
     if (!clientEntry) return;
-    const clientId = clientEntry.id;
-    // remove from room if in one
-    leaveRoom(clientId);
-    clients.delete(clientId);
+    leaveRoom(clientEntry.id);
+    clients.delete(clientEntry.id);
     broadcastOnline();
     broadcastRooms();
   });
 });
 
-// start HTTP + WS
 server.listen(PORT, () => console.log(`Lobby server running on port ${PORT}`));

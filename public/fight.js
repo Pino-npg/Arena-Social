@@ -6,6 +6,9 @@
 const playerName = localStorage.getItem("nickname") || "Player";
 const champion = localStorage.getItem("champion") || "Beast";
 
+// Recupera clientId salvato se c'è
+let clientId = localStorage.getItem("clientId");
+
 // Aggiorna DOM iniziale
 document.getElementById("p1-name").textContent = playerName;
 document.getElementById("p1-champion").src = `img/${champion}.png`;
@@ -13,7 +16,6 @@ document.getElementById("p1-champion").src = `img/${champion}.png`;
 // Stato iniziale
 let myHP = 80;
 let enemyHP = 80;
-let myStunned = false;
 
 // Elementi DOM
 const myHPBar = document.getElementById("p1-bar");
@@ -24,7 +26,6 @@ const enemyNameEl = document.getElementById("p2-name");
 const myChampionImg = document.getElementById("p1-champion");
 const enemyChampionImg = document.getElementById("p2-champion");
 const log = document.getElementById("log");
-const diceBtn = document.getElementById("rollDice");
 
 // Chat
 const chatLog = document.getElementById("chatLog");
@@ -37,30 +38,25 @@ const onlineCounter = document.getElementById("onlineCounter");
 // Funzioni Utility
 // =======================
 
-// Aggiunge messaggi al log
 function addLog(msg) {
   log.innerHTML += `<div>${msg}</div>`;
   log.scrollTop = log.scrollHeight;
 }
 
-// Aggiorna HP e immagini
 function updateHP() {
-  // HP testuali
   myHPText.textContent = myHP;
   enemyHPText.textContent = enemyHP;
 
-  // Barre HP
   myHPBar.style.width = `${(myHP / 80) * 100}%`;
   enemyHPBar.style.width = `${(enemyHP / 80) * 100}%`;
 
-  // Aggiorna immagini player
+  // Aggiorna immagini
   if (myHP <= 0) myChampionImg.src = `img/${champion}0.png`;
   else if (myHP <= 20) myChampionImg.src = `img/${champion}20.png`;
   else if (myHP <= 40) myChampionImg.src = `img/${champion}40.png`;
   else if (myHP <= 60) myChampionImg.src = `img/${champion}60.png`;
   else myChampionImg.src = `img/${champion}.png`;
 
-  // Aggiorna immagini nemico
   const enemyName = enemyNameEl.textContent || "Enemy";
   if (enemyHP <= 0) enemyChampionImg.src = `img/${enemyName}0.png`;
   else if (enemyHP <= 20) enemyChampionImg.src = `img/${enemyName}20.png`;
@@ -68,9 +64,6 @@ function updateHP() {
   else if (enemyHP <= 60) enemyChampionImg.src = `img/${enemyName}60.png`;
   else enemyChampionImg.src = `img/${enemyName}.png`;
 }
-
-// Disabilita il pulsante dadi (combattimento automatico)
-diceBtn.disabled = true;
 
 // =======================
 // WebSocket
@@ -81,40 +74,49 @@ function connectWS() {
   ws = new WebSocket("ws://localhost:10000");
 
   ws.addEventListener("open", () => {
-    ws.send(JSON.stringify({ type: "join", name: playerName, champion }));
     addLog("🔌 Connessione al server stabilita");
+
+    // Invia clientId se esiste
+    if(clientId) ws.send(JSON.stringify({ type: "rejoinRoom", clientId }));
+    // Imposta nickname
+    ws.send(JSON.stringify({ type: "setNickname", nickname: playerName }));
   });
 
   ws.addEventListener("message", (e) => {
     const msg = JSON.parse(e.data);
+
     switch(msg.type) {
+      case "welcome":
+        clientId = msg.clientId;
+        localStorage.setItem("clientId", clientId);
+        break;
+
       case "online":
         if(onlineCounter) onlineCounter.textContent = msg.count;
         break;
 
-      case "init":
-        enemyNameEl.textContent = msg.players[1]?.character || "Enemy";
-        enemyChampionImg.src = `img/${enemyNameEl.textContent}.png`;
-        myHP = msg.players[0]?.hp || 80;
-        enemyHP = msg.players[1]?.hp || 80;
+      case "roomStarted":
+        const me = msg.players.find(p => p.id === clientId);
+        const enemy = msg.players.find(p => p.id !== clientId);
+        myHP = me.hp || 80;
+        enemyHP = enemy.hp || 80;
+        enemyNameEl.textContent = enemy.nickname;
+        enemyChampionImg.src = `img/${enemy.champion}.png`;
         updateHP();
         addLog("🌀 Inizio combattimento!");
         break;
 
       case "turn":
-        if(msg.attacker === playerName) break; // mio turno già gestito
-        myHP = msg.defenderHP;
-        myStunned = msg.critical;
+        if(msg.defenderId === clientId) myHP = msg.defenderHP;
+        else enemyHP = msg.defenderHP;
+
         let logMsg = `🎲 ${msg.attacker} tira ${msg.roll} → ${msg.dmg} danni!`;
-        if(msg.critical) logMsg += ` 😵 ${playerName} stordito!`;
         addLog(logMsg);
         updateHP();
         break;
 
       case "end":
-        const winnerEmoji = msg.winner === playerName ? "🏆" : "💀";
-        addLog(`${winnerEmoji} ${msg.winner} ha vinto!`);
-        diceBtn.disabled = true;
+        addLog(`🏆 ${msg.winner} ha vinto!`);
         break;
 
       case "chat":
@@ -129,12 +131,9 @@ function connectWS() {
     setTimeout(connectWS, 3000);
   });
 
-  ws.addEventListener("error", (err) => {
-    console.error("WebSocket error:", err);
-  });
+  ws.addEventListener("error", (err) => console.error("WebSocket error:", err));
 }
 
-// Avvia connessione
 connectWS();
 
 // =======================
