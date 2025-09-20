@@ -9,37 +9,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // chiudi cliccando fuori dal box
   rulesOverlay.addEventListener("click", (e) => {
-    if (e.target === rulesOverlay) {
-      rulesOverlay.classList.add("hidden");
-    }
+    if (e.target === rulesOverlay) rulesOverlay.classList.add("hidden");
   });
 
   // === MUSICA DI SOTTOFONDO ===
-  const bgMusic = document.createElement("audio");
-  bgMusic.src = "img/1.mp3";
+  const bgMusic = new Audio("img/1.mp3");
   bgMusic.loop = true;
   bgMusic.volume = 0.5;
 
   // autoplay con unlock su mobile
   bgMusic.play().catch(() => {
-    document.body.addEventListener("click", () => {
-      bgMusic.play();
-    }, { once: true });
+    document.body.addEventListener("click", () => bgMusic.play(), { once: true });
   });
 
   document.body.appendChild(bgMusic);
-
-  // pulsante mute/unmute
-const muteBtn = document.getElementById("muteBtn");
-muteBtn.addEventListener("click", () => {
-  if (bgMusic.paused) {
-    bgMusic.play();
-    muteBtn.textContent = "🔊";
-  } else {
-    bgMusic.pause();
-    muteBtn.textContent = "🔇";
-  }
-});
 
   // === NICKNAME E SCELTA CAMPIONE ===
   const nicknameInput = document.getElementById("nicknameInput");
@@ -57,9 +40,9 @@ muteBtn.addEventListener("click", () => {
     alert(`Nickname saved: ${nick}`);
   });
 
-  champs.forEach((champ) => {
+  champs.forEach(champ => {
     champ.addEventListener("click", () => {
-      champs.forEach((c) => c.classList.remove("selected"));
+      champs.forEach(c => c.classList.remove("selected"));
       champ.classList.add("selected");
       selectedChampion = champ.dataset.name;
       localStorage.setItem("champion", selectedChampion);

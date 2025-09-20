@@ -1,164 +1,89 @@
-// =======================
-// Fight 1vs1 - WebSocket Completo
-// =======================
+// --- WEBSOCKET ---
+const protocol = location.protocol === "https:" ? "wss" : "ws";
+const ws = new WebSocket(`${protocol}://${location.hostname}:10000`);
 
-// Dati utente salvati dal select
-const playerName = localStorage.getItem("nickname") || "Player";
-const champion = localStorage.getItem("champion") || "Beast";
-let clientId = localStorage.getItem("clientId");
+// --- PLAYER STATO ---
+const MAX_HP = 80;
+let currentPlayer = { index: null, mode: null, character: 'Beast', hp: MAX_HP };
+let players = [
+  { name: "Player 1", hp: MAX_HP, character: 'Beast' },
+  { name: "Player 2", hp: MAX_HP, character: 'Beast' }
+];
 
-// Mostra il nickname sopra l’arena (aggiunto rispetto al tuo codice)
-document.addEventListener("DOMContentLoaded", () => {
-  const nickEl = document.getElementById("nicknameDisplay");
-  if (nickEl) nickEl.innerText = `You: ${playerName}`;
-});
+// --- ELEMENTI DOM ---
+const onlineCounter = document.getElementById('onlineCounter');
+const logEl = document.getElementById('log');
+const playerImgs = [
+  document.getElementById('player1-character'),
+  document.getElementById('player2-character')
+];
 
-// DOM
-const myHPText = document.getElementById("p1-hp");
-const enemyHPText = document.getElementById("p2-hp");
-const myHPBar = document.getElementById("p1-bar");
-const enemyHPBar = document.getElementById("p2-bar");
-const enemyNameEl = document.getElementById("p2-name");
-const myChampionImg = document.getElementById("p1-champion");
-const enemyChampionImg = document.getElementById("p2-champion");
-const log = document.getElementById("log");
-const onlineCounter = document.getElementById("onlineCounter");
-const chatLog = document.getElementById("chatLog");
-const chatInput = document.getElementById("chatInput");
+// --- SELEZIONE MODALITÀ ---
+document.getElementById('demoBtn').onclick = () => chooseMode('demo');
+document.getElementById('walletBtn').onclick = () => chooseMode('wallet');
 
-// Stato iniziale
-let myHP = 80;
-let enemyHP = 80;
-let enemyName = "Opponent";
-let enemyChampion = "";
-
-// =======================
-// Utility
-// =======================
-function addLog(msg){
-  log.innerHTML += `<div>${msg}</div>`;
-  log.scrollTop = log.scrollHeight;
+function chooseMode(mode){
+  currentPlayer.mode = mode;
+  ws.send(JSON.stringify({
+    type:'start',
+    mode: currentPlayer.mode,
+    character: currentPlayer.character
+  }));
+  playBattleMusic();
 }
 
-function updateHP(){
-  myHPText.textContent = myHP;
-  enemyHPText.textContent = enemyHP;
-  myHPBar.style.width = `${(myHP/80)*100}%`;
-  enemyHPBar.style.width = `${(enemyHP/80)*100}%`;
+// --- AUDIO ---
+let bgMusic = new Audio("img/battle.mp3"); 
+bgMusic.loop = true; 
+bgMusic.play().catch(()=>{});
+
+let winnerMusic = new Audio();
+
+function playWinnerMusic(winnerChar){
+  bgMusic.pause();
+  winnerMusic.src = `img/${winnerChar}.mp3`;
+  winnerMusic.play().catch(()=>{});
 }
 
-// =======================
-// WebSocket
-// =======================
-let ws;
+// --- WEBSOCKET ---
+ws.onmessage = (e) => {
+  const msg = JSON.parse(e.data);
 
-function connectWS(){
-  // ⚠️ QUI: in locale usa ws://localhost:10000
-  // su Render deve diventare automatico: ws(s)://location.host
-  const protocol = location.protocol === "https:" ? "wss" : "ws";
-  ws = new WebSocket(`${protocol}://${location.host}`);
-
-  ws.addEventListener("open", ()=>{
-    addLog("🔌 Connesso al server");
-
-    if(clientId) ws.send(JSON.stringify({type:"rejoinRoom", clientId}));
-
-    ws.send(JSON.stringify({type:"setNickname", nickname:playerName}));
-    ws.send(JSON.stringify({type:"setChampion", champion}));
-  });
-
-  ws.addEventListener("message", e=>{
-    const msg = JSON.parse(e.data);
-
-    switch(msg.type){
-      case "welcome":
-        clientId = msg.clientId;
-        localStorage.setItem("clientId", clientId);
-        break;
-
-      case "online":
-        if(onlineCounter) onlineCounter.textContent = msg.count;
-        break;
-
-      case "roomStarted":
-        handleRoom(msg.players);
-        break;
-
-      case "init":
-        if(msg.myState && msg.enemy){
-          myHP = msg.myState.hp || 80;
-          enemyHP = msg.enemy.hp || 80;
-          enemyName = msg.enemy.nickname;
-          enemyChampion = msg.enemy.champion;
-          enemyNameEl.textContent = enemyName;
-          enemyChampionImg.src = `img/${enemyChampion}.png`;
-          addLog("🔄 Riconnessione: stato combattimento aggiornato");
-          updateHP();
-        } else if(msg.players){
-          handleRoom(msg.players);
-        }
-        break;
-
-      case "turn":
-        if(msg.defenderId === clientId) myHP = msg.defenderHP;
-        else enemyHP = msg.defenderHP;
-
-        addLog(`🎲 ${msg.attacker} tira ${msg.roll} → ${msg.dmg} danni!`);
-        updateHP();
-        break;
-
-      case "end":
-        addLog(`🏆 ${msg.winner} ha vinto!`);
-        break;
-
-      case "chat":
-        chatLog.innerHTML += `<div><strong>${msg.sender}:</strong> ${msg.text}</div>`;
-        chatLog.scrollTop = chatLog.scrollHeight;
-        break;
-    }
-  });
-
-  ws.addEventListener("close", ()=>{
-    addLog("❌ Connessione persa. Riconnessione in 3s...");
-    setTimeout(connectWS,3000);
-  });
-
-  ws.addEventListener("error", err=>{
-    console.error("WebSocket error:", err);
-  });
-}
-
-connectWS();
-
-// =======================
-// Handlers
-// =======================
-function handleRoom(players){
-  const me = players.find(p=>p.id===clientId);
-  const enemy = players.find(p=>p.id!==clientId);
-
-  if(!me || !enemy) return;
-
-  myHP = me.hp || 80;
-  enemyHP = enemy.hp || 80;
-  enemyName = enemy.nickname;
-  enemyChampion = enemy.champion;
-
-  enemyNameEl.textContent = enemyName;
-  enemyChampionImg.src = `img/${enemyChampion}.png`;
-  addLog("🌀 Inizio combattimento!");
-  updateHP();
-}
-
-// =======================
-// Chat
-// =======================
-chatInput.addEventListener("keypress", e=>{
-  if(e.key==="Enter" && chatInput.value.trim()){
-    const text = chatInput.value.trim();
-    if(ws && ws.readyState===WebSocket.OPEN){
-      ws.send(JSON.stringify({type:"chat", sender:playerName, text}));
-      chatInput.value="";
-    }
+  switch(msg.type){
+    case "online":
+      onlineCounter.innerText = `Online: ${msg.count}`;
+      break;
+    case "assignIndex":
+      currentPlayer.index = msg.index;
+      break;
+    case "init":
+      players = msg.players.map(p => ({ ...p, hp: MAX_HP }));
+      updatePlayersUI();
+      break;
+    case "turn":
+      players[msg.defenderIndex].hp = msg.defenderHP;
+      logEl.textContent += `${msg.attacker} deals ${msg.dmg} to ${msg.defender}\n`;
+      updatePlayersUI();
+      break;
+    case "end":
+      logEl.textContent += `🏆 Winner: ${msg.winner}\n`;
+      playWinnerMusic(msg.winner);
+      break;
+    case "character":
+      players[msg.playerIndex].character = msg.name;
+      playerImgs[msg.playerIndex].src = `img/${msg.name}.png`;
+      updatePlayersUI();
+      break;
   }
-});
+};
+
+// --- UPDATE UI ---
+function updatePlayersUI(){
+  players.forEach((p,i)=>{
+    document.querySelectorAll('.hp')[i].innerText = p.hp;
+    // barra HP aggiornata con MAX_HP
+    document.querySelectorAll('.bar')[i].style.width = (p.hp / MAX_HP * 100) + '%';
+    document.querySelectorAll('.player-label')[i].innerText = (i===currentPlayer.index)?'YOU':'ENEMY';
+    playerImgs[i].src = `img/${p.character}.png`;
+  });
+}
