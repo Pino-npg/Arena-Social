@@ -1,9 +1,10 @@
+// server.js
 import express from "express";
-import http from "http";
 import { WebSocketServer } from "ws";
-import { randomUUID } from "crypto";
+import http from "http";
 import path from "path";
 import { fileURLToPath } from "url";
+import { randomUUID } from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,239 +12,206 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// Serve static files
 app.use(express.static(path.join(__dirname, "public")));
-app.use(express.json());
+app.use(express.static(__dirname));
 
-// --- In-memory state ---
-const clients = new Map(); // clientId => { ws, nickname, roomId, champion }
-const rooms = new Map();   // roomId => { id, type, players: [clientId], status, fightState, fightInterval, target }
-
-// Helpers
-function send(ws, obj) {
-  if (ws?.readyState === 1) ws.send(JSON.stringify(obj));
-}
-
-function broadcast(obj) {
-  const s = JSON.stringify(obj);
-  for (const client of clients.values()) {
-    if (client.ws?.readyState === 1) client.ws.send(s);
-  }
-}
-
-// Conteggio online
-function broadcastOnline() {
-  const count = Array.from(clients.values()).filter(c => c.ws?.readyState === 1).length;
-  broadcast({ type: "online", count });
-}
-
-// Stanze
-function broadcastRooms() {
-  const payload = {
-    type: "rooms",
-    rooms: Array.from(rooms.values()).map(r => ({
-      id: r.id,
-      type: r.type,
-      playersCount: r.players.length,
-      status: r.status,
-      target: r.target
-    }))
-  };
-  broadcast(payload);
-}
-
-function clientByWs(ws) {
-  for (const [id, c] of clients.entries()) if (c.ws === ws) return { id, ...c };
-  return null;
-}
-
-// --- Room management ---
-function joinRoom(clientId, roomId) {
-  const client = clients.get(clientId);
-  const room = rooms.get(roomId);
-  if (!client || !room) return;
-
-  if (room.players.includes(clientId)) return; // già dentro
-
-  const maxPlayers = room.type === "1v1" ? 2 : room.type === "t4" ? 4 : 8;
-  if (room.players.length >= maxPlayers) {
-    send(client.ws, { type: "error", message: "Room piena" });
-    return;
-  }
-
-  if (client.roomId) leaveRoom(clientId);
-
-  room.players.push(clientId);
-  client.roomId = room.id;
-
-  broadcastRoomUpdate(room);
-
-  if (room.players.length === maxPlayers) startFight(room);
-}
-
-function leaveRoom(clientId) {
-  const client = clients.get(clientId);
-  if (!client || !client.roomId) return;
-
-  const room = rooms.get(client.roomId);
-  if (!room) { client.roomId = null; return; }
-
-  room.players = room.players.filter(id => id !== clientId);
-  client.roomId = null;
-
-  if (room.players.length === 0 && room.status === "waiting") rooms.delete(room.id);
-  else broadcastRoomUpdate(room);
-}
-
-function broadcastRoomUpdate(room) {
-  const playersInfo = room.players.map(id => {
-    const c = clients.get(id);
-    return { id, nickname: c.nickname, champion: c.champion };
-  });
-
-  for (const pid of room.players) {
-    const c = clients.get(pid);
-    if (c.ws?.readyState === 1) send(c.ws, { type: "roomUpdated", roomId: room.id, players: playersInfo, status: room.status });
-  }
-
-  broadcastRooms();
-}
-
-// --- Fight logic ---
-function startFight(room) {
-  room.status = "running";
-
-  const playersInfo = room.players.map(id => {
-    const c = clients.get(id);
-    return { id, nickname: c.nickname, champion: c.champion, hp: 80 };
-  });
-
-  room.fightState = {
-    players: playersInfo.map(p => ({ ...p })),
-    turn: 0
-  };
-
-  // Invia init
-  for (const pid of room.players) {
-    const c = clients.get(pid);
-    if (c.ws?.readyState === 1) send(c.ws, { type: "init", players: room.fightState.players, myState: room.fightState.players.find(p => p.id === pid), enemy: room.fightState.players.find(p => p.id !== pid) });
-  }
-
-  // Interval automatico
-  room.fightInterval = setInterval(() => {
-    const fs = room.fightState;
-    const attackerIdx = fs.turn % 2;
-    const defenderIdx = (fs.turn + 1) % 2;
-    const attacker = fs.players[attackerIdx];
-    const defender = fs.players[defenderIdx];
-
-    if (attacker.hp <= 0 || defender.hp <= 0) {
-      const winner = attacker.hp > 0 ? attacker.nickname : defender.nickname;
-      for (const pid of room.players) {
-        const c = clients.get(pid);
-        if (c.ws?.readyState === 1) send(c.ws, { type: "end", winner });
-      }
-      clearInterval(room.fightInterval);
-      return;
-    }
-
-    const roll = Math.floor(Math.random() * 6) + 1;
-    const dmg = roll * 2;
-    defender.hp -= dmg;
-    defender.hp = Math.max(0, defender.hp);
-
-    for (const pid of room.players) {
-      const c = clients.get(pid);
-      if (c.ws?.readyState === 1) send(c.ws, {
-        type: "turn",
-        attacker: attacker.nickname,
-        defender: defender.nickname,
-        defenderId: defender.id,
-        defenderHP: defender.hp,
-        roll,
-        dmg
-      });
-    }
-
-    fs.turn++;
-  }, 2000);
-}
-
-// --- Persistent lobby ---
-function createRoom(type, target) {
-  const id = randomUUID();
-  rooms.set(id, { id, type, players: [], status: "waiting", fightState: null, fightInterval: null, target });
-}
-
-createRoom("1v1", "/fight.html");
-createRoom("t4", "/tournament4.html");
-createRoom("t8", "/tournament8.html");
-
-// --- WebSocket ---
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
+// =======================
+// Stato globale
+// =======================
+let clients = []; // tutti i ws con clientId e nickname
+let gameState = {
+  players: [], // array di player { clientId, ws, nickname, character, hp, bonus... }
+  started: false
+};
+
+// =======================
+// Helper
+// =======================
+function broadcastOnline() {
+  const msg = JSON.stringify({ type: "online", count:clients.length });
+  clients.forEach(c => { if(c.ws.readyState===1) c.ws.send(msg) });
+}
+
+function sendToAll(data) {
+  const msg = JSON.stringify(data);
+  clients.forEach(c => { if(c.ws.readyState===1) c.ws.send(msg) });
+}
+
+function rollDice(){ return Math.floor(Math.random()*8)+1; }
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+// Trova giocatore per clientId
+function getPlayer(clientId){
+  return gameState.players.find(p => p.clientId===clientId);
+}
+
+// =======================
+// Gestione connessione
+// =======================
 wss.on("connection", ws => {
-  const clientId = randomUUID();
-  clients.set(clientId, { ws, nickname: "Anon", roomId: null, champion: "Beast" });
+  console.log("✅ Nuovo client connesso");
 
-  send(ws, { type: "welcome", clientId });
+  let clientId = null;
+  let nickname = "Anon";
+  
+  // Salva ws temporaneamente in clients
+  clients.push({ ws, clientId, nickname });
+
   broadcastOnline();
-  broadcastRooms();
 
-  ws.on("message", msgRaw => {
-    let data;
-    try { data = JSON.parse(msgRaw); } catch { return; }
+  ws.on("message", msg => {
+    const data = JSON.parse(msg);
 
-    const clientEntry = clientByWs(ws);
-    if (!clientEntry) return;
-    const { id } = clientEntry;
-    const client = clients.get(id);
+    switch(data.type){
 
-    switch (data.type) {
-      case "setNickname":
-        client.nickname = data.nickname?.slice(0,32) || "Anon";
-        broadcastRooms();
-        break;
+      // Rejoin o nuovo client
+      case "join":
+        if(data.clientId){
+          clientId = data.clientId;
+          nickname = data.nickname || "Anon";
 
-      case "setChampion":
-        client.champion = data.champion || "Beast";
-        break;
-
-      case "joinRoom":
-        joinRoom(id, data.roomId);
-        break;
-
-      case "leaveRoom":
-        leaveRoom(id);
-        break;
-
-      case "rejoinRoom":
-        if (client.roomId) {
-          const room = rooms.get(client.roomId);
-          if (room?.fightState) {
-            const myState = room.fightState.players.find(p => p.id === id);
-            const enemy = room.fightState.players.find(p => p.id !== id);
-            send(ws, { type: "init", players: room.fightState.players, myState, enemy });
+          // aggiorna ws se era disconnesso
+          const existing = clients.find(c => c.clientId===clientId);
+          if(existing){
+            existing.ws = ws;
+            existing.nickname = nickname;
+          } else {
+            clients.push({ ws, clientId, nickname });
           }
+          ws.send(JSON.stringify({ type:"clientId", clientId }));
+        } else {
+          clientId = randomUUID();
+          nickname = data.nickname || "Anon";
+          clients.push({ ws, clientId, nickname });
+          ws.send(JSON.stringify({ type:"clientId", clientId }));
+        }
+        broadcastOnline();
+        break;
+
+      // Inizio partita 1v1
+      case "start":
+        if(!clientId) return;
+
+        // Evita doppioni
+        if(getPlayer(clientId)) return;
+
+        const newPlayer = {
+          clientId,
+          ws,
+          nickname: data.nickname || "Anon",
+          character: data.character || "Beast",
+          hp: 80 + (data.mode==="wallet"?2:0),
+          bonusDamage: data.mode==="wallet"?1:0,
+          bonusInitiative: data.mode==="wallet"?1:0,
+          stunned: false
+        };
+        gameState.players.push(newPlayer);
+
+        const playerIndex = gameState.players.indexOf(newPlayer);
+        ws.send(JSON.stringify({ type:"assignIndex", index:playerIndex }));
+
+        if(gameState.players.length===2 && !gameState.started){
+          gameState.started = true;
+          startBattle();
         }
         break;
 
+      // Chat
       case "chat":
-        for (const c of clients.values()) {
-          if (c.ws?.readyState === 1) send(c.ws, { type: "chat", sender: data.sender, text: data.text });
-        }
+        if(!data.text || !nickname) return;
+        sendToAll({ type:"chat", sender: nickname, text: data.text });
         break;
     }
   });
 
   ws.on("close", () => {
-    const clientEntry = clientByWs(ws);
-    if (!clientEntry) return;
-    const client = clients.get(clientEntry.id);
-    client.ws = null; // offline
+    console.log("❌ Client disconnesso");
+
+    clients = clients.filter(c => c.ws!==ws);
+
+    // Rimuovi dal gameState se stava giocando
+    gameState.players = gameState.players.filter(p => p.ws!==ws);
+
+    gameState.started = false;
+
     broadcastOnline();
   });
 });
 
-// --- Avvio server ---
-server.listen(PORT, () => console.log(`Lobby server running on port ${PORT}`));
+// =======================
+// Logica Battaglia 1v1
+// =======================
+async function startBattle(){
+  const [p1, p2] = gameState.players;
+  if(!p1 || !p2) return;
+
+  // Tiro d'iniziativa
+  const init1 = rollDice() + p1.bonusInitiative;
+  const init2 = rollDice() + p2.bonusInitiative;
+  let attacker = init1 >= init2 ? p1 : p2;
+  let defender = attacker===p1 ? p2 : p1;
+
+  sendToAll({ type:"init", players: [
+    { clientId: p1.clientId, nickname: p1.nickname, character: p1.character, hp: p1.hp },
+    { clientId: p2.clientId, nickname: p2.nickname, character: p2.character, hp: p2.hp }
+  ]});
+
+  sendToAll({ type:"log", message:`🌀 ${attacker.character} starts first!` });
+
+  p1.stunned = false;
+  p2.stunned = false;
+
+  while(p1.hp>0 && p2.hp>0){
+    await delay(3000);
+
+    const roll = rollDice();
+    let dmg = roll + attacker.bonusDamage;
+    let critical = false;
+
+    // STUN
+    if(attacker.stunned){
+      dmg = Math.max(0, dmg-1);
+      attacker.stunned = false;
+      sendToAll({ type:"log", message:`😵 ${attacker.character} is stunned and deals -1 damage this turn.` });
+    }
+
+    // CRIT
+    if(roll >= 8 && defender.hp>0){
+      critical = true;
+      defender.stunned = true;
+    }
+
+    defender.hp -= dmg;
+    if(defender.hp<0) defender.hp=0;
+
+    const attackerIndex = gameState.players.indexOf(attacker);
+    const defenderIndex = gameState.players.indexOf(defender);
+
+    sendToAll({
+      type:"turn",
+      attackerIndex,
+      defenderIndex,
+      attacker: attacker.character,
+      defender: defender.character,
+      roll,
+      dmg,
+      defenderHP: defender.hp,
+      critical
+    });
+
+    [attacker, defender] = [defender, attacker];
+  }
+
+  await delay(3000);
+  const winner = p1.hp>0 ? p1.character : p2.character;
+  sendToAll({ type:"end", winner });
+
+  gameState.started = false;
+  gameState.players = [];
+}
+
+server.listen(PORT, ()=>console.log(`🚀 Server attivo su porta ${PORT}`));
