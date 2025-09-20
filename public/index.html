@@ -1,18 +1,25 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>IИFΞЯИФ ДЯΞИД</title>
-  <link rel="stylesheet" href="css/style.css">
-  <script src="js/main.js" defer></script>
+<meta charset="UTF-8">
+<title>IИFΞЯИФ ДЯΞИД</title>
+<link rel="stylesheet" href="css/style.css">
+<script type="module" src="js/main.js" defer></script>
 </head>
 <body>
+  <div id="rulesBtn">RULES</div>
   <div class="container">
-    <h1>IИFΞЯИФ ДЯΞИД</h1>
-    <p>Nickname:</p>
-    <input type="text" id="nicknameInput" placeholder="Nickname">
-    <button id="nicknameBtn">Vai</button>
-    <div>Online: <span id="onlineCounter">0</span></div>
+    <h1>IИFΞЯИФ ДЯΞID</h1>
+    <input type="text" id="nicknameInput" placeholder="Enter your nickname">
+    <button id="nicknameBtn">Start</button>
+    <div id="onlineCounter">Online: 0</div>
+  </div>
+
+  <div id="rulesOverlay">
+    <div id="rulesContent">
+      <h2>Rules</h2>
+      <p>Demo 1vs1 game. Choose your character and fight!</p>
+    </div>
   </div>
 </body>
 </html>
