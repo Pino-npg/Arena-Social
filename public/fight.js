@@ -1,5 +1,5 @@
 // =======================
-// Fight 1vs1 - WebSocket Ottimizzato
+// Fight 1vs1 - WebSocket + Online Counter
 // =======================
 
 // Recupera nickname e campione
@@ -37,7 +37,6 @@ const onlineCounter = document.getElementById("onlineCounter");
 // =======================
 // Funzioni Utility
 // =======================
-
 function addLog(msg) {
   log.innerHTML += `<div>${msg}</div>`;
   log.scrollTop = log.scrollHeight;
@@ -50,7 +49,7 @@ function updateHP() {
   myHPBar.style.width = `${(myHP / 80) * 100}%`;
   enemyHPBar.style.width = `${(enemyHP / 80) * 100}%`;
 
-  // Aggiorna immagini
+  // Aggiorna immagini player
   if (myHP <= 0) myChampionImg.src = `img/${champion}0.png`;
   else if (myHP <= 20) myChampionImg.src = `img/${champion}20.png`;
   else if (myHP <= 40) myChampionImg.src = `img/${champion}40.png`;
@@ -78,8 +77,10 @@ function connectWS() {
 
     // Invia clientId se esiste
     if(clientId) ws.send(JSON.stringify({ type: "rejoinRoom", clientId }));
-    // Imposta nickname
+
+    // Imposta nickname e champion
     ws.send(JSON.stringify({ type: "setNickname", nickname: playerName }));
+    ws.send(JSON.stringify({ type: "setChampion", champion }));
   });
 
   ws.addEventListener("message", (e) => {
@@ -95,13 +96,15 @@ function connectWS() {
         if(onlineCounter) onlineCounter.textContent = msg.count;
         break;
 
-      case "roomStarted":
+      case "init":
         const me = msg.players.find(p => p.id === clientId);
         const enemy = msg.players.find(p => p.id !== clientId);
-        myHP = me.hp || 80;
-        enemyHP = enemy.hp || 80;
-        enemyNameEl.textContent = enemy.nickname;
-        enemyChampionImg.src = `img/${enemy.champion}.png`;
+        if(me) myHP = me.hp;
+        if(enemy) {
+          enemyHP = enemy.hp;
+          enemyNameEl.textContent = enemy.nickname;
+          enemyChampionImg.src = `img/${enemy.champion}.png`;
+        }
         updateHP();
         addLog("🌀 Inizio combattimento!");
         break;
