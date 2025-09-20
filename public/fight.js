@@ -2,11 +2,8 @@
 // Fight 1vs1 - WebSocket Ottimizzato
 // =======================
 
-// Recupera nickname e campione
 const playerName = localStorage.getItem("nickname") || "Player";
 const champion = localStorage.getItem("champion") || "Beast";
-
-// Recupera clientId salvato se c'è
 let clientId = localStorage.getItem("clientId");
 
 // Aggiorna DOM iniziale
@@ -16,6 +13,8 @@ document.getElementById("p1-champion").src = `img/${champion}.png`;
 // Stato iniziale
 let myHP = 80;
 let enemyHP = 80;
+let enemyName = "Opponent";
+let enemyChampion = "";
 
 // Elementi DOM
 const myHPBar = document.getElementById("p1-bar");
@@ -48,20 +47,6 @@ function updateHP() {
 
   myHPBar.style.width = `${(myHP / 80) * 100}%`;
   enemyHPBar.style.width = `${(enemyHP / 80) * 100}%`;
-
-  // Aggiorna immagini
-  if (myHP <= 0) myChampionImg.src = `img/${champion}0.png`;
-  else if (myHP <= 20) myChampionImg.src = `img/${champion}20.png`;
-  else if (myHP <= 40) myChampionImg.src = `img/${champion}40.png`;
-  else if (myHP <= 60) myChampionImg.src = `img/${champion}60.png`;
-  else myChampionImg.src = `img/${champion}.png`;
-
-  const enemyName = enemyNameEl.textContent || "Enemy";
-  if (enemyHP <= 0) enemyChampionImg.src = `img/${enemyName}0.png`;
-  else if (enemyHP <= 20) enemyChampionImg.src = `img/${enemyName}20.png`;
-  else if (enemyHP <= 40) enemyChampionImg.src = `img/${enemyName}40.png`;
-  else if (enemyHP <= 60) enemyChampionImg.src = `img/${enemyName}60.png`;
-  else enemyChampionImg.src = `img/${enemyName}.png`;
 }
 
 // =======================
@@ -78,8 +63,9 @@ function connectWS() {
     // Invia clientId se esiste
     if (clientId) ws.send(JSON.stringify({ type: "rejoinRoom", clientId }));
 
-    // Imposta nickname
+    // Imposta nickname e champion
     ws.send(JSON.stringify({ type: "setNickname", nickname: playerName }));
+    ws.send(JSON.stringify({ type: "setChampion", champion }));
   });
 
   ws.addEventListener("message", (e) => {
@@ -96,44 +82,17 @@ function connectWS() {
         break;
 
       case "roomStarted":
-        const me = msg.players.find(p => p.id === clientId);
-        const enemy = msg.players.find(p => p.id !== clientId);
-        myHP = me.hp || 80;
-        enemyHP = enemy.hp || 80;
-        enemyNameEl.textContent = enemy.nickname;
-        enemyChampionImg.src = `img/${enemy.champion}.png`;
-        updateHP();
-        addLog("🌀 Inizio combattimento!");
+        handleRoomStarted(msg.players);
         break;
 
       case "init":
-        // Riconnessione
-        if (msg.myState && msg.enemy) {
-          myHP = msg.myState.hp || 80;
-          enemyHP = msg.enemy.hp || 80;
-          enemyNameEl.textContent = msg.enemy.nickname;
-          enemyChampionImg.src = `img/${msg.enemy.champion}.png`;
-          updateHP();
-          addLog("🔄 Riconnessione: stato combattimento aggiornato");
-        } else if (msg.players) {
-          // nuovo combattimento
-          const me = msg.players.find(p => p.id === clientId);
-          const enemy = msg.players.find(p => p.id !== clientId);
-          myHP = me.hp || 80;
-          enemyHP = enemy.hp || 80;
-          enemyNameEl.textContent = enemy.nickname;
-          enemyChampionImg.src = `img/${enemy.champion}.png`;
-          updateHP();
-          addLog("🌀 Inizio combattimento!");
-        }
+        handleInit(msg);
         break;
 
       case "turn":
         if (msg.defenderId === clientId) myHP = msg.defenderHP;
         else enemyHP = msg.defenderHP;
-
-        let logMsg = `🎲 ${msg.attacker} tira ${msg.roll} → ${msg.dmg} danni!`;
-        addLog(logMsg);
+        addLog(`🎲 ${msg.attacker} tira ${msg.roll} → ${msg.dmg} danni!`);
         updateHP();
         break;
 
@@ -157,6 +116,43 @@ function connectWS() {
 }
 
 connectWS();
+
+// =======================
+// Handlers
+// =======================
+function handleRoomStarted(players) {
+  const me = players.find(p => p.id === clientId);
+  const enemy = players.find(p => p.id !== clientId);
+
+  if (!me || !enemy) return;
+
+  myHP = me.hp || 80;
+  enemyHP = enemy.hp || 80;
+  enemyName = enemy.nickname;
+  enemyChampion = enemy.champion;
+
+  enemyNameEl.textContent = enemyName;
+  enemyChampionImg.src = `img/${enemyChampion}.png`;
+
+  addLog("🌀 Inizio combattimento!");
+  updateHP();
+}
+
+function handleInit(msg) {
+  if (msg.myState && msg.enemy) {
+    myHP = msg.myState.hp || 80;
+    enemyHP = msg.enemy.hp || 80;
+    enemyName = msg.enemy.nickname;
+    enemyChampion = msg.enemy.champion;
+
+    enemyNameEl.textContent = enemyName;
+    enemyChampionImg.src = `img/${enemyChampion}.png`;
+    addLog("🔄 Riconnessione: stato combattimento aggiornato");
+    updateHP();
+  } else if (msg.players) {
+    handleRoomStarted(msg.players);
+  }
+}
 
 // =======================
 // Chat
