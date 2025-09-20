@@ -25,7 +25,7 @@ app.get("/api/rooms", (req, res) => {
 
 // --- HTTP server + WebSocket ---
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server }); // definito PRIMA di usarlo
+const wss = new WebSocketServer({ server });
 
 // --- In-memory state ---
 const clients = new Map(); // clientId => { ws, nickname, roomId, champion }
@@ -104,7 +104,9 @@ function joinRoom(clientId, roomId) {
   client.roomId = room.id;
 
   const playersInfo = room.players.map(id => ({
-    id, nickname: clients.get(id).nickname
+    id,
+    nickname: clients.get(id).nickname,
+    champion: clients.get(id).champion || "Beast"
   }));
 
   for (const pid of room.players) {
@@ -146,7 +148,7 @@ function leaveRoom(clientId) {
     const sameTypeWaiting = Array.from(rooms.values()).filter(r => r.type === room.type && r.status === "waiting");
     if (sameTypeWaiting.length > 1) rooms.delete(room.id);
   } else {
-    const playersInfo = room.players.map(id => ({ id, nickname: clients.get(id).nickname }));
+    const playersInfo = room.players.map(id => ({ id, nickname: clients.get(id).nickname, champion: clients.get(id).champion || "Beast" }));
     for (const pid of room.players) {
       const c = clients.get(pid);
       if (c?.ws?.readyState === 1) send(c.ws, { type: "roomUpdated", roomId: room.id, players: playersInfo });
@@ -172,11 +174,13 @@ function startFight(room) {
   };
   room.fightState = fightState;
 
+  // Invia stato iniziale
   for (const pid of room.players) {
     const c = clients.get(pid);
     if (c?.ws?.readyState === 1) send(c.ws, { type: "init", players: fightState.players });
   }
 
+  // Logica combattimento automatico
   room.fightInterval = setInterval(() => {
     const attackerIdx = fightState.turn % 2;
     const defenderIdx = (fightState.turn + 1) % 2;
@@ -207,7 +211,7 @@ function startFight(room) {
           defender: defender.nickname,
           defenderHP: defender.hp,
           roll,
-          dmg,
+          dmg
         });
       }
     }
@@ -226,6 +230,7 @@ wss.on("connection", (ws) => {
   const clientId = randomUUID();
   clients.set(clientId, { ws, nickname: "Anon", roomId: null, champion: "Beast" });
 
+  // Invio welcome e stanze
   send(ws, { type: "welcome", clientId });
   send(ws, { type: "rooms", rooms: Array.from(rooms.values()).map(r => ({
     id: r.id, type: r.type, playersCount: r.players.length, status: r.status, target: r.target
@@ -249,6 +254,7 @@ wss.on("connection", (ws) => {
 
       case "setChampion":
         client.champion = String(data.champion || "Beast");
+        broadcastRooms();
         break;
 
       case "joinRoom":

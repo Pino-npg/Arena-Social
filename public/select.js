@@ -1,4 +1,3 @@
-// Pagina 2 - Scelta campione + modalità
 const champs = document.querySelectorAll(".champ");
 const modeBtns = document.querySelectorAll(".mode-buttons button");
 
@@ -13,6 +12,7 @@ champs.forEach(champ => {
     champs.forEach(c => c.classList.remove("selected"));
     champ.classList.add("selected");
     selectedChampion = champ.dataset.name;
+
     // Abilita i pulsanti modalità
     modeBtns.forEach(btn => btn.disabled = false);
   });
@@ -22,17 +22,19 @@ champs.forEach(champ => {
 modeBtns.forEach(btn => {
   btn.addEventListener("click", () => {
     if (!selectedChampion) return;
+
     // Salvo scelta nel localStorage
     localStorage.setItem("champion", selectedChampion);
     localStorage.setItem("mode", btn.dataset.mode);
 
-    // Vai alla pagina giusta
-    if (btn.dataset.mode === "1v1") {
-      window.location.href = "fight.html";
-    } else if (btn.dataset.mode === "t4") {
-      window.location.href = "tournament4.html";
-    } else if (btn.dataset.mode === "t8") {
-      window.location.href = "tournament8.html";
+    // Invio champion al server se ws pronto
+    if (window.ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "setChampion", champion: selectedChampion }));
     }
+
+    // Vai alla pagina giusta
+    if (btn.dataset.mode === "1v1") window.location.href = "fight.html";
+    else if (btn.dataset.mode === "t4") window.location.href = "tournament4.html";
+    else if (btn.dataset.mode === "t8") window.location.href = "tournament8.html";
   });
 });
