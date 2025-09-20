@@ -2,25 +2,46 @@ document.addEventListener("DOMContentLoaded", () => {
   // === RULES OVERLAY ===
   const rulesBtn = document.getElementById("rules");
   const rulesOverlay = document.getElementById("rulesOverlay");
-  const closeRules = document.getElementById("closeRules");
 
   rulesBtn.addEventListener("click", () => {
     rulesOverlay.classList.remove("hidden");
   });
 
-  if (closeRules) {
-    closeRules.addEventListener("click", () => {
-      rulesOverlay.classList.add("hidden");
-    });
-  }
-
+  // chiudi cliccando fuori dal box
   rulesOverlay.addEventListener("click", (e) => {
     if (e.target === rulesOverlay) {
       rulesOverlay.classList.add("hidden");
     }
   });
 
-  // === NICKNAME ===
+  // === MUSICA DI SOTTOFONDO ===
+  const bgMusic = document.createElement("audio");
+  bgMusic.src = "img/1.mp3";
+  bgMusic.loop = true;
+  bgMusic.volume = 0.5;
+
+  // autoplay con unlock su mobile
+  bgMusic.play().catch(() => {
+    document.body.addEventListener("click", () => {
+      bgMusic.play();
+    }, { once: true });
+  });
+
+  document.body.appendChild(bgMusic);
+
+  // pulsante mute/unmute
+const muteBtn = document.getElementById("muteBtn");
+muteBtn.addEventListener("click", () => {
+  if (bgMusic.paused) {
+    bgMusic.play();
+    muteBtn.textContent = "🔊";
+  } else {
+    bgMusic.pause();
+    muteBtn.textContent = "🔇";
+  }
+});
+
+  // === NICKNAME E SCELTA CAMPIONE ===
   const nicknameInput = document.getElementById("nicknameInput");
   const nicknameBtn = document.getElementById("nicknameBtn");
   const champs = document.querySelectorAll(".champ");
@@ -31,15 +52,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   nicknameBtn.addEventListener("click", () => {
     const nick = nicknameInput.value.trim();
-    if (!nick) {
-      alert("Insert nickname!");
-      return;
-    }
+    if (!nick) return alert("Insert nickname!");
     localStorage.setItem("nickname", nick);
     alert(`Nickname saved: ${nick}`);
   });
 
-  // === SCELTA CAMPIONE ===
   champs.forEach((champ) => {
     champ.addEventListener("click", () => {
       champs.forEach((c) => c.classList.remove("selected"));
@@ -49,7 +66,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // === BOTTONI MODALITÀ ===
   btn1v1.addEventListener("click", () => {
     const nick = localStorage.getItem("nickname");
     const champ = localStorage.getItem("champion");

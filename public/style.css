@@ -91,6 +91,22 @@ body {
   cursor: pointer;
 }
 
+#muteBtn {
+  margin-left: 10px;
+  padding: 2px 8px;
+  font-size: 16px;
+  cursor: pointer;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid #ffd700;
+  border-radius: 5px;
+  color: #ffd700;
+  transition: 0.2s;
+}
+
+#muteBtn:hover {
+  background: rgba(255,255,255,0.3);
+}
+
 /* Overlay rules */
 #rulesOverlay {
   position: fixed;
@@ -109,10 +125,12 @@ body {
 #rulesContent {
   background: #222;
   color: #fff;
-  padding: 20px;
-  border-radius: 10px;
-  max-width: 500px;
+  padding: 30px;
+  border-radius: 15px;
+  max-width: 700px;   /* più largo */
   text-align: left;
+  line-height: 1.5;
+  font-size: 1.1rem;
   position: relative;
 }
 
@@ -133,6 +151,11 @@ body {
     font-size: 40px;
   }
 
+  #muteBtn {
+    font-size: 14px;
+    padding: 2px 6px;
+  }
+  
   .characters-selection img {
     width: 70px;
     height: 70px;
