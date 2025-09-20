@@ -1,7 +1,6 @@
 // --- WEBSOCKET ---
 const protocol = location.protocol === "https:" ? "wss" : "ws";
-const ws = new WebSocket(`${protocol}://${location.hostname}:10000`);
-
+const ws = new WebSocket(`ws://${location.hostname}:${location.port || 10000}`);
 // --- PLAYER STATO ---
 const MAX_HP = 80;
 let currentPlayer = { index: null, mode: null, character: 'Beast', hp: MAX_HP };
