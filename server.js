@@ -12,11 +12,11 @@ const io = new Server(httpServer, {
 const PORT = process.env.PORT || 10000;
 
 // --- CARTELLA PUBBLICA ---
-app.use(express.static("public"));
+window.location.href = "/1vs1.html";
 
-// --- ROTTA PRINCIPALE ---
-app.get("/", (req, res) => {
-  res.sendFile(new URL("public/index.html", import.meta.url).pathname);
+// Rotta per la pagina 1vs1
+app.get("/1vs1.html", (req, res) => {
+  res.sendFile(new URL("public/1vs1.html", import.meta.url).pathname);
 });
 
 // --- SOCKET.IO ---
