@@ -12,8 +12,7 @@ const io = new Server(httpServer, {
 const PORT = process.env.PORT || 10000;
 
 // --- CARTELLA PUBBLICA ---
-window.location.href = "/1vs1.html";
-
+app.use(express.static("public"));
 // Rotta per la pagina 1vs1
 app.get("/1vs1.html", (req, res) => {
   res.sendFile(new URL("public/1vs1.html", import.meta.url).pathname);
