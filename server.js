@@ -1,46 +1,37 @@
-// server.js
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 
+// --- Configurazione server ---
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer);
 
-const PORT = 10000;
+// Porta del server
+const PORT = process.env.PORT || 10000;
 
-// Serve file statici dalla cartella "public"
+// --- Cartella pubblica ---
 app.use(express.static("public"));
 
-// Lista utenti online
-let onlineUsers = 0;
+// --- Rotta principale ---
+app.get("/", (req, res) => {
+  res.sendFile(new URL("public/index.html", import.meta.url).pathname);
+});
+
+// --- Socket.IO: contatore online ---
+let onlineCount = 0;
 
 io.on("connection", (socket) => {
-  onlineUsers++;
-  io.emit("updateOnline", onlineUsers);
-
-  console.log(`Nuovo utente connesso. Online: ${onlineUsers}`);
-
-  // Riceve nickname
-  socket.on("setNickname", (nick) => {
-    console.log(`Nickname settato: ${nick}`);
-    socket.data.nickname = nick;
-  });
-
-  // Riceve scelta personaggio e modalità
-  socket.on("startGame", ({ mode, character }) => {
-    console.log(`Gioco avviato! Mode: ${mode}, Character: ${character}, Nick: ${socket.data.nickname}`);
-    // Qui puoi decidere di inviare al server2 o lanciare logica 1vs1/tournament
-  });
+  onlineCount++;
+  io.emit("onlineCount", onlineCount);
 
   socket.on("disconnect", () => {
-    onlineUsers--;
-    io.emit("updateOnline", onlineUsers);
-    console.log(`Utente disconnesso. Online: ${onlineUsers}`);
+    onlineCount--;
+    io.emit("onlineCount", onlineCount);
   });
 });
 
-// Avvia server sulla porta 10000
+// --- Avvio server ---
 httpServer.listen(PORT, () => {
-  console.log(`Server in ascolto sulla porta ${PORT}`);
+  console.log(`Server avviato su http://localhost:${PORT}`);
 });

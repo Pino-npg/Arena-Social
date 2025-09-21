@@ -1,10 +1,12 @@
 // -------------------- SOCKET.IO --------------------
 import { io } from "socket.io-client";
-const socket = io();
-const onlineSpan = document.getElementById("onlineCounter");
 
-socket.on("updateOnline", (count) => {
-  onlineSpan.textContent = count;
+const socket = io();
+
+// Aggiorna il contatore nella pagina
+const onlineCounter = document.getElementById("online");
+socket.on("onlineCount", (count) => {
+  onlineCounter.textContent = `Online: ${count}`;
 });
 
 // -------------------- NICKNAME --------------------
