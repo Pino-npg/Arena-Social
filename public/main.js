@@ -47,7 +47,7 @@ document.getElementById("music-toggle").onclick = ()=>{
   else music.pause();
 };
 
-// Fullscreen ottimizzato mobile
+// Fullscreen ottimizzato mobile con fallback
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const container = document.getElementById("game-container");
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -55,21 +55,45 @@ const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 fullscreenBtn.addEventListener("click", async () => {
   try {
     if (!document.fullscreenElement) {
+      // Provo fullscreen
       if (container.requestFullscreen) await container.requestFullscreen();
       else if (container.webkitRequestFullscreen) await container.webkitRequestFullscreen();
       else if (container.msRequestFullscreen) await container.msRequestFullscreen();
 
+      // Lock orientamento landscape su mobile
       if (isMobile && screen.orientation && screen.orientation.lock) {
-        try { await screen.orientation.lock("landscape"); } 
-        catch(e) { console.warn("Orientamento non supportato"); }
+        try { 
+          await screen.orientation.lock("landscape"); 
+        } catch(e) { console.warn("Orientamento non supportato"); }
+      }
+
+      // Fallback per visualizzazione completa su mobile
+      if(isMobile) {
+        container.style.width = "100vw";
+        container.style.height = "100vw"; // usa larghezza come altezza per adattare orizzontalmente
+        container.style.overflow = "auto";
       }
 
     } else {
+      // Esco dal fullscreen
       if (document.exitFullscreen) await document.exitFullscreen();
       else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+
+      // Unlock orientamento su mobile
       if (isMobile && screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+
+      // Ripristino dimensioni container
+      container.style.width = "100vw";
+      container.style.height = "100vh";
+      container.style.overflow = "hidden";
     }
   } catch(e) {
     console.warn("Fullscreen/Orientamento non supportato", e);
+    // Fallback automatico se tutto fallisce
+    if(isMobile){
+      container.style.width = "100vw";
+      container.style.height = "100vw";
+      container.style.overflow = "auto";
+    }
   }
 });
