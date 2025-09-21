@@ -9,8 +9,8 @@ sparkle_on = fps * 1      # 1 secondo acceso
 sparkle_off_min = fps * 2 # 2 secondi spento
 sparkle_off_max = fps * 3 # fino a 3 secondi spento
 num_sparkles = 20          # quante stelline nella mask
-background_path = "public/img/WereWolfW.png"
-mask_path = "public/img/WereWolfmask.png"
+background_path = "Arena.png"
+mask_path = "Arenamask.png"
 
 # Carica immagini
 bg = Image.open(background_path).convert("RGBA").resize((W,H))

@@ -1,0 +1,76 @@
+/* RESET */
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body, #game-container {
+  height:100%; width:100%;
+  background:url("img/Arena.webp") no-repeat center center fixed;
+  background-size:cover;
+  font-family:'Cinzel', serif;
+  color:white; text-align:center;
+  overflow-x:hidden;
+}
+
+#game-container { padding:20px; }
+
+/* HEADER */
+header { margin-bottom:20px; }
+.arena-title { font-size:2.5rem; text-shadow:2px 2px 8px black; }
+
+/* ARENA BATTLE */
+#battle-arena {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  width:100%;
+  max-width:1200px;
+  margin:0 auto 20px;
+}
+
+.player {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  width:45%;
+}
+
+.hp-bar {
+  width:100%; height:25px;
+  background:rgba(255,0,0,0.3);
+  border-radius:10px;
+  margin:5px 0;
+}
+
+.hp-fill {
+  width:100%; height:100%;
+  background:red; border-radius:10px;
+  transition: width 0.5s ease;
+}
+
+.char-img {
+  width:200px; max-width:100%;
+  margin-top:10px;
+  transition: transform 0.3s;
+}
+
+.vs {
+  font-size:2rem; font-weight:bold;
+}
+
+/* LOG AZIONI */
+#log-container {
+  display:flex; justify-content:space-between; max-width:1200px; margin:0 auto;
+  gap:10px;
+}
+.log-box {
+  width:48%; height:150px; background:rgba(0,0,0,0.5);
+  border:2px solid crimson; border-radius:10px;
+  overflow-y:auto; padding:10px; font-size:0.9rem;
+}
+
+/* RESPONSIVE */
+@media(max-width:768px) {
+  #battle-arena { flex-direction:column; gap:20px; }
+  .player { width:100%; }
+  .char-img { width:150px; }
+  .vs { display:none; }
+  #log-container { flex-direction:column; gap:10px; }
+}

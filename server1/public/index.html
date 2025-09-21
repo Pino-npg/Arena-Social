@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ΙИFΞЯИΦ ΛRΞNΛ - 1vs1</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="img/favicon.png" type="image/png">
+</head>
+<body>
+  <div id="game-container">
+    <!-- HEADER MINIMALE -->
+    <header>
+      <h1 class="arena-title">1vs1 Battle</h1>
+    </header>
+
+    <!-- GIOCO -->
+    <div id="battle-arena">
+      <div class="player" id="player1">
+        <h3 class="nickname" id="p1-nick">Player 1</h3>
+        <h4 class="char-name" id="p1-char-name">Champion</h4>
+        <div class="hp-bar">
+          <div class="hp-fill" id="p1-hp"></div>
+        </div>
+        <img src="img/placeholder.png" alt="Player 1" class="char-img" id="p1-img">
+      </div>
+
+      <div class="vs">VS</div>
+
+      <div class="player" id="player2">
+        <h3 class="nickname" id="p2-nick">Player 2</h3>
+        <h4 class="char-name" id="p2-char-name">Champion</h4>
+        <div class="hp-bar">
+          <div class="hp-fill" id="p2-hp"></div>
+        </div>
+        <img src="img/placeholder.png" alt="Player 2" class="char-img" id="p2-img">
+      </div>
+    </div>
+
+    <!-- LOG AZIONI -->
+    <div id="log-container">
+      <div id="log-player1" class="log-box"></div>
+      <div id="log-player2" class="log-box"></div>
+    </div>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
