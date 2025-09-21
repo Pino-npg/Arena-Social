@@ -3,7 +3,7 @@ body {
   margin: 0;
   padding: 0;
   font-family: "MedievalSharp", serif;
-  background: url("img/arena.webp") no-repeat center center / cover;
+  background: url("img/Arena.webp") no-repeat center center / cover;
   color: white;
   text-align: center;
 }

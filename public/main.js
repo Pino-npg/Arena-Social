@@ -38,7 +38,7 @@ document.getElementById("close-rules").onclick = ()=>{
 };
 
 // Music toggle
-const music = new Audio("img/1.mp3");
+const music = new Audio("img/8.mp3");
 music.loop = true;
 document.getElementById("music-toggle").onclick = ()=>{
   if(music.paused){
