@@ -4,6 +4,7 @@ const chars = document.querySelectorAll(".char");
 const mode1 = document.getElementById("mode-1vs1");
 const mode2 = document.getElementById("mode-tournament");
 
+// Stato nickname/personaggio
 let nickConfirmed = false;
 let selectedChar = null;
 
@@ -45,32 +46,32 @@ document.getElementById("music-toggle").onclick = ()=>{
   else music.pause();
 };
 
-// Fullscreen + orientamento mobile
+// Fullscreen + landscape su mobile
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const container = document.getElementById("game-container");
 
 fullscreenBtn.addEventListener("click", async () => {
-  if (!document.fullscreenElement) {
-    try {
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  try {
+    if (!document.fullscreenElement) {
       if (container.requestFullscreen) await container.requestFullscreen();
       else if (container.webkitRequestFullscreen) await container.webkitRequestFullscreen();
       else if (container.msRequestFullscreen) await container.msRequestFullscreen();
 
-      // MOBILE: forza landscape
-      if(window.innerWidth < 900 && screen.orientation && screen.orientation.lock){
+      // MOBILE: prova a forzare landscape
+      if (isMobile && screen.orientation && screen.orientation.lock) {
         try { await screen.orientation.lock('landscape'); }
-        catch(e){ console.log("Lock landscape non supportato."); }
+        catch (e) { alert("Ruota il telefono in orizzontale per visualizzare correttamente il quadro."); }
       }
-    } catch(err){
-      alert("Fullscreen non supportato su questo dispositivo.");
-    }
-  } else {
-    if (document.exitFullscreen) await document.exitFullscreen();
-    else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
 
-    // MOBILE: sblocca orientamento
-    if(window.innerWidth < 900 && screen.orientation && screen.orientation.unlock){
-      screen.orientation.unlock();
+    } else {
+      if (document.exitFullscreen) await document.exitFullscreen();
+      else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+
+      if (isMobile && screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock();
+      }
     }
-  }
+  } catch (err) { alert("Fullscreen non supportato su questo dispositivo."); }
 });

@@ -3,7 +3,7 @@ body {
   margin: 0;
   padding: 0;
   font-family: "MedievalSharp", serif;
-  background: url("img/Arena.webp") no-repeat center center / cover;
+  background: #000;
   color: white;
   text-align: center;
 }
@@ -66,9 +66,7 @@ header {
 }
 
 /* Nickname box */
-.nick-box {
-  margin: 20px;
-}
+.nick-box { margin: 20px; }
 
 /* Griglia personaggi */
 .char-grid {
@@ -120,22 +118,25 @@ header {
   text-align: left;
 }
 
-/* MOBILE responsive portrait */
-@media (max-width: 900px) and (orientation: portrait) {
+/* Responsive PC -> MOBILE */
+@media (max-width: 900px) {
   .arena-title { font-size: 2.5rem; }
   .char img { width: 80px; }
 }
 
-/* MOBILE responsive landscape */
+/* Mobile landscape */
 @media (max-width: 900px) and (orientation: landscape) {
   #game-container {
     width: 100vw;
     height: 100vh;
-    overflow-y: auto;
+    overflow-y: hidden;
   }
+
   .char-grid {
     grid-template-columns: repeat(10, 1fr);
     width: 95vw;
+    margin: 10px auto;
   }
-  .char img { width: 60px; }
+
+  .char img { width: 50px; }
 }
