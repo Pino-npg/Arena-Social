@@ -40,8 +40,14 @@ chars.forEach(c => {
 
 // -------------------- MODALITA --------------------
 document.getElementById("mode-1vs1").onclick = () => {
-  if (!selectedChar) return;
-  socket.emit("startGame", { mode: "1vs1", character: selectedChar });
+  if (!selectedChar || !nickConfirmed) return;
+
+  // Salva nickname e personaggio in localStorage
+  localStorage.setItem("selectedNick", nicknameInput.value.trim());
+  localStorage.setItem("selectedChar", selectedChar);
+
+  // Reindirizza alla pagina 1vs1 sul server 1vs1
+  window.location.href = "http://localhost:10001/";
 };
 
 document.getElementById("mode-tournament").onclick = () => {

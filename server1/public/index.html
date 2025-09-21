@@ -1,56 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>ΙИFΞЯИΦ ΛRΞNΛ - 1vs1</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="img/favicon.png" type="image/png">
+<meta charset="UTF-8">
+<title>1vs1 Arena</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="game-container">
-    <!-- HEADER -->
-    <header>
-      <h1 class="arena-title">ΙИFΞЯИΦ ΛRΞNΛ</h1>
-      <div id="fullscreen-btn" class="icon">🔲</div>
-    </header>
+<div id="game-container">
+  <!-- HEADER -->
+  <header>
+    <h1>ΙИFΞЯИΦ ΛRΞNΛ - 1vs1</h1>
+    <div id="fullscreen-btn" class="icon">🔲</div>
+  </header>
 
-    <!-- ARENA 1VS1 -->
-    <div id="arena">
-      <!-- PLAYER 1 -->
-      <div class="player" id="player1">
-        <div class="nick" id="player1-nick">Player1</div>
-        <div class="char-container">
-          <img id="player1-char" src="img/placeholder.png" alt="Player1">
-        </div>
-        <div class="hp-bar">
-          <div class="hp" id="player1-hp"></div>
-        </div>
-        <img class="dice" id="dice-p1" src="img/dice1.png" alt="dice1">
+  <!-- GIOCO -->
+  <div id="arena">
+    <!-- Player 1 -->
+    <div class="player" id="player1">
+      <div class="player-name" id="player1-nick"></div>
+      <div class="hp-bar"><div id="player1-hp" class="hp-fill"></div></div>
+      <div class="char-img">
+        <img id="player1-char" src="img/Beast.png">
       </div>
-
-      <!-- CENTER -->
-      <div class="center-label">1vs1</div>
-
-      <!-- PLAYER 2 -->
-      <div class="player" id="player2">
-        <div class="nick" id="player2-nick">Player2</div>
-        <div class="char-container">
-          <img id="player2-char" src="img/placeholder.png" alt="Player2">
-        </div>
-        <div class="hp-bar">
-          <div class="hp" id="player2-hp"></div>
-        </div>
-        <img class="dice" id="dice-p2" src="img/dice1.png" alt="dice1">
-      </div>
+      <img id="dice-p1" class="dice" src="img/dice1.png">
+      <div class="log" id="log-p1"></div>
     </div>
 
-    <!-- LOG -->
-    <div id="logs">
-      <div class="log" id="log-p1"></div>
+    <div class="vs-text">1vs1</div>
+
+    <!-- Player 2 -->
+    <div class="player" id="player2">
+      <div class="player-name" id="player2-nick"></div>
+      <div class="hp-bar"><div id="player2-hp" class="hp-fill"></div></div>
+      <div class="char-img">
+        <img id="player2-char" src="img/Hero.png">
+      </div>
+      <img id="dice-p2" class="dice" src="img/dice1.png">
       <div class="log" id="log-p2"></div>
     </div>
   </div>
+</div>
 
-  <script type="module" src="main.js"></script>
+<script type="module" src="main.js"></script>
 </body>
 </html>
