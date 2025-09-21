@@ -8,38 +8,46 @@
 </head>
 <body>
   <div id="game-container">
-    <!-- HEADER MINIMALE -->
+    <!-- HEADER -->
     <header>
-      <h1 class="arena-title">1vs1 Battle</h1>
+      <h1 class="arena-title">ΙИFΞЯИΦ ΛRΞNΛ</h1>
+      <div id="fullscreen-btn" class="icon">🔲</div>
     </header>
 
-    <!-- GIOCO -->
-    <div id="battle-arena">
+    <!-- ARENA 1VS1 -->
+    <div id="arena">
+      <!-- PLAYER 1 -->
       <div class="player" id="player1">
-        <h3 class="nickname" id="p1-nick">Player 1</h3>
-        <h4 class="char-name" id="p1-char-name">Champion</h4>
-        <div class="hp-bar">
-          <div class="hp-fill" id="p1-hp"></div>
+        <div class="nick" id="player1-nick">Player1</div>
+        <div class="char-container">
+          <img id="player1-char" src="img/placeholder.png" alt="Player1">
         </div>
-        <img src="img/placeholder.png" alt="Player 1" class="char-img" id="p1-img">
+        <div class="hp-bar">
+          <div class="hp" id="player1-hp"></div>
+        </div>
+        <img class="dice" id="dice-p1" src="img/dice1.png" alt="dice1">
       </div>
 
-      <div class="vs">VS</div>
+      <!-- CENTER -->
+      <div class="center-label">1vs1</div>
 
+      <!-- PLAYER 2 -->
       <div class="player" id="player2">
-        <h3 class="nickname" id="p2-nick">Player 2</h3>
-        <h4 class="char-name" id="p2-char-name">Champion</h4>
-        <div class="hp-bar">
-          <div class="hp-fill" id="p2-hp"></div>
+        <div class="nick" id="player2-nick">Player2</div>
+        <div class="char-container">
+          <img id="player2-char" src="img/placeholder.png" alt="Player2">
         </div>
-        <img src="img/placeholder.png" alt="Player 2" class="char-img" id="p2-img">
+        <div class="hp-bar">
+          <div class="hp" id="player2-hp"></div>
+        </div>
+        <img class="dice" id="dice-p2" src="img/dice1.png" alt="dice1">
       </div>
     </div>
 
-    <!-- LOG AZIONI -->
-    <div id="log-container">
-      <div id="log-player1" class="log-box"></div>
-      <div id="log-player2" class="log-box"></div>
+    <!-- LOG -->
+    <div id="logs">
+      <div class="log" id="log-p1"></div>
+      <div class="log" id="log-p2"></div>
     </div>
   </div>
 
