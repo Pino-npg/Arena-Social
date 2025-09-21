@@ -17,10 +17,17 @@ body.fight {
 }
 
 /* container prende il background del body */
+/* -------- CONTAINER -------- */
 #game-container {
   height: 100%;
   width: 100%;
-  background: inherit;  /* <-- aggiungi questa riga */
+  display: flex;
+  flex-direction: column; /* verticale */
+  align-items: center;    /* orizzontale */
+  justify-content: center; /* verticale */
+  background: inherit;     /* mantiene il background del body */
+  padding: 20px;
+  text-align: center;      /* per testi e titoli */
 }
 
 /* -------- HEADER -------- */
