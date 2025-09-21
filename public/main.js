@@ -41,12 +41,12 @@ chars.forEach(c => {
 // ---------- MODALITA ----------
 document.getElementById("mode-1vs1").onclick = () => {
   if (!selectedChar || !nickConfirmed) return;
-
+  
   localStorage.setItem("selectedNick", nicknameInput.value.trim());
   localStorage.setItem("selectedChar", selectedChar);
 
-  // Vai alla pagina 1vs1
-  window.location.href = "1vs1.html";
+  // Reindirizza alla pagina 1vs1
+  window.location.href = "/1vs1.html";
 };
 
 document.getElementById("mode-tournament").onclick = () => {
