@@ -1,142 +1,64 @@
-/* Reset base */
 body {
-  margin: 0;
-  padding: 0;
+  margin: 0; padding: 0;
   font-family: "MedievalSharp", serif;
-  background: #000;
   color: white;
   text-align: center;
 }
 
-/* Wrapper fullscreen */
 #game-container {
-  width: 100vw;
-  height: 100vh;
-  background: url("img/Arena.webp") no-repeat center center / cover;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  width: 100vw; height: 100vh;
+  background: url("img/Arena.webp") no-repeat center center;
+  background-size: cover;
+  display: flex; flex-direction: column; align-items: center;
   overflow: hidden;
-  color: white;
-  text-align: center;
 }
 
 /* Header */
 header {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  right: 10px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 1rem;
-  z-index: 100;
+  position: fixed; top: 10px; left: 10px; right: 10px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 1rem; z-index: 100;
 }
 
-.icon {
-  font-size: 2rem;
-  margin-left: 10px;
-  cursor: pointer;
-  user-select: none;
-  transition: transform 0.2s;
-}
+.icon { font-size: 2rem; margin-left: 10px; cursor: pointer; user-select: none; transition: transform 0.2s;}
 .icon:hover { transform: scale(1.2); }
 
-/* Titolo */
 .arena-title {
-  font-size: 4rem;
-  margin-top: 80px;
+  font-size: 4rem; margin-top: 80px;
   background: linear-gradient(to right, darkred, crimson, orange);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   text-shadow: 2px 2px 8px black;
 }
 
-.favicon {
-  width: 80px;
-  height: 80px;
-  margin: 10px auto;
-}
+.favicon { width: 80px; height: 80px; margin: 10px auto; }
+.subtitle { font-family: "UnifrakturCook", cursive; font-size: 1.5rem; margin: 10px 0 30px; }
 
-.subtitle {
-  font-family: "UnifrakturCook", cursive;
-  font-size: 1.5rem;
-  margin: 10px 0 30px;
-}
-
-/* Nickname box */
 .nick-box { margin: 20px; }
 
 /* Griglia personaggi */
 .char-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 15px;
-  justify-items: center;
-  margin: 20px auto;
-  max-width: 800px;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px;
+  justify-items: center; margin: 20px auto; max-width: 800px;
 }
-
 .char img {
-  width: 120px;
-  height: auto;
-  border: 3px solid transparent;
-  border-radius: 10px;
-  cursor: pointer;
+  width: 120px; height: auto; border: 3px solid transparent;
+  border-radius: 10px; cursor: pointer;
   transition: transform 0.2s, border 0.3s;
 }
-
 .char img:hover { transform: scale(1.1); }
+.char.selected img { border: 3px solid gold; box-shadow: 0 0 10px gold; }
 
-.char.selected img {
-  border: 3px solid gold;
-  box-shadow: 0 0 10px gold;
-}
-
-/* Mode */
 #mode-box { margin: 20px; }
 
 /* Popup rules */
-#rules-popup {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: rgba(0,0,0,0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-#rules-popup.hidden { display: none; }
+#rules-popup { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center;}
+#rules-popup.hidden { display:none; }
+.rules-content { background:#222; padding:20px; border-radius:10px; width:300px; color:white; text-align:left; }
 
-.rules-content {
-  background: #222;
-  padding: 20px;
-  border-radius: 10px;
-  width: 300px;
-  color: white;
-  text-align: left;
-}
-
-/* Responsive PC -> MOBILE */
-@media (max-width: 900px) {
-  .arena-title { font-size: 2.5rem; }
-  .char img { width: 80px; }
-}
-
-/* Mobile landscape */
-@media (max-width: 900px) and (orientation: landscape) {
-  #game-container {
-    width: 100vw;
-    height: 100vh;
-    overflow-y: hidden;
-  }
-
-  .char-grid {
-    grid-template-columns: repeat(10, 1fr);
-    width: 95vw;
-    margin: 10px auto;
-  }
-
-  .char img { width: 50px; }
+/* Responsive */
+@media (max-width: 900px){
+  #game-container { background-size: contain; background-position: center; }
+  .arena-title { font-size:2.5rem; }
+  .char img { width:60px; }
+  .char-grid { width:95vw; }
 }

@@ -38,40 +38,35 @@ document.getElementById("close-rules").onclick = ()=>{
   document.getElementById("rules-popup").classList.add("hidden");
 };
 
-// Music toggle
+// Music
 const music = new Audio("img/8.mp3");
 music.loop = true;
+
+// Partenza automatica (funziona su Android; iOS richiede tap)
+window.addEventListener("load", () => {
+  music.play().catch(()=>console.log("Interazione necessaria su iOS"));
+});
+
 document.getElementById("music-toggle").onclick = ()=>{
   if(music.paused) music.play();
   else music.pause();
 };
 
-// Fullscreen + landscape su mobile
+// Fullscreen
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const container = document.getElementById("game-container");
 
 fullscreenBtn.addEventListener("click", async () => {
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
   try {
     if (!document.fullscreenElement) {
       if (container.requestFullscreen) await container.requestFullscreen();
       else if (container.webkitRequestFullscreen) await container.webkitRequestFullscreen();
       else if (container.msRequestFullscreen) await container.msRequestFullscreen();
-
-      // MOBILE: prova a forzare landscape
-      if (isMobile && screen.orientation && screen.orientation.lock) {
-        try { await screen.orientation.lock('landscape'); }
-        catch (e) { alert("Ruota il telefono in orizzontale per visualizzare correttamente il quadro."); }
-      }
-
     } else {
       if (document.exitFullscreen) await document.exitFullscreen();
       else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
-
-      if (isMobile && screen.orientation && screen.orientation.unlock) {
-        screen.orientation.unlock();
-      }
     }
-  } catch (err) { alert("Fullscreen non supportato su questo dispositivo."); }
+  } catch (err) {
+    console.log("Fullscreen non supportato su questo dispositivo");
+  }
 });
