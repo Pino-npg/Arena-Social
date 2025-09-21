@@ -31,25 +31,94 @@ header {
   transform: scale(1.2);
 }
 
-/* Responsive titolo */
-h1 {
-  font-size: 3rem;
+/* Titolo */
+.arena-title {
+  font-size: 4rem;
   margin-top: 80px;
+  background: linear-gradient(to right, darkred, crimson, orange);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   text-shadow: 2px 2px 8px black;
+}
+
+.favicon {
+  width: 80px;
+  height: 80px;
+  margin: 10px auto;
 }
 
 .subtitle {
   font-family: "UnifrakturCook", cursive;
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   margin: 10px 0 30px;
+}
+
+/* Nickname box */
+.nick-box {
+  margin: 20px;
+}
+
+/* Griglia personaggi */
+.char-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 15px;
+  justify-items: center;
+  margin: 20px auto;
+  max-width: 800px;
+}
+
+.char img {
+  width: 120px;
+  height: auto;
+  border: 3px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.2s, border 0.3s;
+}
+
+.char img:hover {
+  transform: scale(1.1);
+}
+
+.char.selected img {
+  border: 3px solid gold;
+  box-shadow: 0 0 10px gold;
+}
+
+/* Mode */
+#mode-box {
+  margin: 20px;
+}
+
+/* Popup rules */
+#rules-popup {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#rules-popup.hidden { display: none; }
+
+.rules-content {
+  background: #222;
+  padding: 20px;
+  border-radius: 10px;
+  width: 300px;
+  color: white;
+  text-align: left;
 }
 
 /* Responsive */
 @media (max-width: 600px) {
-  h1 {
-    font-size: 2rem;
+  .arena-title {
+    font-size: 2.5rem;
   }
-  .icon {
-    font-size: 1.6rem;
+  .char img {
+    width: 80px;
   }
 }

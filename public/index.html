@@ -30,17 +30,16 @@
 
   <!-- CHARACTERS -->
   <div id="characters" class="char-grid">
-    <!-- 10 personaggi -->
-    <div class="char" data-char="char1"><img src="img/Beast.png"></div>
-    <div class="char" data-char="char2"><img src="img/Clown.png"></div>
-    <div class="char" data-char="char3"><img src="img/Cyclope.png"></div>
-    <div class="char" data-char="char4"><img src="img/Giant.png"></div>
-    <div class="char" data-char="char5"><img src="img/Hero.png"></div>
-    <div class="char" data-char="char6"><img src="img/Kongo.png"></div>
-    <div class="char" data-char="char7"><img src="img/Pirate.png"></div>
-    <div class="char" data-char="char8"><img src="img/Sailor.png"></div>
-    <div class="char" data-char="char9"><img src="img/Taurus.png"></div>
-    <div class="char" data-char="char10"><img src="img/WereWolf.png"></div>
+    <div class="char" data-char="Beast"><img src="img/Beast.png"></div>
+    <div class="char" data-char="Clown"><img src="img/Clown.png"></div>
+    <div class="char" data-char="Cyclope"><img src="img/Cyclope.png"></div>
+    <div class="char" data-char="Giant"><img src="img/Giant.png"></div>
+    <div class="char" data-char="Hero"><img src="img/Hero.png"></div>
+    <div class="char" data-char="Kongo"><img src="img/Kongo.png"></div>
+    <div class="char" data-char="Pirate"><img src="img/Pirate.png"></div>
+    <div class="char" data-char="Sailor"><img src="img/Sailor.png"></div>
+    <div class="char" data-char="Taurus"><img src="img/Taurus.png"></div>
+    <div class="char" data-char="WereWolf"><img src="img/WereWolf.png"></div>
   </div>
 
   <!-- MODE -->
@@ -64,43 +63,6 @@
     </div>
   </div>
 
-  <script>
-    const nicknameInput = document.getElementById("nickname");
-    const confirmBtn = document.getElementById("confirm-nick");
-    const chars = document.querySelectorAll(".char");
-    const mode1 = document.getElementById("mode-1vs1");
-    const mode2 = document.getElementById("mode-tournament");
-
-    let nickConfirmed = false;
-    let selectedChar = null;
-
-    confirmBtn.onclick = () => {
-      if(nicknameInput.value.trim() !== ""){
-        nickConfirmed = true;
-        confirmBtn.disabled = true;
-        nicknameInput.disabled = true;
-        alert("Nickname confirmed!");
-      }
-    };
-
-    chars.forEach(c=>{
-      c.onclick = ()=>{
-        if(!nickConfirmed) return;
-        chars.forEach(el=>el.classList.remove("selected"));
-        c.classList.add("selected");
-        selectedChar = c.dataset.char;
-        mode1.disabled = false;
-        mode2.disabled = false;
-      };
-    });
-
-    // Rules popup
-    document.getElementById("rules-btn").onclick = ()=>{
-      document.getElementById("rules-popup").classList.remove("hidden");
-    };
-    document.getElementById("close-rules").onclick = ()=>{
-      document.getElementById("rules-popup").classList.add("hidden");
-    };
-  </script>
+  <script src="main.js"></script>
 </body>
 </html>
