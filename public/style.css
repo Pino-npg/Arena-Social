@@ -82,6 +82,7 @@ header {
   grid-template-columns: repeat(5, 1fr);
   gap: 15px;
   margin: 20px 0;
+  justify-items: center;
 }
 
 .char {
@@ -92,13 +93,20 @@ header {
   cursor: pointer;
   background: rgba(0,0,0,0.4);
 }
-.char img { width: 100%; border-radius: 5px; }
+
+.char img {
+  height: 14vh;        /* si adatta all’altezza schermo */
+  width: auto;
+  max-width: 100px;    /* limite massimo */
+  border-radius: 5px;
+}
+
 .char:hover { transform: scale(1.05); }
+
 .char.selected {
   border: 3px solid gold;
   box-shadow: 0 0 15px gold;
 }
-
 /* -------- MODE -------- */
 #mode-box { margin: 20px 0; }
 #mode-box button {
