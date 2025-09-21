@@ -8,18 +8,14 @@ socket.on("onlineCount", (count) => {
 });
 
 // ---------- NICKNAME ----------
-const nicknameInput = document.getElementById("nickname");
-const confirmBtn = document.getElementById("confirm-nick");
-let nickConfirmed = false;
-
 confirmBtn.onclick = () => {
   const nick = nicknameInput.value.trim();
   if (nick !== "") {
     nickConfirmed = true;
     confirmBtn.disabled = true;
     nicknameInput.disabled = true;
-    
     socket.emit("setNickname", nick);
+    // niente alert, così non chiude il fullscreen
   }
 };
 
@@ -75,9 +71,14 @@ const container = document.getElementById("game-container");
 fullscreenBtn.addEventListener("click", async () => {
   if (!document.fullscreenElement) {
     try {
-      if (container.requestFullscreen) await container.requestFullscreen();
-      else if (container.webkitRequestFullscreen) await container.webkitRequestFullscreen();
+      await container.requestFullscreen?.();
+      container.style.height = "100vh";
+      container.style.width = "100vw";
       if (screen.orientation?.lock) await screen.orientation.lock("landscape").catch(()=>{});
     } catch (err) { console.log("Fullscreen error:", err); }
-  } else { if (document.exitFullscreen) await document.exitFullscreen(); }
+  } else {
+    await document.exitFullscreen?.();
+    container.style.height = "100%";
+    container.style.width = "100%";
+  }
 });
