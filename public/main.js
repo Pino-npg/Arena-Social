@@ -4,11 +4,14 @@ const chars = document.querySelectorAll(".char");
 const mode1 = document.getElementById("mode-1vs1");
 const mode2 = document.getElementById("mode-tournament");
 
-// Stato nickname/personaggio
+// Music autoplay
+const music = new Audio("img/8.mp3");
+music.loop = true;
+music.play().catch(()=>{}); // evita errori se autoplay bloccato
+
+// Nickname
 let nickConfirmed = false;
 let selectedChar = null;
-
-// Conferma nickname
 confirmBtn.onclick = () => {
   if(nicknameInput.value.trim() !== ""){
     nickConfirmed = true;
@@ -18,7 +21,7 @@ confirmBtn.onclick = () => {
   }
 };
 
-// Selezione personaggio
+// Personaggi
 chars.forEach(c=>{
   c.onclick = ()=>{
     if(!nickConfirmed) return;
@@ -38,23 +41,16 @@ document.getElementById("close-rules").onclick = ()=>{
   document.getElementById("rules-popup").classList.add("hidden");
 };
 
-// Music
-const music = new Audio("img/8.mp3");
-music.loop = true;
-
-// Partenza automatica (funziona su Android; iOS richiede tap)
-window.addEventListener("load", () => {
-  music.play().catch(()=>console.log("Interazione necessaria su iOS"));
-});
-
+// Music toggle
 document.getElementById("music-toggle").onclick = ()=>{
   if(music.paused) music.play();
   else music.pause();
 };
 
-// Fullscreen
+// Fullscreen ottimizzato mobile
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const container = document.getElementById("game-container");
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 fullscreenBtn.addEventListener("click", async () => {
   try {
@@ -62,11 +58,18 @@ fullscreenBtn.addEventListener("click", async () => {
       if (container.requestFullscreen) await container.requestFullscreen();
       else if (container.webkitRequestFullscreen) await container.webkitRequestFullscreen();
       else if (container.msRequestFullscreen) await container.msRequestFullscreen();
+
+      if (isMobile && screen.orientation && screen.orientation.lock) {
+        try { await screen.orientation.lock("landscape"); } 
+        catch(e) { console.warn("Orientamento non supportato"); }
+      }
+
     } else {
       if (document.exitFullscreen) await document.exitFullscreen();
       else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+      if (isMobile && screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
     }
-  } catch (err) {
-    console.log("Fullscreen non supportato su questo dispositivo");
+  } catch(e) {
+    console.warn("Fullscreen/Orientamento non supportato", e);
   }
 });
