@@ -45,17 +45,32 @@ document.getElementById("music-toggle").onclick = ()=>{
   else music.pause();
 };
 
-// Fullscreen con supporto mobile / Safari
+// Fullscreen + orientamento mobile
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const container = document.getElementById("game-container");
 
 fullscreenBtn.addEventListener("click", async () => {
   if (!document.fullscreenElement) {
-    if (container.requestFullscreen) container.requestFullscreen();
-    else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
-    else if (container.msRequestFullscreen) container.msRequestFullscreen();
+    try {
+      if (container.requestFullscreen) await container.requestFullscreen();
+      else if (container.webkitRequestFullscreen) await container.webkitRequestFullscreen();
+      else if (container.msRequestFullscreen) await container.msRequestFullscreen();
+
+      // MOBILE: forza landscape
+      if(window.innerWidth < 900 && screen.orientation && screen.orientation.lock){
+        try { await screen.orientation.lock('landscape'); }
+        catch(e){ console.log("Lock landscape non supportato."); }
+      }
+    } catch(err){
+      alert("Fullscreen non supportato su questo dispositivo.");
+    }
   } else {
-    if (document.exitFullscreen) document.exitFullscreen();
-    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    if (document.exitFullscreen) await document.exitFullscreen();
+    else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+
+    // MOBILE: sblocca orientamento
+    if(window.innerWidth < 900 && screen.orientation && screen.orientation.unlock){
+      screen.orientation.unlock();
+    }
   }
 });
