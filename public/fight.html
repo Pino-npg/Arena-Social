@@ -1,119 +1,40 @@
-<!-- public/fight.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>1vs1 Fight</title>
-  <link rel="stylesheet" href="style.css"/>
-  <script src="/socket.io/socket.io.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1vs1 Fight</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="fight-container">
-    <h1>⚔️ 1 vs 1 Battle ⚔️</h1>
+  <div id="game-container">
+    <header>
+      <h1 class="arena-title">1vs1 Arena</h1>
+      <button id="fullscreen-btn">Fullscreen</button>
+    </header>
 
-    <div class="arena">
-      <!-- Giocatore 1 -->
+    <div id="battle-area">
       <div class="player" id="player1">
-        <h2 id="p1-name">Player 1</h2>
-        <div class="hp-bar"><div id="p1-hp" class="hp-fill"></div></div>
-        <img id="p1-img" src="img/placeholder.png" alt="Player 1"/>
-        <div id="p1-dice"></div>
+        <div id="player1-nick"></div>
+        <div id="player1-name"></div>
+        <img id="player1-char" src="" alt="player1">
+        <div class="hp-bar"><div id="player1-hp"></div></div>
+        <img id="dice-p1" src="img/dice1.png" alt="dice">
+        <div id="log-p1"></div>
       </div>
 
-      <!-- VS -->
       <div class="vs">VS</div>
 
-      <!-- Giocatore 2 -->
       <div class="player" id="player2">
-        <h2 id="p2-name">Player 2</h2>
-        <div class="hp-bar"><div id="p2-hp" class="hp-fill"></div></div>
-        <img id="p2-img" src="img/placeholder.png" alt="Player 2"/>
-        <div id="p2-dice"></div>
+        <div id="player2-nick"></div>
+        <div id="player2-name"></div>
+        <img id="player2-char" src="" alt="player2">
+        <div class="hp-bar"><div id="player2-hp"></div></div>
+        <img id="dice-p2" src="img/dice1.png" alt="dice">
+        <div id="log-p2"></div>
       </div>
     </div>
-
-    <!-- Log combattimento -->
-    <div id="log" class="log"></div>
-
-    <!-- Risultato -->
-    <div id="game-result" class="result"></div>
-
-    <!-- Pulsante torna home -->
-    <button onclick="window.location.href='/'">🏠 Home</button>
   </div>
-
-  <script>
-    const socket = io();
-
-    // Recupera nick e personaggio salvati dalla home
-    const nick = localStorage.getItem("selectedNick") || "Player";
-    const char = localStorage.getItem("selectedChar") || "default";
-
-    // join stanza 1vs1
-    socket.emit("join1vs1", { nick, char });
-
-    const p1Name = document.getElementById("p1-name");
-    const p2Name = document.getElementById("p2-name");
-    const p1Img = document.getElementById("p1-img");
-    const p2Img = document.getElementById("p2-img");
-    const p1HP = document.getElementById("p1-hp");
-    const p2HP = document.getElementById("p2-hp");
-    const p1Dice = document.getElementById("p1-dice");
-    const p2Dice = document.getElementById("p2-dice");
-    const logDiv = document.getElementById("log");
-    const resultDiv = document.getElementById("game-result");
-
-    let selfId = null;
-
-    socket.on("waiting", (msg) => {
-      logDiv.innerHTML = `<p>${msg}</p>`;
-    });
-
-    socket.on("gameStart", ({ self, opponent }) => {
-      selfId = self.id;
-      p1Name.textContent = self.nick;
-      p1Img.src = `img/${self.char}60.png`;
-      p1HP.style.width = "100%";
-
-      p2Name.textContent = opponent.nick;
-      p2Img.src = `img/${opponent.char}60.png`;
-      p2HP.style.width = "100%";
-
-      logDiv.innerHTML = `<p>⚔️ ${self.nick} vs ${opponent.nick} ⚔️</p>`;
-    });
-
-    socket.on("updateHP", ({ self, opponent, dice }) => {
-      // aggiorna HP bar
-      p1HP.style.width = `${Math.max(0, self)}%`;
-      p2HP.style.width = `${Math.max(0, opponent)}%`;
-
-      // mostra dado
-      if (dice) {
-        if (socket.id === selfId) {
-          p1Dice.innerHTML = `<img src="img/dice${dice}.png" width="40"/>`;
-        } else {
-          p2Dice.innerHTML = `<img src="img/dice${dice}.png" width="40"/>`;
-        }
-      }
-    });
-
-    socket.on("updateCharImg", ({ img, player }) => {
-      if (player === selfId) {
-        p1Img.src = img;
-      } else {
-        p2Img.src = img;
-      }
-    });
-
-    socket.on("log", (msg) => {
-      logDiv.innerHTML += `<p>${msg}</p>`;
-      logDiv.scrollTop = logDiv.scrollHeight;
-    });
-
-    socket.on("gameOver", ({ winner }) => {
-      resultDiv.textContent = `🏆 Winner: ${winner} 🏆`;
-    });
-  </script>
+  <script type="module" src="fight.js"></script>
 </body>
 </html>

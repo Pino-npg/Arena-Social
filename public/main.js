@@ -1,13 +1,13 @@
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
-// -------------------- SOCKET.IO --------------------
-const socket = io();
+// ---------- SOCKET.IO ----------
+const socket = io(); // stesso server principale
 const onlineCounter = document.getElementById("online");
 socket.on("onlineCount", (count) => {
   onlineCounter.textContent = `Online: ${count}`;
 });
 
-// -------------------- NICKNAME --------------------
+// ---------- NICKNAME ----------
 const nicknameInput = document.getElementById("nickname");
 const confirmBtn = document.getElementById("confirm-nick");
 let nickConfirmed = false;
@@ -23,7 +23,7 @@ confirmBtn.onclick = () => {
   }
 };
 
-// -------------------- PERSONAGGI --------------------
+// ---------- PERSONAGGI ----------
 const chars = document.querySelectorAll(".char");
 let selectedChar = null;
 
@@ -38,16 +38,15 @@ chars.forEach(c => {
   };
 });
 
-// -------------------- MODALITA --------------------
+// ---------- MODALITA ----------
 document.getElementById("mode-1vs1").onclick = () => {
   if (!selectedChar || !nickConfirmed) return;
 
-  // Salva nickname e personaggio in localStorage
   localStorage.setItem("selectedNick", nicknameInput.value.trim());
   localStorage.setItem("selectedChar", selectedChar);
 
-  // Reindirizza alla pagina 1vs1 sul server 1vs1
-  window.location.href = "http://localhost:10001/";
+  // Vai alla pagina 1vs1
+  window.location.href = "1vs1.html";
 };
 
 document.getElementById("mode-tournament").onclick = () => {
@@ -55,7 +54,7 @@ document.getElementById("mode-tournament").onclick = () => {
   socket.emit("startGame", { mode: "tournament", character: selectedChar });
 };
 
-// -------------------- RULES POPUP --------------------
+// ---------- RULES POPUP ----------
 document.getElementById("rules-btn").onclick = () => {
   document.getElementById("rules-popup").classList.remove("hidden");
 };
@@ -63,16 +62,13 @@ document.getElementById("close-rules").onclick = () => {
   document.getElementById("rules-popup").classList.add("hidden");
 };
 
-// -------------------- MUSICA AUTOPLAY --------------------
+// ---------- MUSICA ----------
 const music = new Audio("img/8.mp3");
 music.loop = true;
 music.volume = 0.5;
+window.addEventListener("click", () => { if (music.paused) music.play(); }, { once: true });
 
-window.addEventListener("click", () => {
-  if (music.paused) music.play();
-}, { once: true });
-
-// -------------------- FULLSCREEN --------------------
+// ---------- FULLSCREEN ----------
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const container = document.getElementById("game-container");
 
@@ -81,13 +77,7 @@ fullscreenBtn.addEventListener("click", async () => {
     try {
       if (container.requestFullscreen) await container.requestFullscreen();
       else if (container.webkitRequestFullscreen) await container.webkitRequestFullscreen();
-      if (screen.orientation?.lock) {
-        await screen.orientation.lock("landscape").catch(()=>{});
-      }
-    } catch (err) {
-      console.log("Fullscreen error:", err);
-    }
-  } else {
-    if (document.exitFullscreen) await document.exitFullscreen();
-  }
+      if (screen.orientation?.lock) await screen.orientation.lock("landscape").catch(()=>{});
+    } catch (err) { console.log("Fullscreen error:", err); }
+  } else { if (document.exitFullscreen) await document.exitFullscreen(); }
 });
