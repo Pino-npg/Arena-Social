@@ -41,11 +41,8 @@ document.getElementById("close-rules").onclick = ()=>{
 const music = new Audio("img/8.mp3");
 music.loop = true;
 document.getElementById("music-toggle").onclick = ()=>{
-  if(music.paused){
-    music.play();
-  } else {
-    music.pause();
-  }
+  if(music.paused) music.play();
+  else music.pause();
 };
 
 // Fullscreen con supporto mobile / Safari
@@ -54,22 +51,11 @@ const container = document.getElementById("game-container");
 
 fullscreenBtn.addEventListener("click", async () => {
   if (!document.fullscreenElement) {
-    try {
-      if (container.requestFullscreen) {
-        await container.requestFullscreen();
-      } else if (container.webkitRequestFullscreen) { // Safari iOS
-        await container.webkitRequestFullscreen();
-      } else if (container.msRequestFullscreen) { // Edge vecchi
-        await container.msRequestFullscreen();
-      }
-    } catch (err) {
-      alert("Fullscreen non supportato su questo dispositivo.");
-    }
+    if (container.requestFullscreen) container.requestFullscreen();
+    else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
+    else if (container.msRequestFullscreen) container.msRequestFullscreen();
   } else {
-    if (document.exitFullscreen) {
-      await document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) {
-      await document.webkitExitFullscreen();
-    }
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
   }
 });
