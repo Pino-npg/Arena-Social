@@ -1,22 +1,19 @@
 /* -------- RESET -------- */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html, body, #game-container {
+html, body {
   height: 100%;
   background: url("img/Arena.webp") no-repeat center center fixed;
   background-size: cover;
-}
-
-body {
   font-family: 'Cinzel', serif;
   color: #f5f5f5;
   text-align: center;
   overflow-x: hidden;
 }
 
+/* -------- HOME -------- */
 #game-container { padding: 20px; }
 
-/* -------- HEADER -------- */
 header {
   display: flex;
   justify-content: space-between;
@@ -36,7 +33,6 @@ header {
 }
 .icon:hover { transform: scale(1.2); color: gold; }
 
-/* -------- TITOLI -------- */
 .arena-title {
   font-size: 3rem;
   margin: 10px 0;
@@ -46,7 +42,6 @@ header {
   text-shadow: 2px 2px 8px black;
   animation: flame 2s infinite alternate;
 }
-
 @keyframes flame {
   from { text-shadow: 0 0 10px #ff3300, 0 0 20px #ff6600; }
   to   { text-shadow: 0 0 15px #ff6600, 0 0 25px #ffff00; }
@@ -64,7 +59,7 @@ header {
   color: black;
 }
 
-/* -------- NICKNAME -------- */
+/* Nickname */
 .nick-box { margin: 20px 0; }
 #nickname {
   padding: 8px; border-radius: 5px; border: none; font-size: 1rem;
@@ -76,35 +71,30 @@ header {
 }
 #confirm-nick:hover { background: darkred; }
 
-/* -------- PERSONAGGI -------- */
+/* Personaggi */
 .char-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 10px;
   margin: 20px auto;
-  max-width: 900px;   /* raccolto al centro */
+  max-width: 900px;
 }
-
 .char img {
   width: 85%;
   aspect-ratio: 1/1;
   object-fit: contain;
   border-radius: 5px;
 }
-
-/* 🔽 Ridimensionamento automatico in fullscreen PC */
 @media (min-width: 1200px) and (min-height: 800px) {
-  .char img {
-    width: 75%;   /* più piccoli se serve spazio */
-  }
+  .char img { width: 75%; }
 }
 .char:hover { transform: scale(1.05); }
-
 .char.selected {
   border: 3px solid gold;
   box-shadow: 0 0 15px gold;
 }
-/* -------- MODE -------- */
+
+/* Modalità */
 #mode-box { margin: 20px 0; }
 #mode-box button {
   margin: 5px; padding: 10px 20px; font-size: 1rem;
@@ -114,7 +104,7 @@ header {
 #mode-box button:hover:enabled { background: #666; }
 #mode-box button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* -------- RULES POPUP -------- */
+/* Rules popup */
 #rules-popup {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.7);
@@ -132,8 +122,94 @@ header {
 }
 .rules-content button:hover { background: darkred; }
 
+/* -------- FIGHT 1vs1 -------- */
+.fight-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.arena {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  margin: 30px 0;
+  gap: 40px;
+}
+
+.player {
+  width: 40%;
+  text-align: center;
+}
+
+.player img {
+  width: 80%;
+  max-width: 250px;
+  margin: 10px 0;
+}
+
+.hp-bar {
+  width: 100%;
+  height: 20px;
+  background: #333;
+  border: 2px solid #fff;
+  border-radius: 5px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.hp-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #00ff00, #ff0000);
+  transition: width 0.5s ease-in-out;
+}
+
+.vs {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: gold;
+  text-shadow: 2px 2px 5px black;
+}
+
+#log {
+  background: rgba(0,0,0,0.6);
+  max-height: 200px;
+  overflow-y: auto;
+  border: 2px solid #555;
+  border-radius: 10px;
+  padding: 10px;
+  margin: 20px auto;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+#game-result {
+  font-size: 1.5rem;
+  margin: 20px 0;
+  color: gold;
+  text-shadow: 2px 2px 10px black;
+}
+
+button {
+  padding: 10px 20px;
+  font-size: 1rem;
+  background: crimson;
+  border: none;
+  border-radius: 5px;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+button:hover { background: darkred; }
+
 /* -------- RESPONSIVE -------- */
 @media (max-width: 768px) {
+  .arena {
+    flex-direction: column;
+    gap: 20px;
+  }
+  .player { width: 80%; }
   .arena-title { font-size: 2rem; }
   .char-grid { grid-template-columns: repeat(2, 1fr); }
 }
