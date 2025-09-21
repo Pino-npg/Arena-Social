@@ -1,71 +1,106 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>IИFΞЯИФ ΛRΞNΛ</title>
-<link rel="stylesheet" href="style.css">
-<link rel="icon" type="image/png" href="img/favicon.png">
-<script type="module" src="main.js" defer></script>
+  <meta charset="UTF-8">
+  <title>ΙИFΞЯИФ ΛRΞNΛ</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="img/favicon.png" type="image/png">
 </head>
 <body>
+ <!-- HEADER -->
+<header>
+  <div id="rules-btn" class="icon">📜</div>
+  <div id="online-box">
+    <span id="online">Online: 0</span>
+    <div id="music-toggle" class="icon">🎧</div>
+    <div id="fullscreen-btn" class="icon">🔲</div>
+  </div>
+</header>
 
-  <!-- Barra superiore -->
-  <div class="top-bar">
-    <div id="rules">📜</div>
-    <div id="online">
-      Online: <span id="onlineCounter">0</span>
-      <button id="muteBtn">🔊</button>
-    </div>
+  <!-- TITLE -->
+  <h1 class="arena-title">ΙИFΞЯИФ ΛRΞNΛ</h1>
+  <img class="favicon" src="img/favicon.png" alt="favicon">
+  <h2 class="subtitle">Abandon all hope, ye who enter here</h2>
+
+  <!-- NICKNAME -->
+  <div class="nick-box">
+    <input type="text" id="nickname" placeholder="Nickname">
+    <button id="confirm-nick">Confirm</button>
   </div>
 
-  <!-- Overlay Rules -->
-  <div id="rulesOverlay" class="hidden">
-    <div id="rulesContent">
+  <!-- CHARACTERS -->
+  <div id="characters" class="char-grid">
+    <!-- 10 personaggi -->
+    <div class="char" data-char="char1"><img src="img/Beast.png"></div>
+    <div class="char" data-char="char2"><img src="img/Clown.png"></div>
+    <div class="char" data-char="char3"><img src="img/Cyclope.png"></div>
+    <div class="char" data-char="char4"><img src="img/Giant.png"></div>
+    <div class="char" data-char="char5"><img src="img/Hero.png"></div>
+    <div class="char" data-char="char6"><img src="img/Kongo.png"></div>
+    <div class="char" data-char="char7"><img src="img/Pirate.png"></div>
+    <div class="char" data-char="char8"><img src="img/Sailor.png"></div>
+    <div class="char" data-char="char9"><img src="img/Taurus.png"></div>
+    <div class="char" data-char="char10"><img src="img/WereWolf.png"></div>
+  </div>
+
+  <!-- MODE -->
+  <div id="mode-box">
+    <h3>MODE</h3>
+    <button id="mode-1vs1" disabled>1vs1</button>
+    <button id="mode-tournament" disabled>Tournament 8</button>
+  </div>
+
+  <!-- RULES POPUP -->
+  <div id="rules-popup" class="hidden">
+    <div class="rules-content">
       <h2>Rules</h2>
-      <p><strong>DEMO (free)</strong><br>
-      Just pure fun with no bonuses, have fun with your favorite character.<br>
-      Choose your Nickname and character and click on 1vs1 mode or Tournament.<br>
-      The game starts when the second player clicks on demo mode.<br>
-      Initiative dice roll decides who strikes first.<br>
-      Each player has 80 health points and deals 1D8 damage.<br>
-      If a player deals 8 damage, the opponent is stunned one turn<br>
-      and subtracts 1 damage from their next attack.</p>
+      <p>
+        Each player has 80 health points and deals 1D8 damage.<br>
+        An initiative die roll determines who will be the first to strike.<br>
+        On 8 damage the opponent is stunned and deals -1 on the next turn.<br>
+        Have fun with your favorite character.
+      </p>
+      <button id="close-rules">Close</button>
     </div>
   </div>
 
-  <!-- Titolo centrale -->
-  <h1 class="main-title">IИFΞЯИФ ΛRΞNΛ</h1>
+  <script>
+    const nicknameInput = document.getElementById("nickname");
+    const confirmBtn = document.getElementById("confirm-nick");
+    const chars = document.querySelectorAll(".char");
+    const mode1 = document.getElementById("mode-1vs1");
+    const mode2 = document.getElementById("mode-tournament");
 
-  <!-- Logo / favicon grande -->
-  <div class="logo">
-    <img src="img/favicon.png" alt="Logo">
-  </div>
+    let nickConfirmed = false;
+    let selectedChar = null;
 
-  <!-- Nickname -->
-  <div class="nickname-box">
-    <input type="text" id="nicknameInput" placeholder="Insert nickname">
-    <button id="nicknameBtn">OK</button>
-  </div>
+    confirmBtn.onclick = () => {
+      if(nicknameInput.value.trim() !== ""){
+        nickConfirmed = true;
+        confirmBtn.disabled = true;
+        nicknameInput.disabled = true;
+        alert("Nickname confirmed!");
+      }
+    };
 
-  <!-- Personaggi -->
-  <div class="characters-selection">
-    <img class="champ" src="img/Beast.png" data-name="Beast">
-    <img class="champ" src="img/Clown.png" data-name="Clown">
-    <img class="champ" src="img/Cyclope.png" data-name="Cyclope">
-    <img class="champ" src="img/Giant.png" data-name="Giant">
-    <img class="champ" src="img/Hero.png" data-name="Hero">
-    <img class="champ" src="img/Kongo.png" data-name="Kongo">
-    <img class="champ" src="img/Pirate.png" data-name="Pirate">
-    <img class="champ" src="img/Sailor.png" data-name="Sailor">
-    <img class="champ" src="img/Taurus.png" data-name="Taurus">
-    <img class="champ" src="img/WereWolf.png" data-name="WereWolf">
-  </div>
+    chars.forEach(c=>{
+      c.onclick = ()=>{
+        if(!nickConfirmed) return;
+        chars.forEach(el=>el.classList.remove("selected"));
+        c.classList.add("selected");
+        selectedChar = c.dataset.char;
+        mode1.disabled = false;
+        mode2.disabled = false;
+      };
+    });
 
-  <!-- Bottoni -->
-  <div class="mode-buttons">
-    <button id="btn1v1">1vs1</button>
-    <button id="btnTournament">Tournament</button>
-  </div>
-
+    // Rules popup
+    document.getElementById("rules-btn").onclick = ()=>{
+      document.getElementById("rules-popup").classList.remove("hidden");
+    };
+    document.getElementById("close-rules").onclick = ()=>{
+      document.getElementById("rules-popup").classList.add("hidden");
+    };
+  </script>
 </body>
 </html>

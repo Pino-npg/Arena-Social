@@ -1,170 +1,55 @@
+/* Reset base */
 body {
   margin: 0;
   padding: 0;
-  background: url('img/Arena.png') center/cover no-repeat;
-  font-family: 'Segoe UI', Arial, sans-serif;
+  font-family: "MedievalSharp", serif;
+  background: url("img/arena.webp") no-repeat center center / cover;
   color: white;
   text-align: center;
-  min-height: 100vh;
 }
 
-/* Barra superiore */
-.top-bar {
+/* Header con icone */
+header {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  right: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 20px;
-  font-size: 18px;
-  color: #ffd700;
+  font-size: 1rem;
 }
 
-/* Titolo centrale */
-.main-title {
-  font-size: 64px;
-  margin: 20px 0;
-  color: #ff3333;
-  text-shadow: 0 0 10px #ff0000, 0 0 20px #ff3333, 0 0 40px #ff0000;
-  letter-spacing: 4px;
-}
-
-/* Logo */
-.logo img {
-  margin: 10px auto;
-  width: 120px;
-  height: 120px;
-}
-
-/* Nickname */
-.nickname-box {
-  margin: 20px;
-}
-
-.nickname-box input {
-  padding: 10px;
-  font-size: 18px;
-}
-
-.nickname-box button {
-  padding: 10px 20px;
-  font-size: 18px;
+.icon {
+  font-size: 2rem;
   margin-left: 10px;
   cursor: pointer;
+  user-select: none;
+  transition: transform 0.2s;
+}
+.icon:hover {
+  transform: scale(1.2);
 }
 
-/* Selezione personaggi */
-.characters-selection {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 15px;
-  margin: 20px;
+/* Responsive titolo */
+h1 {
+  font-size: 3rem;
+  margin-top: 80px;
+  text-shadow: 2px 2px 8px black;
 }
 
-.characters-selection img {
-  width: 100px;
-  height: 100px;
-  border: 2px solid #444;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: transform 0.2s, border 0.2s;
-}
-
-.characters-selection img:hover {
-  transform: scale(1.1);
-  border-color: #ffd700;
-}
-
-.characters-selection img.selected {
-  border-color: #ff3333;
-  box-shadow: 0 0 10px #ff0000;
-}
-
-/* Bottoni */
-.mode-buttons {
-  margin: 30px;
-}
-
-.mode-buttons button {
-  padding: 15px 30px;
-  margin: 0 10px;
-  font-size: 20px;
-  cursor: pointer;
-}
-
-#muteBtn {
-  margin-left: 10px;
-  padding: 2px 8px;
-  font-size: 16px;
-  cursor: pointer;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid #ffd700;
-  border-radius: 5px;
-  color: #ffd700;
-  transition: 0.2s;
-}
-
-#muteBtn:hover {
-  background: rgba(255,255,255,0.3);
-}
-
-/* Overlay rules */
-#rulesOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-#rulesOverlay.hidden {
-  display: none;
-}
-
-#rulesContent {
-  background: #222;
-  color: #fff;
-  padding: 30px;
-  border-radius: 15px;
-  max-width: 700px;   /* più largo */
-  text-align: left;
-  line-height: 1.5;
-  font-size: 1.1rem;
-  position: relative;
-}
-
-#closeRules {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: transparent;
-  border: none;
-  font-size: 20px;
-  color: #fff;
-  cursor: pointer;
+.subtitle {
+  font-family: "UnifrakturCook", cursive;
+  font-size: 1.2rem;
+  margin: 10px 0 30px;
 }
 
 /* Responsive */
-@media (max-width: 768px) {
-  .main-title {
-    font-size: 40px;
+@media (max-width: 600px) {
+  h1 {
+    font-size: 2rem;
   }
-
-  #muteBtn {
-    font-size: 14px;
-    padding: 2px 6px;
-  }
-  
-  .characters-selection img {
-    width: 70px;
-    height: 70px;
-  }
-
-  .mode-buttons button {
-    display: block;
-    margin: 10px auto;
-    width: 80%;
-    max-width: 200px;
+  .icon {
+    font-size: 1.6rem;
   }
 }
