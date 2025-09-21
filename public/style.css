@@ -1,121 +1,204 @@
-/* Reset base */
-body, html {
+/* -------- RESET -------- */
+* {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%;
-  font-family: "MedievalSharp", serif;
-  color: white;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Cinzel', serif;
+  background: url("img/background.jpg") no-repeat center center fixed;
+  background-size: cover;
+  color: #f5f5f5;
+  text-align: center;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 #game-container {
-  width: 100vw;
-  height: 100vh;
-  background: url("img/Arena.webp") no-repeat center center / cover;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  overflow: hidden;
-  text-align: center;
+  padding: 20px;
 }
 
-/* Header */
+/* -------- HEADER -------- */
 header {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  right: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 1rem;
-  z-index: 100;
+}
+
+#online-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .icon {
-  font-size: 2rem;
-  margin-left: 10px;
   cursor: pointer;
-  user-select: none;
-  transition: transform 0.2s;
+  font-size: 1.5rem;
+  transition: transform 0.2s, color 0.2s;
 }
-.icon:hover { transform: scale(1.2); }
 
-/* Titolo */
+.icon:hover {
+  transform: scale(1.2);
+  color: gold;
+}
+
+/* -------- TITOLI -------- */
 .arena-title {
-  font-size: 4rem;
-  margin-top: 80px;
-  background: linear-gradient(to right, darkred, crimson, orange);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  text-shadow: 2px 2px 8px black;
+  font-size: 3rem;
+  margin: 10px 0;
+  color: #ff4444;
+  text-shadow: 2px 2px 6px black;
 }
 
 .favicon {
-  width: 80px;
-  height: 80px;
+  width: 64px;
   margin: 10px auto;
 }
 
 .subtitle {
-  font-family: "UnifrakturCook", cursive;
-  font-size: 1.5rem;
-  margin: 10px 0 30px;
+  font-size: 1.2rem;
+  margin-bottom: 20px;
+  font-style: italic;
+  color: #ddd;
 }
 
-/* Nickname */
-.nick-box { margin: 20px; }
+/* -------- NICKNAME -------- */
+.nick-box {
+  margin: 20px 0;
+}
 
-/* Personaggi */
+#nickname {
+  padding: 8px;
+  border-radius: 5px;
+  border: none;
+  font-size: 1rem;
+}
+
+#confirm-nick {
+  margin-left: 10px;
+  padding: 8px 15px;
+  background: crimson;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#confirm-nick:hover {
+  background: darkred;
+}
+
+/* -------- PERSONAGGI -------- */
 .char-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   gap: 15px;
-  justify-items: center;
-  margin: 20px auto;
-  max-width: 800px;
+  margin: 20px 0;
+}
+
+.char {
+  border: 3px solid transparent;
+  border-radius: 10px;
+  padding: 5px;
+  transition: border 0.2s, transform 0.2s;
+  cursor: pointer;
+  background: rgba(0,0,0,0.4);
 }
 
 .char img {
-  width: 120px;
-  height: auto;
-  border: 3px solid transparent;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: transform 0.2s, border 0.3s;
+  width: 100%;
+  border-radius: 5px;
 }
-.char img:hover { transform: scale(1.1); }
-.char.selected img {
+
+.char:hover {
+  transform: scale(1.05);
+}
+
+.char.selected {
   border: 3px solid gold;
-  box-shadow: 0 0 10px gold;
+  box-shadow: 0 0 15px gold;
 }
 
-/* Mode */
-#mode-box { margin: 20px; }
+/* -------- MODE -------- */
+#mode-box {
+  margin: 20px 0;
+}
 
-/* Rules popup */
+#mode-box button {
+  margin: 5px;
+  padding: 10px 20px;
+  font-size: 1rem;
+  border-radius: 5px;
+  border: none;
+  background: #444;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#mode-box button:hover:enabled {
+  background: #666;
+}
+
+#mode-box button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* -------- RULES POPUP -------- */
 #rules-popup {
   position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(0,0,0,0.7);
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
 }
-#rules-popup.hidden { display: none; }
+
+#rules-popup.hidden {
+  display: none;
+}
 
 .rules-content {
   background: #222;
   padding: 20px;
   border-radius: 10px;
-  width: 300px;
-  color: white;
-  text-align: left;
+  border: 2px solid crimson;
+  max-width: 500px;
+  color: #eee;
 }
 
-/* Responsive */
-@media (max-width: 600px) {
-  .arena-title { font-size: 2.5rem; }
-  .char img { width: 80px; }
+.rules-content h2 {
+  margin-bottom: 10px;
+  color: gold;
+}
+
+.rules-content button {
+  margin-top: 15px;
+  padding: 8px 15px;
+  border: none;
+  background: crimson;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.rules-content button:hover {
+  background: darkred;
+}
+
+/* -------- RESPONSIVE -------- */
+@media (max-width: 768px) {
+  .arena-title {
+    font-size: 2rem;
+  }
+  .char-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }

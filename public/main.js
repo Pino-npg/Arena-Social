@@ -1,9 +1,7 @@
+import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
+
 // -------------------- SOCKET.IO --------------------
-import { io } from "socket.io-client";
-
 const socket = io();
-
-// Aggiorna il contatore nella pagina
 const onlineCounter = document.getElementById("online");
 socket.on("onlineCount", (count) => {
   onlineCounter.textContent = `Online: ${count}`;
@@ -21,7 +19,6 @@ confirmBtn.onclick = () => {
     confirmBtn.disabled = true;
     nicknameInput.disabled = true;
     alert(`Nickname confirmed: ${nick}`);
-    // puoi inviare al server il nick
     socket.emit("setNickname", nick);
   }
 };
@@ -45,13 +42,11 @@ chars.forEach(c => {
 document.getElementById("mode-1vs1").onclick = () => {
   if (!selectedChar) return;
   socket.emit("startGame", { mode: "1vs1", character: selectedChar });
-  alert("1vs1 selected!");
 };
 
 document.getElementById("mode-tournament").onclick = () => {
   if (!selectedChar) return;
   socket.emit("startGame", { mode: "tournament", character: selectedChar });
-  alert("Tournament selected!");
 };
 
 // -------------------- RULES POPUP --------------------
@@ -67,42 +62,26 @@ const music = new Audio("img/8.mp3");
 music.loop = true;
 music.volume = 0.5;
 
-const playMusic = async () => {
-  try { await music.play(); } 
-  catch(e) { console.log("Autoplay music blocked"); }
-};
-window.addEventListener("load", playMusic);
-
-document.getElementById("music-toggle").onclick = () => {
+window.addEventListener("click", () => {
   if (music.paused) music.play();
-  else music.pause();
-};
+}, { once: true });
 
-// -------------------- FULLSCREEN MOBILE/PC --------------------
+// -------------------- FULLSCREEN --------------------
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const container = document.getElementById("game-container");
 
 fullscreenBtn.addEventListener("click", async () => {
   if (!document.fullscreenElement) {
     try {
-      // Safari/Chrome mobile
       if (container.requestFullscreen) await container.requestFullscreen();
       else if (container.webkitRequestFullscreen) await container.webkitRequestFullscreen();
-      else if (container.msRequestFullscreen) await container.msRequestFullscreen();
-
-      // Blocca orientamento su landscape se supportato
-      if (screen.orientation && screen.orientation.lock) {
-        try { await screen.orientation.lock("landscape"); } 
-        catch(e) { console.log("Orientation lock not supported"); }
+      if (screen.orientation?.lock) {
+        await screen.orientation.lock("landscape").catch(()=>{});
       }
-
     } catch (err) {
-      alert("Fullscreen non supportato su questo dispositivo.");
+      console.log("Fullscreen error:", err);
     }
   } else {
     if (document.exitFullscreen) await document.exitFullscreen();
-    else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
-    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } 
-    catch(e) {}
   }
 });
