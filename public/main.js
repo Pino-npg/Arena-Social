@@ -48,11 +48,28 @@ document.getElementById("music-toggle").onclick = ()=>{
   }
 };
 
-// Fullscreen
-document.getElementById("fullscreen-btn").onclick = ()=>{
+// Fullscreen con supporto mobile / Safari
+const fullscreenBtn = document.getElementById("fullscreen-btn");
+const container = document.getElementById("game-container");
+
+fullscreenBtn.addEventListener("click", async () => {
   if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen();
+    try {
+      if (container.requestFullscreen) {
+        await container.requestFullscreen();
+      } else if (container.webkitRequestFullscreen) { // Safari iOS
+        await container.webkitRequestFullscreen();
+      } else if (container.msRequestFullscreen) { // Edge vecchi
+        await container.msRequestFullscreen();
+      }
+    } catch (err) {
+      alert("Fullscreen non supportato su questo dispositivo.");
+    }
   } else {
-    document.exitFullscreen();
+    if (document.exitFullscreen) {
+      await document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      await document.webkitExitFullscreen();
+    }
   }
-};
+});
