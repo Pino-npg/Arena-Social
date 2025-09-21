@@ -80,27 +80,24 @@ header {
 .char-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 15px;
-  margin: 20px 0;
-  justify-items: center;
-}
-
-.char {
-  border: 3px solid transparent;
-  border-radius: 10px;
-  padding: 5px;
-  transition: border 0.2s, transform 0.2s;
-  cursor: pointer;
-  background: rgba(0,0,0,0.4);
+  gap: 10px;
+  margin: 20px auto;
+  max-width: 900px;   /* raccolto al centro */
 }
 
 .char img {
-  height: 14vh;        /* si adatta all’altezza schermo */
-  width: auto;
-  max-width: 100px;    /* limite massimo */
+  width: 85%;
+  aspect-ratio: 1/1;
+  object-fit: contain;
   border-radius: 5px;
 }
 
+/* 🔽 Ridimensionamento automatico in fullscreen PC */
+@media (min-width: 1200px) and (min-height: 800px) {
+  .char img {
+    width: 75%;   /* più piccoli se serve spazio */
+  }
+}
 .char:hover { transform: scale(1.05); }
 
 .char.selected {
