@@ -24,17 +24,22 @@ html, body, #game-container {
 header {
   width: 100%;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
+  position: relative;
 }
 
 .arena-title {
   font-size: 3rem;
   color: white;
   text-shadow: 2px 2px 8px black;
+  text-align: center;
 }
 
 #fullscreen-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
   font-size: 2rem;
   cursor: pointer;
   color: white;
@@ -45,94 +50,95 @@ header {
 
 /* -------- BATTLE AREA -------- */
 #battle-area {
-    display: flex;
-    justify-content: space-between;
-    width: 90%;
-    max-width: 1200px;
-    align-items: flex-end;
-    position: relative;
-    margin-top: 50px;
-  }
-  
-  /* -------- PLAYER -------- */
-  .player {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 40%; /* leggermente più stretto per lasciare spazio a VS e log */
-    position: relative;
-  }
-  
-  .player img {
-    width: 140%; /* 40% più grande */
-    max-width: 380px;
-    object-fit: contain;
-  }
-  
-  .hp-bar {
-    width: 80%;
-    height: 20px;
-    background: #444;
-    border: 2px solid #222;
-    border-radius: 5px;
-    overflow: hidden;
-    margin-top: 10px;
-  }
-  
-  .hp {
-    height: 100%;
-    width: 100%;
-    background: linear-gradient(90deg, green, lime);
-    transition: width 0.3s ease-in-out;
-  }
-  
-  /* -------- DADI -------- */
-  .dice {
-    width: 30px; /* più piccolo del 40% */
-    margin: 10px auto;
-  }
-  
-  /* -------- VS -------- */
-  .vs {
-    font-size: 3rem;
-    font-weight: bold;
-    color: white;
-    align-self: center;
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    top: 40%;
-    text-shadow: 2px 2px 6px black;
-  }
-  
-  /* -------- CHAT & STORICO -------- */
-  #battle-log {
-    display: flex;
-    justify-content: space-between;
-    width: 90%;
-    margin-top: 20px;
-    gap: 20px;
-  }
-  
-  .chat-box, #event-box {
-    width: 48%;
-  }
-  
-  #chat-messages, #event-messages {
-    background: rgba(0,0,0,0.6);
-    padding: 10px;
-    height: 200px;
-    overflow-y: auto;
-    color: white;
-    border-radius: 5px;
-    margin-bottom: 5px;
-  }
-  
-  #chat-input {
-    width: 100%;
-    padding: 8px;
-    border-radius: 5px;
-    border: none;
-    background: rgba(255,255,255,0.1);
-    color: white;
-  }
+  display: flex;
+  justify-content: space-between;
+  width: 90%;
+  max-width: 1200px;
+  align-items: flex-end;
+  position: relative;
+  margin-top: 50px;
+}
+
+/* -------- PLAYER -------- */
+.player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 40%;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.player img {
+  width: 140%;
+  max-width: 380px;
+  object-fit: contain;
+  margin: 0 auto;
+}
+
+.hp-bar {
+  width: 80%;
+  height: 20px;
+  background: #444;
+  border: 2px solid #222;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.hp {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, green, lime);
+  transition: width 0.3s ease-in-out;
+}
+
+/* -------- DADI -------- */
+.dice {
+  width: 30px;
+  margin: 10px auto;
+}
+
+/* -------- VS -------- */
+.vs {
+  font-size: 3rem;
+  font-weight: bold;
+  color: white;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 40%;
+  text-shadow: 2px 2px 6px black;
+}
+
+/* -------- CHAT & STORICO -------- */
+#battle-log {
+  display: flex;
+  justify-content: space-between;
+  width: 90%;
+  margin-top: 20px;
+  gap: 20px;
+}
+
+.chat-box, #event-box {
+  width: 48%;
+}
+
+#chat-messages, #event-messages {
+  background: rgba(0,0,0,0.6);
+  padding: 10px;
+  height: 200px;
+  overflow-y: auto;
+  color: white;
+  border-radius: 5px;
+  margin-bottom: 5px;
+}
+
+#chat-input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 5px;
+  border: none;
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
