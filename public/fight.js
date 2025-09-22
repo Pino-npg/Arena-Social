@@ -55,6 +55,9 @@ const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
 socket.emit("join1vs1", { nick, char });
 
+// ---------- GESTIONE STUN ----------
+let stunned = { p1: false, p2: false };
+
 // ---------- SOCKET EVENTS ----------
 socket.on("onlineCount", count => {
   onlineCountDisplay.textContent = `Online: ${count}`;
@@ -97,20 +100,38 @@ function updateGame(game) {
   player2HpBar.style.width = `${Math.max(game.player2.hp,0)}%`;
 
   // Dadi e personaggi
-  if(game.player1.dice) showDice(0, game.player1.dice);
-  if(game.player2.dice) showDice(1, game.player2.dice);
+  if(game.player1.dice) handleDice(0, game);
+  if(game.player2.dice) handleDice(1, game);
+
   updateCharacterImage(game.player1, 0);
   updateCharacterImage(game.player2, 1);
+}
 
-  // Log eventi
-  if(game.player1.dice) {
-    const type = game.player1.dice === 8 ? "crit" : "damage";
-    logEvent(`${game.player1.nick} rolls ${game.player1.dice} and deals ${game.player1.dmg} damage!`, type);
+function handleDice(playerIndex, game) {
+  const player = playerIndex === 0 ? game.player1 : game.player2;
+  const opponent = playerIndex === 0 ? game.player2 : game.player1;
+
+  let finalDmg = player.dmg;
+  let type = "damage";
+
+  // Se era stunned infligge dado-1
+  if ((playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2)) {
+    finalDmg = Math.max(0, player.dice - 1);
+    logEvent(`${player.nick} is stunned and only deals ${finalDmg} damage!`, "dice");
+    if (playerIndex === 0) stunned.p1 = false; else stunned.p2 = false;
+  } 
+  else if (player.dice === 8) {
+    type = "crit";
+    logEvent(`${player.nick} CRIT! ${player.dmg} damage dealt ⚡`, type);
+    // Stunna l'avversario
+    if (playerIndex === 0) stunned.p2 = true; else stunned.p1 = true;
+  } 
+  else {
+    logEvent(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage!`, type);
   }
-  if(game.player2.dice) {
-    const type = game.player2.dice === 8 ? "crit" : "damage";
-    logEvent(`${game.player2.nick} rolls ${game.player2.dice} and deals ${game.player2.dmg} damage!`, type);
-  }
+
+  // Mostra il dado
+  showDice(playerIndex, player.dice);
 }
 
 function logEvent(msg, type="normal") {
@@ -150,3 +171,6 @@ function playWinnerMusic(winnerChar) {
   winnerMusic.src = `img/${winnerChar}.mp3`;
   winnerMusic.play().catch(()=>{});
 }
+
+// ---------- FIX SCROLL MOBILE ----------
+document.body.style.overflowY = "auto";

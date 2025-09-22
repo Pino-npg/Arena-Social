@@ -25,26 +25,34 @@ async function nextTurn(game, attackerIndex) {
   const defender = game.players[defenderIndex];
 
   let damage = rollDice();
-  if (defender.stunned) {
+
+  // Stun riduce danno di 1
+  if (attacker.stunned) {
     damage = Math.max(1, damage - 1);
-    defender.stunned = false;
+    attacker.stunned = false; // rimuovi stun dopo effetto
   }
 
-  if (damage === 8) defender.stunned = true;
+  // Se il dado è 8, il difensore rimane stunned
+  if (damage === 8) {
+    defender.stunned = true;
+  }
+
   defender.hp = Math.max(0, defender.hp - damage);
 
+  // Salva info dadi e danno
   attacker.dice = damage;
   attacker.dmg = damage;
   defender.dice = 0;
   defender.dmg = 0;
 
+  // Invio aggiornamenti
   for (const p of game.players) {
     const p1 = game.players.find(pl => pl.id === p.id);
     const p2 = game.players.find(pl => pl.id !== p.id);
     io.to(p.id).emit("1vs1Update", { player1: p1, player2: p2 });
+    io.to(p.id).emit("log", `${attacker.nick} rolls ${damage} and deals ${damage} damage!`);
   }
 
-  // Controllo vincitore
   if (defender.hp === 0) {
     for (const p of game.players) {
       io.to(p.id).emit("gameOver", { winnerNick: attacker.nick, winnerChar: attacker.char });
