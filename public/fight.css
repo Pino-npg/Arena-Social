@@ -51,15 +51,22 @@ header {
 /* -------- MAIN AREA (CHAT, BATTLE, EVENTI) -------- */
 #main-area {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  flex-direction: column; /* battle sopra, chat/events sotto */
+  align-items: center;
   width: 100%;
   flex-grow: 1;
+  gap: 20px; /* spazio tra battle e bottom-area */
 }
 
-/* Colonne laterali */
+#bottom-area {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  gap: 10px;
+}
+
 .side-box {
-  width: 20%;
+  width: 50%; /* ora chat ed eventi 50% ciascuno */
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -67,11 +74,12 @@ header {
 
 #chat-messages, #event-messages {
   background: rgba(0,0,0,0.6);
-  height: 80vh;
+  height: 40vh; /* ridotta rispetto a prima per lasciare spazio battaglia */
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 10px;
-  color: white;
   border-radius: 5px;
+  color: white;
 }
 
 #chat-input {
@@ -80,7 +88,7 @@ header {
   border-radius: 5px;
   border: none;
   background: rgba(255,255,255,0.1);
-  color: white;
+  color: rgb(255, 255, 255);
 }
 
 /* Battaglia centrale */
