@@ -1,7 +1,8 @@
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
+
 const socket = io();
 
-// Elementi DOM
+// ---------- ELEMENTI ----------
 const player1Name = document.getElementById("player1-nick");
 const player2Name = document.getElementById("player2-nick");
 const player1CharImg = document.getElementById("player1-char");
@@ -11,79 +12,112 @@ const player2HpBar = document.getElementById("player2-hp");
 const diceP1 = document.getElementById("dice-p1");
 const diceP2 = document.getElementById("dice-p2");
 
+// Chat e storico eventi
 const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
 const eventBox = document.getElementById("event-messages");
 
-// Musica battaglia
+// ---------- MUSICA ----------
 const musicBattle = new Audio("img/9.mp3");
 musicBattle.loop = true;
 musicBattle.volume = 0.5;
-window.addEventListener("click", () => { if (musicBattle.paused) musicBattle.play(); }, { once: true });
+window.addEventListener("click", () => { 
+  if (musicBattle.paused) musicBattle.play(); 
+}, { once: true });
 
-// Fullscreen
+let winnerMusic = new Audio();
+
+// ---------- FULLSCREEN ----------
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const container = document.getElementById("game-container");
 fullscreenBtn.addEventListener("click", async () => {
   if (!document.fullscreenElement) {
-    try { await container.requestFullscreen(); } catch(e){ console.log(e); }
+    try { await container.requestFullscreen(); } catch(e) { console.log(e); }
   } else { await document.exitFullscreen(); }
 });
 
-// Inizio partita
+// ---------- INIZIO PARTITA ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
 socket.emit("join1vs1", { nick, char });
 
-// Eventi
+// ---------- EVENTI ----------
 socket.on("gameStart", game => updateGame(game));
 socket.on("1vs1Update", game => updateGame(game));
-socket.on("gameOver", ({ winner }) => {
-  logEvent(`🎉 ${winner} ha vinto la battaglia!`);
-  const winMusic = new Audio(`img/${winner}.mp3`);
-  winMusic.play().catch(e => console.log(e));
+socket.on("gameOver", ({ winnerChar, winnerNick }) => {
+  logEvent(`🏆 ${winnerNick} has won the battle!`);
+  playWinnerMusic(winnerChar);
 });
 
-// Update game
+// ---------- FUNZIONE UPDATE ----------
 function updateGame(game) {
-  // Nick + HP + personaggio
-  player1Name.textContent = `${game.player1.nick} (${game.player1.hp} HP)`;
-  player2Name.textContent = `${game.player2.nick} (${game.player2.hp} HP)`;
+  // Aggiorna nickname e HP (solo nickname senza nome campione accanto)
+  player1Name.textContent = game.player1.nick;
+  player2Name.textContent = game.player2.nick;
 
-  player1CharImg.src = `img/${game.player1.char}.png`;
-  player2CharImg.src = `img/${game.player2.char}.png`;
+  // Aggiorna immagini personaggi in base a HP
+  updateCharacterImage(game.player1, 0);
+  updateCharacterImage(game.player2, 1);
 
-  // Aggiorna dadi dinamici
-  if (game.player1.dice) diceP1.src = `img/dice${game.player1.dice}.png`;
-  if (game.player2.dice) diceP2.src = `img/dice${game.player2.dice}.png`;
+  // Aggiorna barre vita
+  player1HpBar.style.width = `${Math.max(game.player1.hp, 0)}%`;
+  player2HpBar.style.width = `${Math.max(game.player2.hp, 0)}%`;
 
-  const dmgP1 = game.player1.dice - (game.player1.stunned ? 1 : 0);
-  const dmgP2 = game.player2.dice - (game.player2.stunned ? 1 : 0);
+  // Aggiorna dadi reali
+  if(game.player1.dice) showDice(0, game.player1.dice);
+  if(game.player2.dice) showDice(1, game.player2.dice);
 
-  // Aggiorna barre HP
-  player1HpBar.style.width = `${Math.max(game.player1.hp - dmgP2,0)}%`;
-  player2HpBar.style.width = `${Math.max(game.player2.hp - dmgP1,0)}%`;
-
-  // Aggiorna eventi
-  if (game.player1.dice) logEvent(`${game.player1.nick} lancia ${game.player1.dice} e infligge ${dmgP1} danni!`);
-  if (game.player2.dice) logEvent(`${game.player2.nick} lancia ${game.player2.dice} e infligge ${dmgP2} danni!`);
+  // Aggiorna storico eventi ogni turno
+  if(game.player1.dice) logEvent(`${game.player1.nick} rolls ${game.player1.dice} and deals ${game.player1.dmg} damage!`);
+  if(game.player2.dice) logEvent(`${game.player2.nick} rolls ${game.player2.dice} and deals ${game.player2.dmg} damage!`);
 }
 
-// Chat
+// ---------- DADI ----------
+function showDice(playerIndex, value) {
+  const diceEl = playerIndex === 0 ? diceP1 : diceP2;
+  diceEl.src = `img/dice${value}.png`;
+}
+
+// ---------- IMMAGINI IN BASE A HP ----------
+function updateCharacterImage(player, index) {
+  let hp = player.hp;
+  let src = `img/${player.char}`;
+
+  if(hp <= 0) src += '0';
+  else if(hp <= 20) src += '20';
+  else if(hp <= 40) src += '40';
+  else if(hp <= 60) src += '60';
+
+  src += '.png';
+
+  if(index === 0) player1CharImg.src = src;
+  else player2CharImg.src = src;
+}
+
+// ---------- CHAT ----------
 chatInput.addEventListener("keydown", e => {
-  if (e.key === "Enter" && e.target.value.trim() !== "") {
+  if(e.key === "Enter" && e.target.value.trim() !== "") {
     const msg = document.createElement("div");
-    msg.textContent = `Tu: ${e.target.value}`;
+    msg.textContent = `You: ${e.target.value}`;
     chatMessages.appendChild(msg);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    socket.emit("chatMessage", e.target.value);
     e.target.value = "";
   }
 });
 
-// Funzione eventi
-function logEvent(msg){
+// ---------- LOG EVENTI ----------
+function logEvent(msg) {
   const line = document.createElement("div");
   line.textContent = msg;
   eventBox.appendChild(line);
   eventBox.scrollTop = eventBox.scrollHeight;
+}
+
+// ---------- MUSICA VINCITORE ----------
+function playWinnerMusic(winnerChar) {
+  musicBattle.pause();
+  winnerMusic.src = `img/${winnerChar}.mp3`;
+  winnerMusic.play().catch(()=>{});
 }
