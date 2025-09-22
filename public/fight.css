@@ -43,7 +43,7 @@ header {
 }
 #fullscreen-btn:hover { color: gold; }
 
-/* -------- CONTAINER BATTLE AREA -------- */
+/* -------- BATTLE AREA -------- */
 #battle-area {
     display: flex;
     justify-content: space-between;
@@ -59,17 +59,17 @@ header {
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 45%;
+    width: 40%; /* leggermente più stretto per lasciare spazio a VS e log */
     position: relative;
   }
   
   .player img {
-    width: 168%; /* +40% */
+    width: 140%; /* 40% più grande */
     max-width: 380px;
     object-fit: contain;
   }
   
-  .player .hp-bar {
+  .hp-bar {
     width: 80%;
     height: 20px;
     background: #444;
@@ -88,20 +88,21 @@ header {
   
   /* -------- DADI -------- */
   .dice {
-    width: 30px; /* -40% */
+    width: 30px; /* più piccolo del 40% */
     margin: 10px auto;
   }
   
   /* -------- VS -------- */
   .vs {
-    font-size: 2rem;
+    font-size: 3rem;
     font-weight: bold;
     color: white;
     align-self: center;
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    top: 40%; /* centrato verticalmente rispetto ai personaggi */
+    top: 40%;
+    text-shadow: 2px 2px 6px black;
   }
   
   /* -------- CHAT & STORICO -------- */
@@ -118,7 +119,7 @@ header {
   }
   
   #chat-messages, #event-messages {
-    background: rgba(0,0,0,0.5);
+    background: rgba(0,0,0,0.6);
     padding: 10px;
     height: 200px;
     overflow-y: auto;
@@ -132,14 +133,6 @@ header {
     padding: 8px;
     border-radius: 5px;
     border: none;
-  }
-  
-  /* -------- FULLSCREEN ICON -------- */
-  #fullscreen-btn {
-    font-size: 2rem;
-    cursor: pointer;
+    background: rgba(255,255,255,0.1);
     color: white;
-    background: transparent;
-    border: none;
   }
-  #fullscreen-btn:hover { color: gold; }
