@@ -22,6 +22,16 @@ const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
 const eventBox = document.getElementById("event-messages");
 
+// Nuovo elemento per mostrare online count
+const onlineCountDisplay = document.createElement("div");
+onlineCountDisplay.style.position = "absolute";
+onlineCountDisplay.style.top = "10px";
+onlineCountDisplay.style.left = "10px";
+onlineCountDisplay.style.color = "gold";
+onlineCountDisplay.style.fontSize = "1.2rem";
+onlineCountDisplay.style.textShadow = "1px 1px 4px black";
+document.body.appendChild(onlineCountDisplay);
+
 // ---------- MUSICA ----------
 const musicBattle = new Audio("img/9.mp3");
 musicBattle.loop = true;
@@ -29,6 +39,7 @@ musicBattle.volume = 0.5;
 window.addEventListener("click", () => { 
   if (musicBattle.paused) musicBattle.play(); 
 }, { once: true });
+
 let winnerMusic = new Audio();
 
 // ---------- FULLSCREEN ----------
@@ -44,11 +55,19 @@ const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
 socket.emit("join1vs1", { nick, char });
 
-// ---------- EVENTI SOCKET ----------
+// ---------- SOCKET EVENTS ----------
+socket.on("onlineCount", count => {
+  onlineCountDisplay.textContent = `Online: ${count}`;
+});
+
+socket.on("waiting", msg => {
+  logEvent(msg, "dice");
+});
+
 socket.on("gameStart", game => updateGame(game));
 socket.on("1vs1Update", game => updateGame(game));
 socket.on("gameOver", ({ winnerNick, winnerChar }) => {
-  logEvent(`🏆 ${winnerNick} has won the battle!`);
+  logEvent(`🏆 ${winnerNick} has won the battle!`, "win");
   playWinnerMusic(winnerChar);
 });
 
@@ -67,100 +86,7 @@ socket.on("chatMessage", data => {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 });
 
-// ---------- FUNZIONE UPDATE ----------
-// Aggiorna nickname + campione + HP sopra barra
-function updateGame(game) {
-  player1Name.textContent = game.player1.char;
-  player2Name.textContent = game.player2.char;
-
-  document.getElementById("player1-nick").textContent = game.player1.nick;
-  document.getElementById("player2-nick").textContent = game.player2.nick;
-
-  document.getElementById("player1-hp-text").textContent = game.player1.hp;
-  document.getElementById("player2-hp-text").textContent = game.player2.hp;
-
-  // Barre HP
-  player1HpBar.style.width = `${Math.max(game.player1.hp,0)}%`;
-  player2HpBar.style.width = `${Math.max(game.player2.hp,0)}%`;
-
-  // Dadi
-  if(game.player1.dice) showDice(0, game.player1.dice);
-  if(game.player2.dice) showDice(1, game.player2.dice);
-
-  // Personaggi
-  updateCharacterImage(game.player1, 0);
-  updateCharacterImage(game.player2, 1);
-
-  // Eventi con emoji
-  if(game.player1.dice){
-    const type = game.player1.dice === 8 ? "crit" : "damage";
-    logEvent(`${game.player1.nick} rolls ${game.player1.dice} and deals ${game.player1.dmg} damage!`, type);
-  }
-  if(game.player2.dice){
-    const type = game.player2.dice === 8 ? "crit" : "damage";
-    logEvent(`${game.player2.nick} rolls ${game.player2.dice} and deals ${game.player2.dmg} damage!`, type);
-  }
-}
-
-// Funzione log eventi con emoji
-function logEvent(msg, type="normal"){
-  const line = document.createElement("div");
-  switch(type){
-    case "crit": line.textContent = "⚡💥 " + msg; break;
-    case "damage": line.textContent = "💥 " + msg; break;
-    case "dice": line.textContent = "🎲 " + msg; break;
-    case "win": line.textContent = "🏆 " + msg; break;
-    default: line.textContent = msg;
-  }
-  eventBox.appendChild(line);
-  eventBox.scrollTop = eventBox.scrollHeight;
-}
-
-// Dadi grandi sopra personaggio
-function showDice(playerIndex, value){
-  const diceEl = playerIndex === 0 ? diceP1 : diceP2;
-  diceEl.src = `img/dice${value}.png`;
-  diceEl.style.width = "80px";
-  diceEl.style.height = "80px";
-}
-
-// Immagini personaggi sotto dadi
-function updateCharacterImage(player,index){
-  let hp = player.hp;
-  let src = `img/${player.char}`;
-  if(hp<=0) src+='0';
-  else if(hp<=20) src+='20';
-  else if(hp<=40) src+='40';
-  else if(hp<=60) src+='60';
-  src+='.png';
-  if(index===0) player1CharImg.src=src;
-  else player2CharImg.src=src;
-}
-
-// ---------- FUNZIONE LOG EVENTI CON EMOJI ----------
-function logEvent(msg, type="normal") {
-  const line = document.createElement("div");
-  switch(type){
-    case "crit":
-      line.textContent = "⚡💥 " + msg;
-      break;
-    case "dice":
-      line.textContent = "🎲 " + msg;
-      break;
-    case "damage":
-      line.textContent = "💥 " + msg;
-      break;
-    case "win":
-      line.textContent = "🏆 " + msg;
-      break;
-    default:
-      line.textContent = msg;
-  }
-  eventBox.appendChild(line);
-  eventBox.scrollTop = eventBox.scrollHeight;
-}
-
-// ---------- FUNZIONE UPDATE GAME ----------
+// ---------- FUNZIONI ----------
 function updateGame(game) {
   // Label sopra barra HP
   player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${game.player1.hp}`;
@@ -173,10 +99,10 @@ function updateGame(game) {
   // Dadi e personaggi
   if(game.player1.dice) showDice(0, game.player1.dice);
   if(game.player2.dice) showDice(1, game.player2.dice);
-  updateCharacterImage(game.player1,0);
-  updateCharacterImage(game.player2,1);
+  updateCharacterImage(game.player1, 0);
+  updateCharacterImage(game.player2, 1);
 
-  // Log eventi con emoji
+  // Log eventi
   if(game.player1.dice) {
     const type = game.player1.dice === 8 ? "crit" : "damage";
     logEvent(`${game.player1.nick} rolls ${game.player1.dice} and deals ${game.player1.dmg} damage!`, type);
@@ -187,7 +113,19 @@ function updateGame(game) {
   }
 }
 
-// ---------- DADI ----------
+function logEvent(msg, type="normal") {
+  const line = document.createElement("div");
+  switch(type){
+    case "crit": line.textContent = "⚡💥 " + msg; break;
+    case "damage": line.textContent = "💥 " + msg; break;
+    case "dice": line.textContent = "🎲 " + msg; break;
+    case "win": line.textContent = "🏆 " + msg; break;
+    default: line.textContent = msg;
+  }
+  eventBox.appendChild(line);
+  eventBox.scrollTop = eventBox.scrollHeight;
+}
+
 function showDice(playerIndex, value){
   const diceEl = playerIndex === 0 ? diceP1 : diceP2;
   diceEl.src = `img/dice${value}.png`;
@@ -195,7 +133,6 @@ function showDice(playerIndex, value){
   diceEl.style.height = "80px";
 }
 
-// ---------- IMMAGINI PERSONAGGI ----------
 function updateCharacterImage(player,index){
   let hp = player.hp;
   let src = `img/${player.char}`;
@@ -208,12 +145,6 @@ function updateCharacterImage(player,index){
   else player2CharImg.src=src;
 }
 
-// ---------- GAME OVER ----------
-socket.on("gameOver", ({winnerNick,winnerChar})=>{
-  logEvent(`${winnerNick} has won the battle!`,"win");
-  playWinnerMusic(winnerChar);
-});
-// ---------- MUSICA VINCITORE ----------
 function playWinnerMusic(winnerChar) {
   musicBattle.pause();
   winnerMusic.src = `img/${winnerChar}.mp3`;
