@@ -29,26 +29,40 @@ onlineCountDisplay.style.fontSize = "1.2rem";
 onlineCountDisplay.style.textShadow = "1px 1px 4px black";
 document.body.appendChild(onlineCountDisplay);
 
-// ---------- MUSICA AUTOMATICA MOBILE ----------
+// ---------- AUDIO ----------
+
 const musicBattle = new Audio("img/9.mp3");
 musicBattle.loop = true;
 musicBattle.volume = 0.5;
 
 const winnerMusic = new Audio();
+winnerMusic.volume = 0.7;
 
-// Trucco per sbloccare audio su mobile senza click
-try {
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const buffer = audioCtx.createBuffer(1, 1, 22050);
-  const source = audioCtx.createBufferSource();
+// Trucco per sbloccare audio su mobile al primo touch
+let audioUnlocked = false;
+function unlockAudio() {
+  if (audioUnlocked) return;
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const buffer = ctx.createBuffer(1, 1, 22050);
+  const source = ctx.createBufferSource();
   source.buffer = buffer;
-  source.connect(audioCtx.destination);
+  source.connect(ctx.destination);
   source.start(0);
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  audioUnlocked = true;
+
+  // Ora possiamo partire con tutti i nostri audio
   musicBattle.play().catch(()=>{});
-} catch(e) {
-  // fallback se browser non supporta
-  window.addEventListener("click", () => { musicBattle.play(); }, { once: true });
+}
+
+window.addEventListener("touchstart", unlockAudio, { once: true });
+window.addEventListener("click", unlockAudio, { once: true });
+
+// ---------- FUNZIONE PER SUONARE MUSICA VINCITORE ----------
+function playWinnerMusic(winnerChar) {
+  if (!audioUnlocked) return; // se ancora non sbloccato, aspetta primo tap
+  musicBattle.pause();
+  winnerMusic.src = `img/${winnerChar}.mp3`;
+  winnerMusic.play().catch(()=>{});
 }
 
 // ---------- FULLSCREEN ----------

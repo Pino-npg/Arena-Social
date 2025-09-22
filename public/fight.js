@@ -36,20 +36,38 @@ document.body.appendChild(onlineCountDisplay);
 const musicBattle = new Audio("img/9.mp3");
 musicBattle.loop = true;
 musicBattle.volume = 0.5;
-let canPlayAudio = false;
-window.addEventListener("click", () => {
-    canPlayAudio = true;
-    if (musicBattle.paused) musicBattle.play();
-}, { once: true });
 
-function playWinnerMusic(winnerChar) {
-    if (!canPlayAudio) return; // blocca se l’utente non ha cliccato
-    musicBattle.pause();
-    winnerMusic.src = `img/${winnerChar}.mp3`;
-    winnerMusic.play().catch(() => {});
+const winnerMusic = new Audio();
+winnerMusic.volume = 0.7;
+
+let audioUnlocked = false;
+
+// Sblocco audio su primo click o touch
+function unlockAudio() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+
+  // piccolo "ping" audio per sbloccare iOS
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const buffer = ctx.createBuffer(1, 1, 22050);
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(ctx.destination);
+  source.start(0);
+
+  musicBattle.play().catch(()=>{});
 }
 
-let winnerMusic = new Audio();
+window.addEventListener("click", unlockAudio, { once: true });
+window.addEventListener("touchstart", unlockAudio, { once: true });
+
+// Funzione per suonare la musica del vincitore
+function playWinnerMusic(winnerChar) {
+  if (!audioUnlocked) return; // aspetta il primo tocco su mobile
+  musicBattle.pause();
+  winnerMusic.src = `img/${winnerChar}.mp3`;
+  winnerMusic.play().catch(()=>{});
+}
 
 // ---------- FULLSCREEN ----------
 const fullscreenBtn = document.getElementById("fullscreen-btn");
