@@ -8,7 +8,7 @@ html, body, #game-container {
   padding: 0;
   font-family: 'Cinzel', serif;
   color: #f5f5f5;
-  overflow: auto; /* evita scroll in fullscreen */
+  overflow: auto; /* scroll in fullscreen */
 }
 
 body.home {
@@ -16,6 +16,14 @@ body.home {
 }
 
 body.fight {
+  background: url("img/Arena.webp") center center / cover no-repeat;
+}
+
+body.home #game-container {
+  background: url("img/Home.webp") center center / cover no-repeat;
+}
+
+body.fight #game-container {
   background: url("img/Arena.webp") center center / cover no-repeat;
 }
 
@@ -66,7 +74,7 @@ body.fight {
 
 /* -------- TITOLI -------- */
 .arena-title {
-  font-size: 3rem;
+  font-size: 4rem;
   margin: 10px 0;
   background: linear-gradient(45deg, #ff0000, #ff6600, #ffff00);
   -webkit-background-clip: text;
