@@ -29,16 +29,16 @@ onlineCountDisplay.style.fontSize = "1.2rem";
 onlineCountDisplay.style.textShadow = "1px 1px 4px black";
 document.body.appendChild(onlineCountDisplay);
 
-// ---------- AUDIO ----------
-
+// ---------- VARIABILI AUDIO ----------
 const musicBattle = new Audio("img/9.mp3");
 musicBattle.loop = true;
 musicBattle.volume = 0.5;
 
 const winnerMusic = new Audio();
 winnerMusic.volume = 0.7;
+let winnerMusicPending = null; // salva il vincitore se audio bloccato
 
-// Trucco per sbloccare audio su mobile al primo touch
+// ---------- TRUCCO MOBILE ----------
 let audioUnlocked = false;
 function unlockAudio() {
   if (audioUnlocked) return;
@@ -50,8 +50,15 @@ function unlockAudio() {
   source.start(0);
   audioUnlocked = true;
 
-  // Ora possiamo partire con tutti i nostri audio
+  // Parte musica battle
   musicBattle.play().catch(()=>{});
+
+  // Se c'è una musica vincitore in attesa, la facciamo partire
+  if (winnerMusicPending) {
+    winnerMusic.src = `img/${winnerMusicPending}.mp3`;
+    winnerMusic.play().catch(()=>{});
+    winnerMusicPending = null;
+  }
 }
 
 window.addEventListener("touchstart", unlockAudio, { once: true });
@@ -59,8 +66,14 @@ window.addEventListener("click", unlockAudio, { once: true });
 
 // ---------- FUNZIONE PER SUONARE MUSICA VINCITORE ----------
 function playWinnerMusic(winnerChar) {
-  if (!audioUnlocked) return; // se ancora non sbloccato, aspetta primo tap
   musicBattle.pause();
+
+  if (!audioUnlocked) {
+    // audio bloccato, memorizzo chi è il vincitore
+    winnerMusicPending = winnerChar;
+    return;
+  }
+
   winnerMusic.src = `img/${winnerChar}.mp3`;
   winnerMusic.play().catch(()=>{});
 }

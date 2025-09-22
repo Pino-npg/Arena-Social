@@ -51,7 +51,7 @@ header {
 /* -------- MAIN AREA -------- */
 #main-area {
   display: flex;
-  flex-direction: column-reverse; /* battle sopra, chat/events sotto */
+  flex-direction: column; /* battle sopra, chat/events sotto */
   align-items: center;
   width: 100%;
   flex-grow: 1;
