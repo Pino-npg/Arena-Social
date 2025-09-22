@@ -35,9 +35,11 @@ header {
 }
 
 #fullscreen-btn {
-  font-size: 1.8rem;
+  font-size: 2rem;
   cursor: pointer;
   color: white;
+  background: transparent;
+  border: none;
 }
 #fullscreen-btn:hover { color: gold; }
 
@@ -58,13 +60,22 @@ header {
 }
 
 .player img {
-  width: 120%;
-  max-width: 220px;
+  width: 168%; /* +40% rispetto a prima */
+  max-width: 380px;
   object-fit: contain;
 }
 
+.vs {
+  font-size: 2rem;
+  font-weight: bold;
+  color: white;
+  align-self: center;
+  margin-top: 80px; /* centra verticalmente rispetto ai personaggi */
+}
+
+/* -------- DADI -------- */
 .dice {
-  width: 50px;
+  width: 30px; /* -40% */
   margin: 10px auto;
 }
 

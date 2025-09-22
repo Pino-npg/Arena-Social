@@ -1,6 +1,6 @@
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
-const socket = io(); // server principale
+const socket = io();
 
 // ---------- ELEMENTI ----------
 const player1Name = document.getElementById("player1-nick");
@@ -29,8 +29,8 @@ const container = document.getElementById("game-container");
 
 fullscreenBtn.addEventListener("click", async () => {
   if (!document.fullscreenElement) {
-    try { if (container.requestFullscreen) await container.requestFullscreen(); } catch(e) { console.log(e); }
-  } else { if (document.exitFullscreen) await document.exitFullscreen(); }
+    try { await container.requestFullscreen(); } catch(e) { console.log(e); }
+  } else { await document.exitFullscreen(); }
 });
 
 // ---------- INIZIO PARTITA ----------
@@ -62,7 +62,7 @@ function updateGame(game) {
   if (game.player1.dice) diceP1.src = `img/dice${game.player1.dice}.png`;
   if (game.player2.dice) diceP2.src = `img/dice${game.player2.dice}.png`;
 
-  // Calcolo danno effettivo con eventuale malus (-1 se stordito)
+  // Calcolo danno effettivo con eventuale malus
   const dmgP1 = game.player1.dice - (game.player1.stunned ? 1 : 0);
   const dmgP2 = game.player2.dice - (game.player2.stunned ? 1 : 0);
 
