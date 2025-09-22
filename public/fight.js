@@ -1,4 +1,3 @@
-// fight.js
 const socket = io();
 
 // Elementi
@@ -20,21 +19,24 @@ const name2 = document.getElementById("player2-name");
 // ---------------- CHAT ----------------
 chatInput.addEventListener("keypress", e => {
   if (e.key === "Enter" && chatInput.value.trim() !== "") {
-    socket.emit("chat", chatInput.value.trim());
+    socket.emit("chatMessage", chatInput.value.trim()); // allineato col server
     chatInput.value = "";
   }
 });
 
-socket.on("chat", msg => {
+socket.on("chatMessage", data => {
   const div = document.createElement("div");
-  div.textContent = msg;
+  div.textContent = `${data.nick}: ${data.text}`;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 });
 
 // ---------------- GAME ----------------
-socket.on("gameState", game => {
-  updateUI(game);
+socket.on("gameStart", game => updateUI(game));
+socket.on("1vs1Update", game => updateUI(game));
+socket.on("gameOver", data => {
+  logEvent(`🏆 ${data.winnerNick} wins the fight!`, "win");
+  playVictoryMusic(data.winnerChar); // musica campione
 });
 
 // Aggiorna interfaccia
@@ -57,16 +59,11 @@ function updateUI(game) {
   // Eventi
   logDiceEvent(game.player1);
   logDiceEvent(game.player2);
-
-  // Vittoria
-  if (game.winner) {
-    logEvent(`🏆 ${game.winner} wins the fight!`, "win");
-    playVictoryMusic();
-  }
 }
 
 // Mostra dado
 function showDice(playerIndex, value) {
+  if (!value) return;
   const diceImg = `img/dice${value}.png`;
   if (playerIndex === 0) {
     diceP1.src = diceImg;
@@ -98,7 +95,20 @@ function logEvent(text, type) {
 }
 
 // Musica vittoria
-function playVictoryMusic() {
-  const audio = new Audio("sounds/victory.mp3");
+function playVictoryMusic(charName) {
+  const audio = new Audio(`sounds/${charName}.mp3`);
   audio.play();
 }
+
+// ---------------- ONLINE COUNT ----------------
+const onlineDiv = document.createElement("div");
+onlineDiv.id = "onlineCount";
+onlineDiv.style.position = "absolute";
+onlineDiv.style.top = "10px";
+onlineDiv.style.left = "10px";
+onlineDiv.style.color = "gold";
+document.body.appendChild(onlineDiv);
+
+socket.on("onlineCount", count => {
+  onlineDiv.textContent = `Online: ${count}`;
+});
