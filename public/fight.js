@@ -49,25 +49,41 @@ socket.on("gameOver", ({ winnerChar, winnerNick }) => {
   playWinnerMusic(winnerChar);
 });
 
+// ---------- CHAT ----------
+chatInput.addEventListener("keydown", e => {
+  if(e.key === "Enter" && e.target.value.trim() !== "") {
+    socket.emit("chatMessage", e.target.value);
+    e.target.value = "";
+  }
+});
+
+// Riceve chat dall’altro giocatore
+socket.on("chatMessage", data => {
+  const msg = document.createElement("div");
+  msg.textContent = `${data.nick}: ${data.text}`;
+  chatMessages.appendChild(msg);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+});
+
 // ---------- FUNZIONE UPDATE ----------
 function updateGame(game) {
-  // Aggiorna nickname e HP (solo nickname senza nome campione accanto)
+  // Nickname
   player1Name.textContent = game.player1.nick;
   player2Name.textContent = game.player2.nick;
 
-  // Aggiorna immagini personaggi in base a HP
-  updateCharacterImage(game.player1, 0);
-  updateCharacterImage(game.player2, 1);
-
-  // Aggiorna barre vita
+  // Barre HP
   player1HpBar.style.width = `${Math.max(game.player1.hp, 0)}%`;
   player2HpBar.style.width = `${Math.max(game.player2.hp, 0)}%`;
 
-  // Aggiorna dadi reali
+  // Immagini personaggi in base a HP
+  updateCharacterImage(game.player1, 0);
+  updateCharacterImage(game.player2, 1);
+
+  // Dadi reali
   if(game.player1.dice) showDice(0, game.player1.dice);
   if(game.player2.dice) showDice(1, game.player2.dice);
 
-  // Aggiorna storico eventi ogni turno
+  // Log eventi
   if(game.player1.dice) logEvent(`${game.player1.nick} rolls ${game.player1.dice} and deals ${game.player1.dmg} damage!`);
   if(game.player2.dice) logEvent(`${game.player2.nick} rolls ${game.player2.dice} and deals ${game.player2.dmg} damage!`);
 }
@@ -82,30 +98,15 @@ function showDice(playerIndex, value) {
 function updateCharacterImage(player, index) {
   let hp = player.hp;
   let src = `img/${player.char}`;
-
   if(hp <= 0) src += '0';
   else if(hp <= 20) src += '20';
   else if(hp <= 40) src += '40';
   else if(hp <= 60) src += '60';
-
   src += '.png';
 
   if(index === 0) player1CharImg.src = src;
   else player2CharImg.src = src;
 }
-
-// ---------- CHAT ----------
-chatInput.addEventListener("keydown", e => {
-  if(e.key === "Enter" && e.target.value.trim() !== "") {
-    const msg = document.createElement("div");
-    msg.textContent = `You: ${e.target.value}`;
-    chatMessages.appendChild(msg);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-
-    socket.emit("chatMessage", e.target.value);
-    e.target.value = "";
-  }
-});
 
 // ---------- LOG EVENTI ----------
 function logEvent(msg) {

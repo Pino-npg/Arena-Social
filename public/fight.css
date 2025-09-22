@@ -85,11 +85,12 @@ header {
 /* Battaglia centrale */
 #battle-area {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: flex-end;
-  width: 55%;
-  position: relative;
 }
+.player:nth-child(1) { order: 1; }
+.player:nth-child(3) { order: 3; } /* VS al centro */
+.player:nth-child(5) { order: 5; }
 
 .player {
   display: flex;
@@ -123,7 +124,7 @@ header {
 }
 
 .dice {
-  width: 50px; /* dadi grandi */
+  width: 10px; /* dadi grandi */
   margin: 10px auto;
 }
 
