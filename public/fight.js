@@ -68,57 +68,151 @@ socket.on("chatMessage", data => {
 });
 
 // ---------- FUNZIONE UPDATE ----------
+// Aggiorna nickname + campione + HP sopra barra
 function updateGame(game) {
-  // Aggiorna nickname + HP + nome campione
-  player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${game.player1.hp}`;
-  player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${game.player2.hp}`;
+  player1Name.textContent = game.player1.char;
+  player2Name.textContent = game.player2.char;
+
+  document.getElementById("player1-nick").textContent = game.player1.nick;
+  document.getElementById("player2-nick").textContent = game.player2.nick;
+
+  document.getElementById("player1-hp-text").textContent = game.player1.hp;
+  document.getElementById("player2-hp-text").textContent = game.player2.hp;
 
   // Barre HP
-  player1HpBar.style.width = `${Math.max(game.player1.hp, 0)}%`;
-  player2HpBar.style.width = `${Math.max(game.player2.hp, 0)}%`;
+  player1HpBar.style.width = `${Math.max(game.player1.hp,0)}%`;
+  player2HpBar.style.width = `${Math.max(game.player2.hp,0)}%`;
 
-  // Immagini personaggi in base a HP
-  updateCharacterImage(game.player1, 0);
-  updateCharacterImage(game.player2, 1);
-
-  // Dadi reali
+  // Dadi
   if(game.player1.dice) showDice(0, game.player1.dice);
   if(game.player2.dice) showDice(1, game.player2.dice);
 
-  // Log eventi
-  if(game.player1.dice) logEvent(`${game.player1.nick} rolls ${game.player1.dice} and deals ${game.player1.dmg} damage!`);
-  if(game.player2.dice) logEvent(`${game.player2.nick} rolls ${game.player2.dice} and deals ${game.player2.dmg} damage!`);
+  // Personaggi
+  updateCharacterImage(game.player1, 0);
+  updateCharacterImage(game.player2, 1);
+
+  // Eventi con emoji
+  if(game.player1.dice){
+    const type = game.player1.dice === 8 ? "crit" : "damage";
+    logEvent(`${game.player1.nick} rolls ${game.player1.dice} and deals ${game.player1.dmg} damage!`, type);
+  }
+  if(game.player2.dice){
+    const type = game.player2.dice === 8 ? "crit" : "damage";
+    logEvent(`${game.player2.nick} rolls ${game.player2.dice} and deals ${game.player2.dmg} damage!`, type);
+  }
 }
 
-// ---------- DADI ----------
-function showDice(playerIndex, value) {
-  const diceEl = playerIndex === 0 ? diceP1 : diceP2;
-  diceEl.src = `img/dice${value}.png`;
-  diceEl.style.width = "40px"; // dimensione normale
-  diceEl.style.height = "40px";
-}
-
-// ---------- IMMAGINI IN BASE A HP ----------
-function updateCharacterImage(player, index) {
-  let hp = player.hp;
-  let src = `img/${player.char}`;
-  if(hp <= 0) src += '0';
-  else if(hp <= 20) src += '20';
-  else if(hp <= 40) src += '40';
-  else if(hp <= 60) src += '60';
-  src += '.png';
-  if(index === 0) player1CharImg.src = src;
-  else player2CharImg.src = src;
-}
-
-// ---------- LOG EVENTI ----------
-function logEvent(msg) {
+// Funzione log eventi con emoji
+function logEvent(msg, type="normal"){
   const line = document.createElement("div");
-  line.textContent = msg;
+  switch(type){
+    case "crit": line.textContent = "⚡💥 " + msg; break;
+    case "damage": line.textContent = "💥 " + msg; break;
+    case "dice": line.textContent = "🎲 " + msg; break;
+    case "win": line.textContent = "🏆 " + msg; break;
+    default: line.textContent = msg;
+  }
   eventBox.appendChild(line);
   eventBox.scrollTop = eventBox.scrollHeight;
 }
 
+// Dadi grandi sopra personaggio
+function showDice(playerIndex, value){
+  const diceEl = playerIndex === 0 ? diceP1 : diceP2;
+  diceEl.src = `img/dice${value}.png`;
+  diceEl.style.width = "80px";
+  diceEl.style.height = "80px";
+}
+
+// Immagini personaggi sotto dadi
+function updateCharacterImage(player,index){
+  let hp = player.hp;
+  let src = `img/${player.char}`;
+  if(hp<=0) src+='0';
+  else if(hp<=20) src+='20';
+  else if(hp<=40) src+='40';
+  else if(hp<=60) src+='60';
+  src+='.png';
+  if(index===0) player1CharImg.src=src;
+  else player2CharImg.src=src;
+}
+
+// ---------- FUNZIONE LOG EVENTI CON EMOJI ----------
+function logEvent(msg, type="normal") {
+  const line = document.createElement("div");
+  switch(type){
+    case "crit":
+      line.textContent = "⚡💥 " + msg;
+      break;
+    case "dice":
+      line.textContent = "🎲 " + msg;
+      break;
+    case "damage":
+      line.textContent = "💥 " + msg;
+      break;
+    case "win":
+      line.textContent = "🏆 " + msg;
+      break;
+    default:
+      line.textContent = msg;
+  }
+  eventBox.appendChild(line);
+  eventBox.scrollTop = eventBox.scrollHeight;
+}
+
+// ---------- FUNZIONE UPDATE GAME ----------
+function updateGame(game) {
+  // Label sopra barra HP
+  player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${game.player1.hp}`;
+  player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${game.player2.hp}`;
+
+  // Barre HP
+  player1HpBar.style.width = `${Math.max(game.player1.hp,0)}%`;
+  player2HpBar.style.width = `${Math.max(game.player2.hp,0)}%`;
+
+  // Dadi e personaggi
+  if(game.player1.dice) showDice(0, game.player1.dice);
+  if(game.player2.dice) showDice(1, game.player2.dice);
+  updateCharacterImage(game.player1,0);
+  updateCharacterImage(game.player2,1);
+
+  // Log eventi con emoji
+  if(game.player1.dice) {
+    const type = game.player1.dice === 8 ? "crit" : "damage";
+    logEvent(`${game.player1.nick} rolls ${game.player1.dice} and deals ${game.player1.dmg} damage!`, type);
+  }
+  if(game.player2.dice) {
+    const type = game.player2.dice === 8 ? "crit" : "damage";
+    logEvent(`${game.player2.nick} rolls ${game.player2.dice} and deals ${game.player2.dmg} damage!`, type);
+  }
+}
+
+// ---------- DADI ----------
+function showDice(playerIndex, value){
+  const diceEl = playerIndex === 0 ? diceP1 : diceP2;
+  diceEl.src = `img/dice${value}.png`;
+  diceEl.style.width = "80px";
+  diceEl.style.height = "80px";
+}
+
+// ---------- IMMAGINI PERSONAGGI ----------
+function updateCharacterImage(player,index){
+  let hp = player.hp;
+  let src = `img/${player.char}`;
+  if(hp<=0) src+='0';
+  else if(hp<=20) src+='20';
+  else if(hp<=40) src+='40';
+  else if(hp<=60) src+='60';
+  src+='.png';
+  if(index===0) player1CharImg.src=src;
+  else player2CharImg.src=src;
+}
+
+// ---------- GAME OVER ----------
+socket.on("gameOver", ({winnerNick,winnerChar})=>{
+  logEvent(`${winnerNick} has won the battle!`,"win");
+  playWinnerMusic(winnerChar);
+});
 // ---------- MUSICA VINCITORE ----------
 function playWinnerMusic(winnerChar) {
   musicBattle.pause();

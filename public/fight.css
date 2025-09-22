@@ -125,11 +125,38 @@ header {
   transition: width 0.3s ease-in-out;
 }
 
-/* Dadi dimensione normale */
+/* -------- PLAYER LABEL -------- */
+.player-label {
+  text-align: center;
+  font-size: 2rem; /* raddoppiato */
+  margin-bottom: 5px;
+  color: gold;
+  text-shadow: 2px 2px 6px black;
+}
+
+/* Dadi grandi */
 .dice {
-  width: 40px;
-  height: 40px;
+  width: 80px;
+  height: 80px;
   margin: 10px auto;
+}
+
+/* Personaggi grandi sotto i dadi */
+.player-char {
+  width: 440px;
+  height: auto;
+  margin-top: 10px;
+}
+
+/* Scroll mobile chat */
+#chat-messages, #event-messages {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* smooth scroll su mobile */
+  background: rgba(0,0,0,0.6);
+  height: 80vh;
+  padding: 10px;
+  border-radius: 5px;
+  color: white;
 }
 
 /* VS al centro */
