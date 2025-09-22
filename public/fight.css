@@ -41,36 +41,6 @@ header {
 }
 #fullscreen-btn:hover { color: gold; }
 
-/* -------- HUD -------- */
-#hud {
-  display: flex;
-  justify-content: space-between;
-  width: 90%;
-  margin: 20px 0;
-}
-
-.player-hud {
-  width: 40%;
-  text-align: center;
-}
-
-.health-bar {
-  width: 100%;
-  height: 20px;
-  background: #444;
-  border: 2px solid #222;
-  border-radius: 5px;
-  overflow: hidden;
-  margin-top: 5px;
-}
-
-.hp {
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(90deg, green, lime);
-  transition: width 0.3s ease-in-out;
-}
-
 /* -------- BATTLE AREA -------- */
 #battle-area {
   display: flex;
@@ -89,16 +59,34 @@ header {
 
 .player img {
   width: 120%;
-  max-width: 280px;
+  max-width: 220px;
   object-fit: contain;
 }
 
 .dice {
-  width: 60px;
+  width: 50px;
   margin: 10px auto;
 }
 
-/* -------- LOG EVENTI E CHAT -------- */
+/* -------- BARRE VITA -------- */
+.hp-bar {
+  width: 100%;
+  height: 20px;
+  background: #444;
+  border: 2px solid #222;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-top: 5px;
+}
+
+.hp {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, green, lime);
+  transition: width 0.3s ease-in-out;
+}
+
+/* -------- CHAT & STORICO EVENTI -------- */
 #battle-log {
   display: flex;
   justify-content: space-between;
@@ -107,14 +95,11 @@ header {
   gap: 20px;
 }
 
-.chat-box {
-  display: flex;
-  flex-direction: column;
+.chat-box, #event-box {
   width: 50%;
 }
 
-#chat-messages {
-  flex: 1;
+#chat-messages, #event-messages {
   background: rgba(0,0,0,0.5);
   padding: 10px;
   height: 200px;
@@ -125,32 +110,8 @@ header {
 }
 
 #chat-input {
+  width: 100%;
   padding: 8px;
   border-radius: 5px;
   border: none;
-}
-
-#event-box {
-  width: 45%;
-}
-
-#event-box h3 {
-  margin-bottom: 5px;
-  color: gold;
-}
-
-#event-messages {
-  height: 200px;
-  overflow-y: auto;
-  background: rgba(0,0,0,0.5);
-  padding: 10px;
-  border-radius: 5px;
-  color: white;
-}
-
-/* -------- MINI LOG -------- */
-#log-p1, #log-p2 {
-  margin-top: 5px;
-  font-size: 0.9rem;
-  color: yellow;
 }

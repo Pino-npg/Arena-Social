@@ -9,10 +9,13 @@ const player1CharImg = document.getElementById("player1-char");
 const player2CharImg = document.getElementById("player2-char");
 const player1HpBar = document.getElementById("player1-hp");
 const player2HpBar = document.getElementById("player2-hp");
-const logP1 = document.getElementById("log-p1");
-const logP2 = document.getElementById("log-p2");
 const diceP1 = document.getElementById("dice-p1");
 const diceP2 = document.getElementById("dice-p2");
+
+// Chat e storico
+const chatMessages = document.getElementById("chat-messages");
+const chatInput = document.getElementById("chat-input");
+const eventBox = document.getElementById("event-messages");
 
 // ---------- MUSICA ----------
 const musicBattle = new Audio("img/9.mp3");
@@ -37,10 +40,10 @@ const char = localStorage.getItem("selectedChar");
 socket.emit("join1vs1", { nick, char });
 
 // ---------- EVENTI ----------
-socket.on("gameStart", (game) => updateGame(game));
-socket.on("1vs1Update", (game) => updateGame(game));
+socket.on("gameStart", game => updateGame(game));
+socket.on("1vs1Update", game => updateGame(game));
 socket.on("gameOver", ({ winner }) => {
-  alert(`Winner: ${winner}`);
+  logEvent(`🎉 ${winner} ha vinto la battaglia!`);
   const winMusic = new Audio(`img/${winner}.mp3`);
   winMusic.play();
 });
@@ -51,7 +54,7 @@ function updateGame(game) {
   player1Name.textContent = `${game.player1.nick} (${game.player1.hp} HP) - ${game.player1.char}`;
   player2Name.textContent = `${game.player2.nick} (${game.player2.hp} HP) - ${game.player2.char}`;
 
-  // Aggiorna immagini personaggi (fissi)
+  // Aggiorna immagini personaggi fissi
   player1CharImg.src = `img/${game.player1.char}.png`;
   player2CharImg.src = `img/${game.player2.char}.png`;
 
@@ -63,24 +66,30 @@ function updateGame(game) {
   const dmgP1 = game.player1.dice - (game.player1.stunned ? 1 : 0);
   const dmgP2 = game.player2.dice - (game.player2.stunned ? 1 : 0);
 
-  // Aggiorna barre vita dopo danno effettivo
+  // Aggiorna barre vita
   player1HpBar.style.width = `${Math.max(game.player1.hp - dmgP2, 0)}%`;
   player2HpBar.style.width = `${Math.max(game.player2.hp - dmgP1, 0)}%`;
 
-  // Aggiorna log eventi con danno effettivo
+  // Aggiorna storico eventi
   if (game.player1.dice) logEvent(`${game.player1.nick} lancia ${game.player1.dice} e infligge ${dmgP1} danni!`);
   if (game.player2.dice) logEvent(`${game.player2.nick} lancia ${game.player2.dice} e infligge ${dmgP2} danni!`);
-
-  // Mini log sotto i player
-  logP1.textContent = `Last attack: ${dmgP1}`;
-  logP2.textContent = `Last attack: ${dmgP2}`;
 }
+
+// ---------- CHAT ----------
+chatInput.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.value.trim() !== "") {
+    const msg = document.createElement("div");
+    msg.textContent = `Tu: ${e.target.value}`;
+    chatMessages.appendChild(msg);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    e.target.value = "";
+  }
+});
 
 // ---------- HELPER ----------
 function logEvent(msg) {
-  const box = document.getElementById("event-messages");
   const line = document.createElement("div");
   line.textContent = msg;
-  box.appendChild(line);
-  box.scrollTop = box.scrollHeight;
+  eventBox.appendChild(line);
+  eventBox.scrollTop = eventBox.scrollHeight;
 }
