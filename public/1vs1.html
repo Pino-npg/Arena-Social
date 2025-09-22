@@ -1,64 +1,61 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="it">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>1vs1 Fight</title>
+  <title>1 vs 1 Arena</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
-<body class="fight">
-  <div id="game-container">
-    <header>
-      <h1 class="arena-title">1vs1 Arena</h1>
-      <i id="fullscreen-btn" class="icon fas fa-expand"></i>
-    </header>
+<body>
+  <!-- Pulsante fullscreen -->
+  <button id="fullscreen-btn">⛶</button>
 
-    <!-- HUD -->
-    <div id="hud">
-      <div class="player-hud">
-        <div id="player1-nick">Player 1</div>
-        <div class="health-bar"><div class="hp" id="player1-hp"></div></div>
+  <h1 class="arena-title">Battle Arena</h1>
+
+  <!-- Arena -->
+  <div id="arena">
+    <div class="fighter left">
+      <div class="player-info">
+        <span id="player1-nick">Player 1</span>
+        <span class="champion-name">(Beast)</span>
       </div>
-
-      <div class="versus">VS</div>
-
-      <div class="player-hud">
-        <div id="player2-nick">Player 2</div>
-        <div class="health-bar"><div class="hp" id="player2-hp"></div></div>
+      <div class="health-bar">
+        <div id="hp1" class="hp"></div>
       </div>
+      <img id="player1-char" src="" alt="player1">
+      <img id="dice-p1" class="dice" src="img/dice1.png" alt="dice">
+      <div id="log-p1"></div>
     </div>
 
-    <!-- Battle area -->
-    <div id="battle-area">
-      <div class="player">
-        <img id="player1-char" src="" alt="player1">
-        <img id="dice-p1" class="dice" src="img/dice1.png" alt="dice">
-        <div id="log-p1"></div>
-      </div>
+    <div class="vs">1 VS 1</div>
 
-      <div class="player">
-        <img id="player2-char" src="" alt="player2">
-        <img id="dice-p2" class="dice" src="img/dice1.png" alt="dice">
-        <div id="log-p2"></div>
+    <div class="fighter right">
+      <div class="player-info">
+        <span id="player2-nick">Player 2</span>
+        <span class="champion-name">(Clown)</span>
       </div>
-    </div>
-
-    <!-- Log -->
-    <div id="battle-log">
-      <div id="chat-box">
-        <h3>Chat</h3>
-        <div id="chat-messages"></div>
-        <input id="chat-input" placeholder="Scrivi..."/>
+      <div class="health-bar">
+        <div id="hp2" class="hp"></div>
       </div>
-
-      <div id="event-box">
-        <h3>Eventi</h3>
-        <div id="event-messages"></div>
-      </div>
+      <img id="player2-char" src="" alt="player2">
+      <img id="dice-p2" class="dice" src="img/dice1.png" alt="dice">
+      <div id="log-p2"></div>
     </div>
   </div>
 
-  <script type="module" src="fight.js"></script>
+  <!-- Chat + Eventi -->
+  <div id="battle-log">
+    <div class="chat-box">
+      <h3>Chat</h3>
+      <div id="chat-messages"></div>
+      <input type="text" id="chat-input" placeholder="Scrivi un messaggio...">
+    </div>
+
+    <div id="event-box">
+      <h3>Eventi</h3>
+      <div id="event-messages"></div>
+    </div>
+  </div>
+
+  <script src="fight.js"></script>
 </body>
 </html>
