@@ -1,129 +1,175 @@
-import express from "express";
-import { createServer } from "http";
-import { Server } from "socket.io";
+import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
-const app = express();
-const httpServer = createServer(app);
-const io = new Server(httpServer, { cors: { origin: "*" } });
-const PORT = process.env.PORT || 10000;
+const socket = io();
 
-app.use(express.static("public"));
-app.get("/1vs1.html", (req, res) => {
-  res.sendFile(new URL("public/1vs1.html", import.meta.url).pathname);
-});
+// ---------- ELEMENTI ----------
+const player1Name = document.getElementById("player1-nick");
+const player2Name = document.getElementById("player2-nick");
 
-const games = {};
-let waitingPlayer = null;
+const player1HpBar = document.getElementById("player1-hp");
+const player2HpBar = document.getElementById("player2-hp");
 
-function rollDice() { 
-  return Math.floor(Math.random() * 8) + 1; 
+const player1CharImg = document.getElementById("player1-char");
+const player2CharImg = document.getElementById("player2-char");
+
+const diceP1 = document.getElementById("dice-p1");
+const diceP2 = document.getElementById("dice-p2");
+
+const chatMessages = document.getElementById("chat-messages");
+const chatInput = document.getElementById("chat-input");
+const eventBox = document.getElementById("event-messages");
+
+// Online count
+const onlineCountDisplay = document.createElement("div");
+onlineCountDisplay.style.position = "absolute";
+onlineCountDisplay.style.top = "10px";
+onlineCountDisplay.style.left = "10px";
+onlineCountDisplay.style.color = "gold";
+onlineCountDisplay.style.fontSize = "1.2rem";
+onlineCountDisplay.style.textShadow = "1px 1px 4px black";
+document.body.appendChild(onlineCountDisplay);
+
+// ---------- MUSICA AUTOMATICA MOBILE ----------
+const musicBattle = new Audio("img/9.mp3");
+musicBattle.loop = true;
+musicBattle.volume = 0.5;
+
+const winnerMusic = new Audio();
+
+// Trucco per sbloccare audio su mobile senza click
+try {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const buffer = audioCtx.createBuffer(1, 1, 22050);
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audioCtx.destination);
+  source.start(0);
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  musicBattle.play().catch(()=>{});
+} catch(e) {
+  // fallback se browser non supporta
+  window.addEventListener("click", () => { musicBattle.play(); }, { once: true });
 }
 
-async function nextTurn(game, attackerIndex) {
-  const defenderIndex = attackerIndex === 0 ? 1 : 0;
-  const attacker = game.players[attackerIndex];
-  const defender = game.players[defenderIndex];
-
-  let damage = rollDice();
-
-  // Stun riduce danno di 1
-  if (attacker.stunned) {
-    damage = Math.max(1, damage - 1);
-    attacker.stunned = false; // rimuovi stun dopo effetto
-  }
-
-  // Se il dado è 8, il difensore rimane stunned
-  if (damage === 8) {
-    defender.stunned = true;
-  }
-
-  defender.hp = Math.max(0, defender.hp - damage);
-
-  // Salva info dadi e danno
-  attacker.dice = damage;
-  attacker.dmg = damage;
-  defender.dice = 0;
-  defender.dmg = 0;
-
-  // Invio aggiornamenti
-  for (const p of game.players) {
-    const p1 = game.players.find(pl => pl.id === p.id);
-    const p2 = game.players.find(pl => pl.id !== p.id);
-    io.to(p.id).emit("1vs1Update", { player1: p1, player2: p2 });
-    io.to(p.id).emit("log", `${attacker.nick} rolls ${damage} and deals ${damage} damage!`);
-  }
-
-  if (defender.hp === 0) {
-    for (const p of game.players) {
-      io.to(p.id).emit("gameOver", { winnerNick: attacker.nick, winnerChar: attacker.char });
-    }
-    delete games[game.id];
-    return;
-  }
-
-  setTimeout(() => nextTurn(game, defenderIndex), 3000);
-}
-
-io.on("connection", socket => {
-  console.log("Player connected:", socket.id);
-
-  // Invia online count aggiornato a tutti
-  io.emit("onlineCount", io.engine.clientsCount);
-
-  socket.on("disconnect", () => {
-    console.log("Player disconnected:", socket.id);
-    io.emit("onlineCount", io.engine.clientsCount);
-
-    // Se era in attesa
-    if (waitingPlayer && waitingPlayer.id === socket.id) waitingPlayer = null;
-
-    // Rimuovi il giocatore da eventuale partita
-    for (const gameId in games) {
-      const game = games[gameId];
-      const index = game.players.findIndex(p => p.id === socket.id);
-      if (index !== -1) {
-        const other = game.players.find(p => p.id !== socket.id);
-        io.to(other.id).emit("gameOver", { winnerNick: other.nick, winnerChar: other.char });
-        delete games[gameId];
-        break;
-      }
-    }
-  });
-
-  socket.on("join1vs1", ({ nick, char }) => {
-    socket.nick = nick;
-    socket.char = char;
-
-    if (!waitingPlayer) {
-      waitingPlayer = socket;
-      socket.emit("waiting", "Waiting for opponent...");
-    } else {
-      const gameId = socket.id + "#" + waitingPlayer.id;
-      const players = [
-        { id: waitingPlayer.id, nick: waitingPlayer.nick, char: waitingPlayer.char, hp: 80, stunned: false, dice: 0, dmg: 0 },
-        { id: socket.id, nick: nick, char: char, hp: 80, stunned: false, dice: 0, dmg: 0 }
-      ];
-
-      games[gameId] = { id: gameId, players };
-      for (const p of players) {
-        const other = players.find(pl => pl.id !== p.id);
-        io.to(p.id).emit("gameStart", { player1: p, player2: other });
-      }
-
-      const first = Math.floor(Math.random() * 2);
-      setTimeout(() => nextTurn(games[gameId], first), 1000);
-      waitingPlayer = null;
-    }
-  });
-
-  socket.on("chatMessage", text => {
-    const game = Object.values(games).find(g => g.players.some(p => p.id === socket.id));
-    if (!game) return;
-    const sender = game.players.find(p => p.id === socket.id);
-    for (const p of game.players) {
-      io.to(p.id).emit("chatMessage", { nick: sender.nick, text });
-    }
-  });
+// ---------- FULLSCREEN ----------
+const fullscreenBtn = document.getElementById("fullscreen-btn");
+const container = document.getElementById("game-container");
+fullscreenBtn.addEventListener("click", async () => {
+  if (!document.fullscreenElement) await container.requestFullscreen();
+  else await document.exitFullscreen();
 });
 
-httpServer.listen(PORT, () => console.log(`Server attivo su http://localhost:${PORT}`));
+// ---------- INIZIO PARTITA ----------
+const nick = localStorage.getItem("selectedNick");
+const char = localStorage.getItem("selectedChar");
+socket.emit("join1vs1", { nick, char });
+
+// ---------- GESTIONE STUN ----------
+let stunned = { p1: false, p2: false };
+
+// ---------- SOCKET EVENTS ----------
+socket.on("onlineCount", count => {
+  onlineCountDisplay.textContent = `Online: ${count}`;
+});
+
+socket.on("waiting", msg => logEvent(msg, "dice"));
+socket.on("gameStart", game => updateGame(game));
+socket.on("1vs1Update", game => updateGame(game));
+
+socket.on("gameOver", ({ winnerNick, winnerChar }) => {
+  logEvent(`🏆 ${winnerNick} has won the battle!`, "win");
+  playWinnerMusic(winnerChar);
+});
+
+// ---------- CHAT ----------
+chatInput.addEventListener("keydown", e => {
+  if(e.key === "Enter" && e.target.value.trim() !== "") {
+    socket.emit("chatMessage", e.target.value);
+    e.target.value = "";
+  }
+});
+
+socket.on("chatMessage", data => {
+  const msg = document.createElement("div");
+  msg.textContent = `${data.nick}: ${data.text}`;
+  chatMessages.appendChild(msg);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+});
+
+// ---------- FUNZIONI ----------
+function updateGame(game) {
+  player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${game.player1.hp}`;
+  player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${game.player2.hp}`;
+
+  player1HpBar.style.width = `${Math.max(game.player1.hp,0)}%`;
+  player2HpBar.style.width = `${Math.max(game.player2.hp,0)}%`;
+
+  if(game.player1.dice) handleDice(0, game);
+  if(game.player2.dice) handleDice(1, game);
+
+  updateCharacterImage(game.player1, 0);
+  updateCharacterImage(game.player2, 1);
+}
+
+function handleDice(playerIndex, game) {
+  const player = playerIndex === 0 ? game.player1 : game.player2;
+  const opponent = playerIndex === 0 ? game.player2 : game.player1;
+
+  let finalDmg = player.dmg;
+  let type = "damage";
+
+  if ((playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2)) {
+    finalDmg = Math.max(0, player.dice - 1);
+    logEvent(`${player.nick} is stunned and only deals ${finalDmg} damage!`, "dice");
+    if (playerIndex === 0) stunned.p1 = false; else stunned.p2 = false;
+  } 
+  else if (player.dice === 8) {
+    type = "crit";
+    logEvent(`${player.nick} CRIT! ${player.dmg} damage dealt ⚡`, type);
+    if (playerIndex === 0) stunned.p2 = true; else stunned.p1 = true;
+  } 
+  else logEvent(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage!`, type);
+
+  showDice(playerIndex, player.dice);
+}
+
+function logEvent(msg, type="normal") {
+  const line = document.createElement("div");
+  switch(type){
+    case "crit": line.textContent = "⚡💥 " + msg; break;
+    case "damage": line.textContent = "💥 " + msg; break;
+    case "dice": line.textContent = "🎲 " + msg; break;
+    case "win": line.textContent = "🏆 " + msg; break;
+    default: line.textContent = msg;
+  }
+  eventBox.appendChild(line);
+  eventBox.scrollTop = eventBox.scrollHeight;
+}
+
+function showDice(playerIndex, value){
+  const diceEl = playerIndex === 0 ? diceP1 : diceP2;
+  diceEl.src = `img/dice${value}.png`;
+  diceEl.style.width = "80px";
+  diceEl.style.height = "80px";
+}
+
+function updateCharacterImage(player,index){
+  let hp = player.hp;
+  let src = `img/${player.char}`;
+  if(hp<=0) src+='0';
+  else if(hp<=20) src+='20';
+  else if(hp<=40) src+='40';
+  else if(hp<=60) src+='60';
+  src+='.png';
+  if(index===0) player1CharImg.src=src;
+  else player2CharImg.src=src;
+}
+
+function playWinnerMusic(winnerChar) {
+  musicBattle.pause();
+  winnerMusic.src = `img/${winnerChar}.mp3`;
+  winnerMusic.play().catch(()=>{});
+}
+
+// ---------- FIX SCROLL MOBILE ----------
+document.body.style.overflowY = "auto";

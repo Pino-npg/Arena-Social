@@ -36,9 +36,18 @@ document.body.appendChild(onlineCountDisplay);
 const musicBattle = new Audio("img/9.mp3");
 musicBattle.loop = true;
 musicBattle.volume = 0.5;
-window.addEventListener("click", () => { 
-  if (musicBattle.paused) musicBattle.play(); 
+let canPlayAudio = false;
+window.addEventListener("click", () => {
+    canPlayAudio = true;
+    if (musicBattle.paused) musicBattle.play();
 }, { once: true });
+
+function playWinnerMusic(winnerChar) {
+    if (!canPlayAudio) return; // blocca se l’utente non ha cliccato
+    musicBattle.pause();
+    winnerMusic.src = `img/${winnerChar}.mp3`;
+    winnerMusic.play().catch(() => {});
+}
 
 let winnerMusic = new Audio();
 
@@ -139,7 +148,7 @@ function logEvent(msg, type="normal") {
   switch(type){
     case "crit": line.textContent = "⚡💥 " + msg; break;
     case "damage": line.textContent = "💥 " + msg; break;
-    case "dice": line.textContent = "🎲 " + msg; break;
+    case "dice": line.textContent = "😵‍💫 " + msg; break;
     case "win": line.textContent = "🏆 " + msg; break;
     default: line.textContent = msg;
   }

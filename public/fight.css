@@ -74,7 +74,7 @@ header {
 
 #chat-messages, #event-messages {
   background: rgba(0,0,0,0.6);
-  height: 40vh; /* ridotta rispetto a prima per lasciare spazio battaglia */
+  height: 20vh; /* ridotta rispetto a prima per lasciare spazio battaglia */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 10px;
@@ -119,7 +119,7 @@ header {
 
 /* Immagine personaggio sotto i dadi e raddoppiata */
 .player img {
-  width: 360px; /* raddoppiata rispetto a prima */
+  width: 300px; /* raddoppiata rispetto a prima */
   max-width: 100%;
   object-fit: contain;
   order: 2; /* sotto i dadi */
