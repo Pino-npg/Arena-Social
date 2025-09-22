@@ -172,3 +172,82 @@ body.fight #game-container {
   .arena-title { font-size: 2rem; }
   .char-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* HUD */
+#hud {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  margin: 20px 0;
+  width: 100%;
+}
+
+.player-hud {
+  text-align: center;
+  width: 40%;
+}
+
+.health-bar {
+  background: #444;
+  border: 2px solid #222;
+  width: 100%;
+  height: 20px;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-top: 5px;
+}
+
+.hp {
+  background: linear-gradient(90deg, green, lime);
+  height: 100%;
+  width: 100%;
+  transition: width 0.3s ease-in-out;
+}
+
+.versus {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 0 15px;
+}
+
+/* Battle area */
+#battle-area {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  gap: 50px;
+  margin-top: 20px;
+}
+
+.player img {
+  max-width: 200px;
+}
+
+.dice {
+  display: block;
+  width: 60px;
+  margin: 10px auto;
+}
+
+/* Log */
+#battle-log {
+  display: flex;
+  gap: 20px;
+  margin-top: 30px;
+  width: 100%;
+}
+
+#chat-box, #event-box {
+  flex: 1;
+  background: rgba(0,0,0,0.5);
+  padding: 10px;
+  border-radius: 8px;
+  height: 200px;
+  overflow-y: auto;
+}
+
+#chat-input {
+  width: 100%;
+  padding: 5px;
+  margin-top: 5px;
+}

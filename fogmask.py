@@ -5,12 +5,12 @@ import random, math
 frames = 100
 dew_count = 600
 glow_color_base = (210, 25, 25)  # RGB glow
-output_webp = "Arena.webp"
+output_webp = "Home.webp"
 
 # File
-sig_file = "Arena.png"
-smoke_mask_file = "Arenamask.png"
-glow_mask_file = "Arenaf.png"
+sig_file = "Home.png"
+smoke_mask_file = "Homemask.png"
+glow_mask_file = "Homered.png"
 
 # Carica immagini
 sig_layer = Image.open(sig_file).convert("RGBA")

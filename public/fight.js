@@ -1,6 +1,6 @@
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
-const socket = io(); // server principale
+const socket = io();
 
 // ---------- ELEMENTI ----------
 const player1Name = document.getElementById("player1-nick");
@@ -58,11 +58,17 @@ function updateGame(game) {
   player1CharImg.src = `img/${game.player1.char}${getHpImg(game.player1.hp)}.png`;
   player2CharImg.src = `img/${game.player2.char}${getHpImg(game.player2.hp)}.png`;
 
-  // Mostra dado
-  diceP1.src = `img/dice${game.player1.dice || 1}.png`;
-  diceP2.src = `img/dice${game.player2.dice || 1}.png`;
+  // Mostra dado e logga evento
+  if (game.player1.dice) {
+    diceP1.src = `img/dice${game.player1.dice}.png`;
+    logEvent(`${game.player1.nick} colpisce con ${game.player1.dice} danni!`);
+  }
+  if (game.player2.dice) {
+    diceP2.src = `img/dice${game.player2.dice}.png`;
+    logEvent(`${game.player2.nick} colpisce con ${game.player2.dice} danni!`);
+  }
 
-  // Log
+  // Mini log sotto i player
   logP1.textContent = `Last attack: ${game.player1.dice || 0}`;
   logP2.textContent = `Last attack: ${game.player2.dice || 0}`;
 }
@@ -74,4 +80,12 @@ function getHpImg(hp) {
   if (hp <= 40) return '40';
   if (hp <= 60) return '60';
   return ''; // 100%
+}
+
+function logEvent(msg) {
+  const box = document.getElementById("event-messages");
+  const line = document.createElement("div");
+  line.textContent = msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
 }

@@ -1,41 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>1vs1 Fight</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>1vs1 Fight</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
-<body>
-  <body class="fight"></body>
+<body class="fight">
   <div id="game-container">
     <header>
       <h1 class="arena-title">1vs1 Arena</h1>
-      <button id="fullscreen-btn">Fullscreen</button>
+      <i id="fullscreen-btn" class="icon fas fa-expand"></i>
     </header>
 
+    <!-- HUD -->
+    <div id="hud">
+      <div class="player-hud">
+        <div id="player1-nick">Player 1</div>
+        <div class="health-bar"><div class="hp" id="player1-hp"></div></div>
+      </div>
+
+      <div class="versus">VS</div>
+
+      <div class="player-hud">
+        <div id="player2-nick">Player 2</div>
+        <div class="health-bar"><div class="hp" id="player2-hp"></div></div>
+      </div>
+    </div>
+
+    <!-- Battle area -->
     <div id="battle-area">
-      <div class="player" id="player1">
-        <div id="player1-nick"></div>
-        <div id="player1-name"></div>
+      <div class="player">
         <img id="player1-char" src="" alt="player1">
-        <div class="hp-bar"><div id="player1-hp"></div></div>
-        <img id="dice-p1" src="img/dice1.png" alt="dice">
+        <img id="dice-p1" class="dice" src="img/dice1.png" alt="dice">
         <div id="log-p1"></div>
       </div>
 
-      <div class="vs">VS</div>
-
-      <div class="player" id="player2">
-        <div id="player2-nick"></div>
-        <div id="player2-name"></div>
+      <div class="player">
         <img id="player2-char" src="" alt="player2">
-        <div class="hp-bar"><div id="player2-hp"></div></div>
-        <img id="dice-p2" src="img/dice1.png" alt="dice">
+        <img id="dice-p2" class="dice" src="img/dice1.png" alt="dice">
         <div id="log-p2"></div>
       </div>
     </div>
+
+    <!-- Log -->
+    <div id="battle-log">
+      <div id="chat-box">
+        <h3>Chat</h3>
+        <div id="chat-messages"></div>
+        <input id="chat-input" placeholder="Scrivi..."/>
+      </div>
+
+      <div id="event-box">
+        <h3>Eventi</h3>
+        <div id="event-messages"></div>
+      </div>
+    </div>
   </div>
+
   <script type="module" src="fight.js"></script>
 </body>
 </html>
