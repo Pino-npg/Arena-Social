@@ -47,31 +47,40 @@ socket.on("gameOver", ({ winner }) => {
 
 // ---------- FUNZIONE UPDATE ----------
 function updateGame(game) {
-  // Aggiorna nickname e HP
-  player1Name.textContent = `${game.player1.nick} (${game.player1.hp} HP)`;
-  player2Name.textContent = `${game.player2.nick} (${game.player2.hp} HP)`;
+  // Aggiorna nickname + nome campione + HP
+  player1Name.textContent = `${game.player1.nick} (${game.player1.hp} HP) - ${game.player1.char}`;
+  player2Name.textContent = `${game.player2.nick} (${game.player2.hp} HP) - ${game.player2.char}`;
 
-  player1HpBar.style.width = `${game.player1.hp}%`;
-  player2HpBar.style.width = `${game.player2.hp}%`;
+  // Aggiorna immagini personaggi (fissi)
+  player1CharImg.src = `img/${game.player1.char}.png`;
+  player2CharImg.src = `img/${game.player2.char}.png`;
 
-  // Aggiorna immagini
-  player1CharImg.src = `img/${game.player1.char}${getHpImg(game.player1.hp)}.png`;
-  player2CharImg.src = `img/${game.player2.char}${getHpImg(game.player2.hp)}.png`;
+  // Mostra dado reale
+  if (game.player1.dice) diceP1.src = `img/dice${game.player1.dice}.png`;
+  if (game.player2.dice) diceP2.src = `img/dice${game.player2.dice}.png`;
 
-  // Mostra dado
-  diceP1.src = `img/dice${game.player1.dice || 1}.png`;
-  diceP2.src = `img/dice${game.player2.dice || 1}.png`;
+  // Calcolo danno effettivo con eventuale malus (-1 se stordito)
+  const dmgP1 = game.player1.dice - (game.player1.stunned ? 1 : 0);
+  const dmgP2 = game.player2.dice - (game.player2.stunned ? 1 : 0);
 
-  // Log
-  logP1.textContent = `Last attack: ${game.player1.dice || 0}`;
-  logP2.textContent = `Last attack: ${game.player2.dice || 0}`;
+  // Aggiorna barre vita dopo danno effettivo
+  player1HpBar.style.width = `${Math.max(game.player1.hp - dmgP2, 0)}%`;
+  player2HpBar.style.width = `${Math.max(game.player2.hp - dmgP1, 0)}%`;
+
+  // Aggiorna log eventi con danno effettivo
+  if (game.player1.dice) logEvent(`${game.player1.nick} lancia ${game.player1.dice} e infligge ${dmgP1} danni!`);
+  if (game.player2.dice) logEvent(`${game.player2.nick} lancia ${game.player2.dice} e infligge ${dmgP2} danni!`);
+
+  // Mini log sotto i player
+  logP1.textContent = `Last attack: ${dmgP1}`;
+  logP2.textContent = `Last attack: ${dmgP2}`;
 }
 
 // ---------- HELPER ----------
-function getHpImg(hp) {
-  if (hp <= 0) return '0';
-  if (hp <= 20) return '20';
-  if (hp <= 40) return '40';
-  if (hp <= 60) return '60';
-  return ''; // 100%
+function logEvent(msg) {
+  const box = document.getElementById("event-messages");
+  const line = document.createElement("div");
+  line.textContent = msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
 }
