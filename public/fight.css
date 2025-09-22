@@ -43,86 +43,103 @@ header {
 }
 #fullscreen-btn:hover { color: gold; }
 
-/* -------- BATTLE AREA -------- */
+/* -------- CONTAINER BATTLE AREA -------- */
 #battle-area {
-  display: flex;
-  justify-content: space-between;
-  width: 90%;
-  max-width: 1200px;
-  align-items: flex-end;
-}
-
-.player {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 45%;
-}
-
-.player img {
-  width: 168%; /* +40% rispetto a prima */
-  max-width: 380px;
-  object-fit: contain;
-}
-
-.vs {
-  font-size: 2rem;
-  font-weight: bold;
-  color: white;
-  align-self: center;
-  margin-top: 80px; /* centra verticalmente rispetto ai personaggi */
-}
-
-/* -------- DADI -------- */
-.dice {
-  width: 30px; /* -40% */
-  margin: 10px auto;
-}
-
-/* -------- BARRE VITA -------- */
-.hp-bar {
-  width: 100%;
-  height: 20px;
-  background: #444;
-  border: 2px solid #222;
-  border-radius: 5px;
-  overflow: hidden;
-  margin-top: 5px;
-}
-
-.hp {
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(90deg, green, lime);
-  transition: width 0.3s ease-in-out;
-}
-
-/* -------- CHAT & STORICO EVENTI -------- */
-#battle-log {
-  display: flex;
-  justify-content: space-between;
-  width: 90%;
-  margin-top: 20px;
-  gap: 20px;
-}
-
-.chat-box, #event-box {
-  width: 50%;
-}
-
-#chat-messages, #event-messages {
-  background: rgba(0,0,0,0.5);
-  padding: 10px;
-  height: 200px;
-  overflow-y: auto;
-  color: white;
-  border-radius: 5px;
-  margin-bottom: 5px;
-}
-
-#chat-input {
-  width: 100%;
-  padding: 8px;
-  border-radius: 5px;
-  border: none;
-}
+    display: flex;
+    justify-content: space-between;
+    width: 90%;
+    max-width: 1200px;
+    align-items: flex-end;
+    position: relative;
+    margin-top: 50px;
+  }
+  
+  /* -------- PLAYER -------- */
+  .player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 45%;
+    position: relative;
+  }
+  
+  .player img {
+    width: 168%; /* +40% */
+    max-width: 380px;
+    object-fit: contain;
+  }
+  
+  .player .hp-bar {
+    width: 80%;
+    height: 20px;
+    background: #444;
+    border: 2px solid #222;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 10px;
+  }
+  
+  .hp {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, green, lime);
+    transition: width 0.3s ease-in-out;
+  }
+  
+  /* -------- DADI -------- */
+  .dice {
+    width: 30px; /* -40% */
+    margin: 10px auto;
+  }
+  
+  /* -------- VS -------- */
+  .vs {
+    font-size: 2rem;
+    font-weight: bold;
+    color: white;
+    align-self: center;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 40%; /* centrato verticalmente rispetto ai personaggi */
+  }
+  
+  /* -------- CHAT & STORICO -------- */
+  #battle-log {
+    display: flex;
+    justify-content: space-between;
+    width: 90%;
+    margin-top: 20px;
+    gap: 20px;
+  }
+  
+  .chat-box, #event-box {
+    width: 48%;
+  }
+  
+  #chat-messages, #event-messages {
+    background: rgba(0,0,0,0.5);
+    padding: 10px;
+    height: 200px;
+    overflow-y: auto;
+    color: white;
+    border-radius: 5px;
+    margin-bottom: 5px;
+  }
+  
+  #chat-input {
+    width: 100%;
+    padding: 8px;
+    border-radius: 5px;
+    border: none;
+  }
+  
+  /* -------- FULLSCREEN ICON -------- */
+  #fullscreen-btn {
+    font-size: 2rem;
+    cursor: pointer;
+    color: white;
+    background: transparent;
+    border: none;
+  }
+  #fullscreen-btn:hover { color: gold; }
