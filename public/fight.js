@@ -3,9 +3,6 @@ import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 const socket = io();
 
 // ---------- ELEMENTI ----------
-const player1Box = document.getElementById("player1");
-const player2Box = document.getElementById("player2");
-
 const player1Name = document.getElementById("player1-nick");
 const player2Name = document.getElementById("player2-nick");
 
@@ -22,7 +19,7 @@ const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
 const eventBox = document.getElementById("event-messages");
 
-// Nuovo elemento per mostrare online count
+// Online count
 const onlineCountDisplay = document.createElement("div");
 onlineCountDisplay.style.position = "absolute";
 onlineCountDisplay.style.top = "10px";
@@ -32,7 +29,8 @@ onlineCountDisplay.style.fontSize = "1.2rem";
 onlineCountDisplay.style.textShadow = "1px 1px 4px black";
 document.body.appendChild(onlineCountDisplay);
 
-// ---------- MUSICA ----------
+// ---------- AUDIO ----------
+
 const musicBattle = new Audio("img/9.mp3");
 musicBattle.loop = true;
 musicBattle.volume = 0.5;
@@ -40,30 +38,28 @@ musicBattle.volume = 0.5;
 const winnerMusic = new Audio();
 winnerMusic.volume = 0.7;
 
+// Trucco per sbloccare audio su mobile al primo touch
 let audioUnlocked = false;
-
-// Sblocco audio su primo click o touch
 function unlockAudio() {
   if (audioUnlocked) return;
-  audioUnlocked = true;
-
-  // piccolo "ping" audio per sbloccare iOS
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const buffer = ctx.createBuffer(1, 1, 22050);
   const source = ctx.createBufferSource();
   source.buffer = buffer;
   source.connect(ctx.destination);
   source.start(0);
+  audioUnlocked = true;
 
+  // Ora possiamo partire con tutti i nostri audio
   musicBattle.play().catch(()=>{});
 }
 
-window.addEventListener("click", unlockAudio, { once: true });
 window.addEventListener("touchstart", unlockAudio, { once: true });
+window.addEventListener("click", unlockAudio, { once: true });
 
-// Funzione per suonare la musica del vincitore
+// ---------- FUNZIONE PER SUONARE MUSICA VINCITORE ----------
 function playWinnerMusic(winnerChar) {
-  if (!audioUnlocked) return; // aspetta il primo tocco su mobile
+  if (!audioUnlocked) return; // se ancora non sbloccato, aspetta primo tap
   musicBattle.pause();
   winnerMusic.src = `img/${winnerChar}.mp3`;
   winnerMusic.play().catch(()=>{});
@@ -90,12 +86,10 @@ socket.on("onlineCount", count => {
   onlineCountDisplay.textContent = `Online: ${count}`;
 });
 
-socket.on("waiting", msg => {
-  logEvent(msg, "dice");
-});
-
+socket.on("waiting", msg => logEvent(msg, "dice"));
 socket.on("gameStart", game => updateGame(game));
 socket.on("1vs1Update", game => updateGame(game));
+
 socket.on("gameOver", ({ winnerNick, winnerChar }) => {
   logEvent(`🏆 ${winnerNick} has won the battle!`, "win");
   playWinnerMusic(winnerChar);
@@ -118,15 +112,12 @@ socket.on("chatMessage", data => {
 
 // ---------- FUNZIONI ----------
 function updateGame(game) {
-  // Label sopra barra HP
   player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${game.player1.hp}`;
   player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${game.player2.hp}`;
 
-  // Barre HP
   player1HpBar.style.width = `${Math.max(game.player1.hp,0)}%`;
   player2HpBar.style.width = `${Math.max(game.player2.hp,0)}%`;
 
-  // Dadi e personaggi
   if(game.player1.dice) handleDice(0, game);
   if(game.player2.dice) handleDice(1, game);
 
@@ -141,7 +132,6 @@ function handleDice(playerIndex, game) {
   let finalDmg = player.dmg;
   let type = "damage";
 
-  // Se era stunned infligge dado-1
   if ((playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2)) {
     finalDmg = Math.max(0, player.dice - 1);
     logEvent(`${player.nick} is stunned and only deals ${finalDmg} damage!`, "dice");
@@ -150,14 +140,10 @@ function handleDice(playerIndex, game) {
   else if (player.dice === 8) {
     type = "crit";
     logEvent(`${player.nick} CRIT! ${player.dmg} damage dealt ⚡`, type);
-    // Stunna l'avversario
     if (playerIndex === 0) stunned.p2 = true; else stunned.p1 = true;
   } 
-  else {
-    logEvent(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage!`, type);
-  }
+  else logEvent(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage!`, type);
 
-  // Mostra il dado
   showDice(playerIndex, player.dice);
 }
 
@@ -191,12 +177,6 @@ function updateCharacterImage(player,index){
   src+='.png';
   if(index===0) player1CharImg.src=src;
   else player2CharImg.src=src;
-}
-
-function playWinnerMusic(winnerChar) {
-  musicBattle.pause();
-  winnerMusic.src = `img/${winnerChar}.mp3`;
-  winnerMusic.play().catch(()=>{});
 }
 
 // ---------- FIX SCROLL MOBILE ----------
