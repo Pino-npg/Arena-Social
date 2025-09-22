@@ -53,7 +53,7 @@ function unlockAudio() {
   // Parte musica battle
   musicBattle.play().catch(()=>{});
 
-  // Se c'è una musica vincitore in attesa, la facciamo partire
+  // Se c'è una musica vincitore in attesa, la facciamo partire subito
   if (winnerMusicPending) {
     winnerMusic.src = `img/${winnerMusicPending}.mp3`;
     winnerMusic.play().catch(()=>{});
@@ -108,19 +108,37 @@ socket.on("gameOver", ({ winnerNick, winnerChar }) => {
   playWinnerMusic(winnerChar);
 });
 
-// ---------- CHAT ----------
+// ---------- CHAT DINAMICA ----------
+const chatMinHeight = 100; // altezza minima px
+chatMessages.style.height = chatMinHeight + "px";
+
+function appendChatMessage(msgText){
+  const msg = document.createElement("div");
+  msg.textContent = msgText;
+  chatMessages.appendChild(msg);
+
+  // Calcola altezza totale del contenuto
+  const contentHeight = chatMessages.scrollHeight;
+  const maxHeight = window.innerHeight * 0.6; // max 60% viewport
+
+  if(contentHeight > chatMessages.clientHeight){
+    chatMessages.style.height = Math.min(contentHeight, maxHeight) + "px";
+  }
+
+  // Scroll verso il messaggio più recente
+  chatMessages.scrollTop = 0;
+}
+
+// ---------- SOCKET CHAT ----------
 chatInput.addEventListener("keydown", e => {
-  if(e.key === "Enter" && e.target.value.trim() !== "") {
+  if(e.key === "Enter" && e.target.value.trim() !== ""){
     socket.emit("chatMessage", e.target.value);
     e.target.value = "";
   }
 });
 
 socket.on("chatMessage", data => {
-  const msg = document.createElement("div");
-  msg.textContent = `${data.nick}: ${data.text}`;
-  chatMessages.appendChild(msg);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
+  appendChatMessage(`${data.nick}: ${data.text}`);
 });
 
 // ---------- FUNZIONI ----------
@@ -140,7 +158,6 @@ function updateGame(game) {
 
 function handleDice(playerIndex, game) {
   const player = playerIndex === 0 ? game.player1 : game.player2;
-  const opponent = playerIndex === 0 ? game.player2 : game.player1;
 
   let finalDmg = player.dmg;
   let type = "damage";
