@@ -13,35 +13,37 @@
       <button id="fullscreen-btn">⛶</button>
     </header>
 
-    <div id="battle-area">
-      <!-- Player 1 -->
-      <div class="player" id="player1">
-        <div id="player1-nick"></div>
-        <div id="player1-name"></div>
-        <img id="player1-char" src="" alt="player1">
-        <div class="hp-bar"><div id="player1-hp" class="hp"></div></div>
-        <img id="dice-p1" class="dice" src="img/dice1.png" alt="dice">
-      </div>
-
-      <div class="vs">VS</div>
-
-      <!-- Player 2 -->
-      <div class="player" id="player2">
-        <div id="player2-nick"></div>
-        <div id="player2-name"></div>
-        <img id="player2-char" src="" alt="player2">
-        <div class="hp-bar"><div id="player2-hp" class="hp"></div></div>
-        <img id="dice-p2" class="dice" src="img/dice1.png" alt="dice">
-      </div>
-    </div>
-
-    <!-- Chat e storico eventi -->
-    <div id="battle-log">
-      <div class="chat-box">
+    <div id="main-area">
+      <!-- Chat a sinistra -->
+      <div class="side-box" id="chat-box">
+        <h3>Chat</h3>
         <div id="chat-messages"></div>
         <input type="text" id="chat-input" placeholder="Scrivi un messaggio...">
       </div>
-      <div id="event-box">
+
+      <!-- Battaglia centrale -->
+      <div id="battle-area">
+        <div class="player" id="player1">
+          <div id="player1-nick"></div>
+          <div id="player1-name"></div>
+          <img id="player1-char" src="" alt="player1">
+          <div class="hp-bar"><div id="player1-hp" class="hp"></div></div>
+          <img id="dice-p1" class="dice" src="img/dice1.png" alt="dice">
+        </div>
+
+        <div class="vs">VS</div>
+
+        <div class="player" id="player2">
+          <div id="player2-nick"></div>
+          <div id="player2-name"></div>
+          <img id="player2-char" src="" alt="player2">
+          <div class="hp-bar"><div id="player2-hp" class="hp"></div></div>
+          <img id="dice-p2" class="dice" src="img/dice1.png" alt="dice">
+        </div>
+      </div>
+
+      <!-- Eventi a destra -->
+      <div class="side-box" id="event-box">
         <h3>Storico eventi</h3>
         <div id="event-messages"></div>
       </div>

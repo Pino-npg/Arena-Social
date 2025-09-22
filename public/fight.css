@@ -26,54 +26,83 @@ header {
   display: flex;
   justify-content: center;
   align-items: center;
-  position: relative;
+  margin-bottom: 10px;
 }
 
 .arena-title {
   font-size: 3rem;
   color: white;
   text-shadow: 2px 2px 8px black;
-  text-align: center;
 }
 
 #fullscreen-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
   font-size: 2rem;
   cursor: pointer;
   color: white;
   background: transparent;
   border: none;
+  position: absolute;
+  right: 20px;
+  top: 20px;
 }
 #fullscreen-btn:hover { color: gold; }
 
-/* -------- BATTLE AREA -------- */
-#battle-area {
+/* -------- MAIN AREA (CHAT, BATTLE, EVENTI) -------- */
+#main-area {
   display: flex;
   justify-content: space-between;
-  width: 90%;
-  max-width: 1200px;
-  align-items: flex-end;
-  position: relative;
-  margin-top: 50px;
+  align-items: flex-start;
+  width: 100%;
+  flex-grow: 1;
 }
 
-/* -------- PLAYER -------- */
+/* Colonne laterali */
+.side-box {
+  width: 20%;
+  display: flex;
+  flex-direction: column;
+}
+
+#chat-messages, #event-messages {
+  background: rgba(0,0,0,0.6);
+  height: 80vh;
+  overflow-y: auto;
+  padding: 10px;
+  color: white;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+#chat-input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 5px;
+  border: none;
+  background: rgba(255,255,255,0.1);
+  color: white;
+}
+
+/* Battaglia centrale */
+#battle-area {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  width: 55%;
+  position: relative;
+}
+
 .player {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 40%;
-  flex-shrink: 0;
+  width: 45%;
   position: relative;
 }
 
 .player img {
-  width: 140%;
-  max-width: 380px;
+  width: 220px; /* dadi grandi */
+  max-width: 100%;
   object-fit: contain;
-  margin: 0 auto;
 }
 
 .hp-bar {
@@ -93,13 +122,11 @@ header {
   transition: width 0.3s ease-in-out;
 }
 
-/* -------- DADI -------- */
 .dice {
-  width: 30px;
+  width: 50px; /* dadi grandi */
   margin: 10px auto;
 }
 
-/* -------- VS -------- */
 .vs {
   font-size: 3rem;
   font-weight: bold;
@@ -109,36 +136,4 @@ header {
   transform: translateX(-50%);
   top: 40%;
   text-shadow: 2px 2px 6px black;
-}
-
-/* -------- CHAT & STORICO -------- */
-#battle-log {
-  display: flex;
-  justify-content: space-between;
-  width: 90%;
-  margin-top: 20px;
-  gap: 20px;
-}
-
-.chat-box, #event-box {
-  width: 48%;
-}
-
-#chat-messages, #event-messages {
-  background: rgba(0,0,0,0.6);
-  padding: 10px;
-  height: 200px;
-  overflow-y: auto;
-  color: white;
-  border-radius: 5px;
-  margin-bottom: 5px;
-}
-
-#chat-input {
-  width: 100%;
-  padding: 8px;
-  border-radius: 5px;
-  border: none;
-  background: rgba(255,255,255,0.1);
-  color: white;
 }
