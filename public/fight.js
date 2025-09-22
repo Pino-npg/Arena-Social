@@ -36,7 +36,7 @@ musicBattle.volume = 0.5;
 
 const winnerMusic = new Audio();
 winnerMusic.volume = 0.7;
-let winnerMusicPending = null; // salva il vincitore se audio bloccato
+let winnerMusicPending = null; // salva vincitore se audio bloccato
 
 // ---------- TRUCCO MOBILE ----------
 let audioUnlocked = false;
@@ -50,7 +50,7 @@ function unlockAudio() {
   source.start(0);
   audioUnlocked = true;
 
-  // Parte musica battle
+  // Partita musica battle
   musicBattle.play().catch(()=>{});
 
   // Se c'è una musica vincitore in attesa, la facciamo partire subito
@@ -65,24 +65,25 @@ window.addEventListener("touchstart", unlockAudio, { once: true });
 window.addEventListener("click", unlockAudio, { once: true });
 
 // ---------- FUNZIONE PER SUONARE MUSICA VINCITORE ----------
-function playWinnerMusic(winnerChar) {
+function playWinnerMusic(winnerChar){
   musicBattle.pause();
 
-  if (!audioUnlocked) {
-    // audio bloccato, memorizzo chi è il vincitore
+  if(!audioUnlocked){
     winnerMusicPending = winnerChar;
     return;
   }
 
   winnerMusic.src = `img/${winnerChar}.mp3`;
-  winnerMusic.play().catch(()=>{});
+  winnerMusic.play().catch(() => {
+    winnerMusicPending = winnerChar; // fallback se bloccato
+  });
 }
 
 // ---------- FULLSCREEN ----------
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const container = document.getElementById("game-container");
 fullscreenBtn.addEventListener("click", async () => {
-  if (!document.fullscreenElement) await container.requestFullscreen();
+  if(!document.fullscreenElement) await container.requestFullscreen();
   else await document.exitFullscreen();
 });
 
@@ -109,27 +110,6 @@ socket.on("gameOver", ({ winnerNick, winnerChar }) => {
 });
 
 // ---------- CHAT DINAMICA ----------
-const chatMinHeight = 100; // altezza minima px
-chatMessages.style.height = chatMinHeight + "px";
-
-function appendChatMessage(msgText){
-  const msg = document.createElement("div");
-  msg.textContent = msgText;
-  chatMessages.appendChild(msg);
-
-  // Calcola altezza totale del contenuto
-  const contentHeight = chatMessages.scrollHeight;
-  const maxHeight = window.innerHeight * 0.6; // max 60% viewport
-
-  if(contentHeight > chatMessages.clientHeight){
-    chatMessages.style.height = Math.min(contentHeight, maxHeight) + "px";
-  }
-
-  // Scroll verso il messaggio più recente
-  chatMessages.scrollTop = 0;
-}
-
-// ---------- SOCKET CHAT ----------
 chatInput.addEventListener("keydown", e => {
   if(e.key === "Enter" && e.target.value.trim() !== ""){
     socket.emit("chatMessage", e.target.value);
@@ -138,11 +118,11 @@ chatInput.addEventListener("keydown", e => {
 });
 
 socket.on("chatMessage", data => {
-  appendChatMessage(`${data.nick}: ${data.text}`);
+  appendLine(chatMessages, `${data.nick}: ${data.text}`);
 });
 
 // ---------- FUNZIONI ----------
-function updateGame(game) {
+function updateGame(game){
   player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${game.player1.hp}`;
   player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${game.player2.hp}`;
 
@@ -156,45 +136,54 @@ function updateGame(game) {
   updateCharacterImage(game.player2, 1);
 }
 
-function handleDice(playerIndex, game) {
+function handleDice(playerIndex, game){
   const player = playerIndex === 0 ? game.player1 : game.player2;
-
   let finalDmg = player.dmg;
   let type = "damage";
 
-  if ((playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2)) {
+  if((playerIndex===0 && stunned.p1) || (playerIndex===1 && stunned.p2)){
     finalDmg = Math.max(0, player.dice - 1);
     logEvent(`${player.nick} is stunned and only deals ${finalDmg} damage!`, "dice");
-    if (playerIndex === 0) stunned.p1 = false; else stunned.p2 = false;
-  } 
-  else if (player.dice === 8) {
-    type = "crit";
+    if(playerIndex===0) stunned.p1=false; else stunned.p2=false;
+  } else if(player.dice===8){
+    type="crit";
     logEvent(`${player.nick} CRIT! ${player.dmg} damage dealt ⚡`, type);
-    if (playerIndex === 0) stunned.p2 = true; else stunned.p1 = true;
-  } 
-  else logEvent(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage!`, type);
+    if(playerIndex===0) stunned.p2=true; else stunned.p1=true;
+  } else {
+    logEvent(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage!`, type);
+  }
 
   showDice(playerIndex, player.dice);
 }
 
-function logEvent(msg, type="normal") {
+// ---------- CHAT/LOG MAX 10 RIGHE ----------
+function appendLine(container, text, type="normal"){
   const line = document.createElement("div");
   switch(type){
-    case "crit": line.textContent = "⚡💥 " + msg; break;
-    case "damage": line.textContent = "💥 " + msg; break;
-    case "dice": line.textContent = "😵‍💫 " + msg; break;
-    case "win": line.textContent = "🏆 " + msg; break;
-    default: line.textContent = msg;
+    case "crit": line.textContent = "⚡💥 " + text; break;
+    case "damage": line.textContent = "💥 " + text; break;
+    case "dice": line.textContent = "😵‍💫 " + text; break;
+    case "win": line.textContent = "🏆 " + text; break;
+    default: line.textContent = text;
   }
-  eventBox.appendChild(line);
-  eventBox.scrollTop = eventBox.scrollHeight;
+  container.appendChild(line);
+
+  while(container.children.length > 10){
+    container.removeChild(container.firstChild);
+  }
+
+  container.scrollTop = container.scrollHeight;
+}
+
+function logEvent(msg, type="normal"){
+  appendLine(eventBox, msg, type);
 }
 
 function showDice(playerIndex, value){
-  const diceEl = playerIndex === 0 ? diceP1 : diceP2;
+  const diceEl = playerIndex===0 ? diceP1 : diceP2;
   diceEl.src = `img/dice${value}.png`;
-  diceEl.style.width = "80px";
-  diceEl.style.height = "80px";
+  diceEl.style.width="80px";
+  diceEl.style.height="80px";
 }
 
 function updateCharacterImage(player,index){
