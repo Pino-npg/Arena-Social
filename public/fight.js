@@ -39,6 +39,7 @@ winnerMusic.volume = 0.7;
 let winnerMusicPending = null; // salva vincitore se audio bloccato
 
 // ---------- TRUCCO MOBILE ----------
+// ---------- TRUCCO MOBILE ----------
 let audioUnlocked = false;
 function unlockAudio() {
   if (audioUnlocked) return;
@@ -50,25 +51,24 @@ function unlockAudio() {
   source.start(0);
   audioUnlocked = true;
 
-  // Partita musica battle
-  musicBattle.play().catch(()=>{});
-
-  // Se c'è una musica vincitore in attesa, la facciamo partire subito
+  // Se c'era musica vincitore in attesa, la facciamo partire
   if (winnerMusicPending) {
     winnerMusic.src = `img/${winnerMusicPending}.mp3`;
     winnerMusic.play().catch(()=>{});
     winnerMusicPending = null;
   }
-}
 
-window.addEventListener("touchstart", unlockAudio, { once: true });
-window.addEventListener("click", unlockAudio, { once: true });
+  // Solo su mobile, partiamo musica battaglia se non è partita
+  if(musicBattle.paused) musicBattle.play().catch(()=>{});
+}
 
 // ---------- FUNZIONE PER SUONARE MUSICA VINCITORE ----------
 function playWinnerMusic(winnerChar){
-  musicBattle.pause();
+  // Ferma solo la battaglia su PC e mobile se partita
+  if(!musicBattle.paused) musicBattle.pause();
 
   if(!audioUnlocked){
+    // su mobile bloccato, memorizzo vincitore
     winnerMusicPending = winnerChar;
     return;
   }
