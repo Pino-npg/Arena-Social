@@ -78,20 +78,20 @@ socket.on("1vs1Update", game => updateGame(game));
 socket.on("gameOver", ({ winnerNick, winnerChar }) => {
   addEventMessage(`🏆 ${winnerNick} has won the battle!`);
   playWinnerMusic(winnerChar);
-  // Chat resta attiva
+  gameOverFlag = true; // partita finita
+  // ⚡ chat rimane attiva
 });
 
 // ---------- CHAT ----------
 chatInput.addEventListener("keydown", e => {
   if(e.key === "Enter" && e.target.value.trim() !== "") {
+    // Invia sempre messaggio anche se gameOver
     socket.emit("chatMessage", e.target.value);
     e.target.value = "";
   }
 });
 
-socket.on("chatMessage", data => {
-  addChatMessage(`${data.nick}: ${data.text}`);
-});
+socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
 
 // ---------- FUNZIONI ----------
 function updateGame(game) {
@@ -115,16 +115,16 @@ function handleDice(playerIndex, game) {
 
   if ((playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2)) {
     finalDmg = Math.max(0, player.dice - 1);
-    addEventMessage(`${player.nick} is stunned and only deals ${finalDmg} damage!`);
+    addEventMessage(`${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
     if (playerIndex === 0) stunned.p1 = false; else stunned.p2 = false;
   } 
   else if (player.dice === 8) {
     type = "crit";
-    addEventMessage(`${player.nick} CRIT! ${player.dmg} damage dealt ⚡`);
+    addEventMessage(`${player.nick} CRIT! ${player.dmg} damage dealt ⚡💥`);
     if (playerIndex === 0) stunned.p2 = true; else stunned.p1 = true;
   } 
   else {
-    addEventMessage(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage!`);
+    addEventMessage(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);
   }
 
   showDice(playerIndex, player.dice);
