@@ -1,0 +1,57 @@
+/* -------- RESET & BASE -------- */
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body, #game-container { 
+  min-height:100%; width:100%; 
+  font-family:'Cinzel', serif; color:#f5f5f5; 
+  background: url("img/Arena.webp") center/cover no-repeat; 
+  overflow-y: auto; 
+}
+
+/* -------- HEADER -------- */
+header {
+  width:100%; display:flex; justify-content:center; align-items:center; margin-bottom:10px; position:relative;
+}
+.arena-title { font-size:3rem; color:white; text-shadow:2px 2px 8px black; }
+#fullscreen-btn, #trophy-btn {
+  font-size:2rem; cursor:pointer; background:transparent; border:none; color:white; position:absolute; top:20px;
+}
+#fullscreen-btn { right:20px; } 
+#trophy-btn { right:70px; }
+#fullscreen-btn:hover, #trophy-btn:hover { color:gold; }
+
+/* -------- MAIN AREA -------- */
+#main-area { display:flex; flex-direction:column; align-items:center; width:100%; flex-grow:1; gap:20px; }
+#battle-area { display:flex; flex-wrap:wrap; justify-content:center; gap:20px; width:100%; }
+
+/* -------- SIDE BOXES -------- */
+#bottom-area { width:100%; display:flex; gap:10px; padding:10px; background:rgba(0,0,0,0.5); }
+.side-box { flex:1; background:#222; border:1px solid #444; padding:5px; display:flex; flex-direction:column; max-height:7em; }
+.side-box h3 { margin:0 0 5px 0; font-size:0.9rem; }
+#chat-messages, #event-messages { flex:1; overflow-y:auto; font-size:0.85rem; display:flex; flex-direction:column; }
+#chat-input { border:none; padding:4px; font-size:0.85rem; outline:none; margin-top:5px; background:#333; color:white; height:1.8em; }
+
+/* -------- PLAYER BOX -------- */
+.player { display:flex; flex-direction:column; align-items:center; width:45%; position:relative; }
+.player img { width:180px; max-width:100%; object-fit:contain; margin-top:10px; }
+.hp-bar { width:100%; height:20px; background:#444; border:2px solid #222; border-radius:5px; overflow:hidden; margin-top:10px; }
+.hp { height:100%; width:100%; background:linear-gradient(90deg,green,lime); transition:width 0.3s ease-in-out; }
+.player-label { text-align:center; font-size:1.5rem; margin-bottom:5px; color:gold; text-shadow:1px 1px 4px black; }
+.dice { width:60px; height:60px; margin:10px auto; }
+
+/* -------- OVERLAY / BRACKET -------- */
+#tournament-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; justify-content:center; align-items:center; z-index:1000; }
+#tournament-overlay.hidden { display:none; }
+#tournament-board { background:#111; padding:20px; border:2px solid gold; width:90%; max-width:800px; text-align:center; }
+#bracket { display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+#close-overlay { margin-top:10px; font-size:1.2rem; padding:5px 10px; cursor:pointer; }
+
+/* -------- ANIMAZIONI EVENTI -------- */
+@keyframes effectFade {
+  0% { opacity:1; transform: translate(-50%,-50%) translateY(0); }
+  100% { opacity:0; transform: translate(-50%,-50%) translateY(-30px); }
+}
+.event-effect {
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  font-size:2rem; pointer-events:none;
+  animation: effectFade 1s forwards;
+}

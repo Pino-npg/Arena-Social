@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tournament Arena 8</title>
+<link rel="stylesheet" href="tour.css">
+</head>
+<body class="fight">
+  <div id="game-container">
+    <header>
+      <h1 class="arena-title">Tournament 8 Arena</h1>
+      <button id="fullscreen-btn">⛶</button>
+      <button id="trophy-btn">🏆</button>
+    </header>
+
+    <div id="main-area">
+      <div id="battle-area">
+        <!-- Placeholder dinamico per 4 match dei quarti -->
+      </div>
+
+      <div id="bottom-area">
+        <div class="side-box" id="chat-box">
+          <h3>Global Chat</h3>
+          <div id="chat-messages"></div>
+          <input id="chat-input" type="text" placeholder="Write a message...">
+        </div>
+
+        <div class="side-box" id="event-box">
+          <h3>Battle events</h3>
+          <div id="event-messages"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay Tabellone -->
+  <div id="tournament-overlay" class="hidden">
+    <div id="tournament-board">
+      <h2>🏆 Tournament Bracket</h2>
+      <div id="bracket"></div>
+      <button id="close-overlay">Close</button>
+    </div>
+  </div>
+
+<script type="module" src="tour.js"></script>
+</body>
+</html>
