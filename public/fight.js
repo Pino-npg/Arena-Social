@@ -38,12 +38,9 @@ musicBattle.loop = true;
 musicBattle.volume = 0.5;
 function unlockAudio() {
   if (musicBattle.paused) musicBattle.play().catch(()=>{});
-  if (winnerMusic.paused) winnerMusic.play().catch(()=>{});
 }
-
-
-
-let winnerMusic = new Audio();
+window.addEventListener("click", unlockAudio, { once: true });
+window.addEventListener("touchstart", unlockAudio, { once: true });
 
 // ---------- FULLSCREEN ----------
 const fullscreenBtn = document.getElementById("fullscreen-btn");
@@ -72,9 +69,8 @@ socket.on("waiting", msg => {
 
 socket.on("gameStart", game => updateGame(game));
 socket.on("1vs1Update", game => updateGame(game));
-socket.on("gameOver", ({ winnerNick, winnerChar }) => {
+socket.on("gameOver", ({ winnerNick }) => {
   logEvent(`🏆 ${winnerNick} has won the battle!`, "win");
-  playWinnerMusic(winnerChar);
 });
 
 // ---------- CHAT ----------
@@ -112,7 +108,6 @@ function updateGame(game) {
 
 function handleDice(playerIndex, game) {
   const player = playerIndex === 0 ? game.player1 : game.player2;
-  const opponent = playerIndex === 0 ? game.player2 : game.player1;
 
   let finalDmg = player.dmg;
   let type = "damage";
@@ -168,14 +163,6 @@ function updateCharacterImage(player,index){
   if(index===0) player1CharImg.src=src;
   else player2CharImg.src=src;
 }
-
-function playWinnerMusic(winnerChar) {
-  musicBattle.pause();
-  winnerMusic.src = `img/${winnerChar}.mp3`;
-  winnerMusic.play().catch(()=>{});
-}
-window.addEventListener("click", unlockAudio, { once: true });
-window.addEventListener("touchstart", unlockAudio, { once: true });
 
 // ---------- FIX SCROLL MOBILE ----------
 document.body.style.overflowY = "auto";
