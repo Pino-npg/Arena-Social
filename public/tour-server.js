@@ -97,27 +97,43 @@ function startMatch(p1, p2, stage) {
 // --- Controllo avanzamento ---
 function checkNextStage() {
   const stages = ["quarter", "semi", "final"];
-  for (let i = 1; i < stages.length; i++) {
-    const prev = stages[i - 1];
+
+  for (let i = 0; i < stages.length; i++) {
     const stage = stages[i];
+    const prevStage = i === 0 ? null : stages[i - 1];
 
+    // Controlla se ci sono match attivi in questo stage
     const active = Object.values(tournament.matches).some(m => m.stage === stage);
-    if (!active) {
-      const winners = tournament.bracket.filter(b => b.stage === prev).map(b => b.winner);
-      if (winners.length >= 2) {
-        for (let j = 0; j < winners.length; j += 2) {
-          const p1 = tournament.waiting.find(p => p.nick === winners[j]);
-          const p2 = tournament.waiting.find(p => p.nick === winners[j + 1]);
-          if (p1 && p2) startMatch(p1, p2, stage);
-        }
-      }
+    if (active) continue; // se ci sono match in corso, non fare nulla
 
-      // se finale già giocata → vincitore assoluto
-      if (stage === "final" && winners.length === 1) {
-        const champion = winners[0];
-        io.of("/tournament").emit("tournamentOver", { nick: champion });
-        resetTournament();
+    let candidates;
+    if (!prevStage) {
+      // primi quarti: prendi i primi 8 in waiting
+      if (tournament.waiting.length >= 8) {
+        candidates = tournament.waiting.slice(0, 8);
+      } else {
+        continue; // aspetta che ci siano 8 giocatori
       }
+    } else {
+      // fasi successive: prendi i vincitori del turno precedente
+      candidates = tournament.bracket
+        .filter(b => b.stage === prevStage)
+        .map(b => tournament.waiting.find(p => p.nick === b.winner))
+        .filter(Boolean);
+    }
+
+    // Avvia i match a coppie
+    for (let j = 0; j < candidates.length; j += 2) {
+      const p1 = candidates[j];
+      const p2 = candidates[j + 1];
+      if (p1 && p2) startMatch(p1, p2, stage);
+    }
+
+    // Se finale e c’è un solo vincitore → torneo finito
+    if (stage === "final" && candidates.length === 1) {
+      const champion = candidates[0].nick;
+      io.of("/tournament").emit("tournamentOver", { nick: champion.nick, char: champion.char });
+      resetTournament();
     }
   }
 }
@@ -130,6 +146,7 @@ function resetTournament() {
 }
 
 // --- Namespace torneo ---
+// --- Namespace torneo ---
 const nspTournament = io.of("/tournament");
 
 nspTournament.on("connection", socket => {
@@ -138,17 +155,31 @@ nspTournament.on("connection", socket => {
     nspTournament.emit("waitingCount", { count: tournament.waiting.length, required: 8 });
   }
 
+  console.log("Nuovo client connesso:", socket.id);
+
   socket.on("joinTournament", ({ nick, char }) => {
+
+    // Evita doppie iscrizioni dello stesso socket
+    if (tournament.waiting.find(p => p.id === socket.id)) return;
+
     socket.nick = nick;
     socket.char = char;
     tournament.waiting.push({ id: socket.id, nick, char });
 
-    updateWaitingCount();
-    nspTournament.to(socket.id).emit("waiting", "Waiting for 8 players...");
+    console.log(`JoinTournament: ${nick} (${char}) - Totale in attesa: ${tournament.waiting.length}`);
 
+    updateWaitingCount();
+    nspTournament.to(socket.id).emit("waiting", `Waiting for 8 players...`);
+
+    // Avvia i match dei quarti appena ci sono 8 giocatori
     if (tournament.waiting.length === 8) {
+      console.log("All eight players have arrived. The quarterfinals begin...");
       for (let i = 0; i < 8; i += 2) {
-        startMatch(tournament.waiting[i], tournament.waiting[i + 1], "quarti");
+        const p1 = tournament.waiting[i];
+        const p2 = tournament.waiting[i + 1];
+        if (p1 && p2) {
+          startMatch(p1, p2, "quarter"); // ora usa "quarter" coerente con il client
+        }
       }
     }
   });
@@ -159,10 +190,12 @@ nspTournament.on("connection", socket => {
   });
 
   socket.on("disconnect", () => {
+    console.log("Client disconnesso:", socket.nick, socket.id);
+
     tournament.waiting = tournament.waiting.filter(p => p.id !== socket.id);
     updateWaitingCount();
 
-    // se era in un match, l'altro vince
+    // Se il giocatore era in un match, l'altro vince automaticamente
     for (const matchId in tournament.matches) {
       const match = tournament.matches[matchId];
       const index = match.players.findIndex(p => p.id === socket.id);
