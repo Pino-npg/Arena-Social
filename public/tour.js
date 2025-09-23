@@ -163,29 +163,69 @@ function animateHP(hpDiv, from, to){
 }
 
 // ---------- BRACKET ----------
-function updateBracket(){
+const tournamentBracket = []; // array per memorizzare i match completati
+
+function updateBracketDisplay(matches){
   bracket.innerHTML = "";
-  const matchContainers = document.querySelectorAll(".match-container");
-  matchContainers.forEach(mc => {
-    const pDivs = mc.querySelectorAll(".player");
-    if(pDivs.length === 2){
-      const nick1 = pDivs[0].querySelector(".player-label").textContent.split(" ")[0];
-      const nick2 = pDivs[1].querySelector(".player-label").textContent.split(" ")[0];
-      const row = document.createElement("div");
-      row.textContent = `${nick1} vs ${nick2}`;
-      bracket.appendChild(row);
+  
+  // Prima mostra i match completati
+  tournamentBracket.forEach(m => {
+    const row = document.createElement("div");
+    if(m.winner){
+      row.textContent = `${m.player1} ${m.winner === m.player1 ? "🏆" : ""} vs ${m.player2} ${m.winner === m.player2 ? "🏆" : ""}`;
+    } else {
+      row.textContent = `${m.player1} vs ${m.player2}`;
     }
+    bracket.appendChild(row);
+  });
+
+  // Poi aggiunge i match in corso
+  matches.forEach(m => {
+    const row = document.createElement("div");
+    row.textContent = `${m.player1.nick} vs ${m.player2.nick}`;
+    bracket.appendChild(row);
   });
 }
 
-// ---------- TOURNAMENT FINITO ----------
-socket.on("matchOver", data => addEventMessage(`🏆 ${data.winner} won the match!`));
+socket.on("matchStart", data => updateMatch([data]));
+socket.on("updateMatch", data => updateMatch([data]));
+
+function updateMatch(matches){
+  battleArea.innerHTML = "";
+  matches.forEach(match => {
+    const container = document.createElement("div"); 
+    container.classList.add("match-container");
+
+    const p1Div = createPlayerDiv(match.player1);
+    const p2Div = createPlayerDiv(match.player2);
+
+    container.appendChild(p1Div);
+    container.appendChild(p2Div);
+    battleArea.appendChild(container);
+
+    if(match.stage) playMusic(match.stage);
+  });
+
+  updateBracketDisplay(matches);
+}
+
+// ---------- MATCH & TOURNAMENT FINITI ----------
+socket.on("matchOver", data => {
+  addEventMessage(`🏆 ${data.winner} won the match!`);
+  // salva match completato per il bracket
+  tournamentBracket.push({ player1: data.player1, player2: data.player2, winner: data.winner });
+  updateBracketDisplay([]);
+});
+
 socket.on("tournamentOver", winner => {
   addEventMessage(`🏆 ${winner.nick} won the Tournament!`);
   document.body.style.backgroundImage = `url("img/${winner.char}.webp")`;
   musicAudio.pause();
   waitingDiv.textContent = "";
 });
+
+// ---------- TROPHY BTN ----------
+trophyBtn.addEventListener("click", ()=> overlay.classList.remove("hidden"));
 
 // ---------- MOBILE SCROLL FIX ----------
 document.body.style.overflowY = "auto";
