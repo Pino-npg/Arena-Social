@@ -1,5 +1,3 @@
-import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
-
 // ---------- SOCKET.IO ----------
 const socket = io("http://localhost:10001/tournament");
 
@@ -14,7 +12,7 @@ const overlay = document.getElementById("tournament-overlay");
 const bracket = document.getElementById("bracket");
 document.getElementById("close-overlay").addEventListener("click", ()=> overlay.classList.add("hidden"));
 
-// ---------- MESSAGGIO WAITING ----------
+// ---------- WAITING ----------
 const waitingDiv = document.createElement("div");
 waitingDiv.id = "waiting-msg";
 waitingDiv.style.textAlign = "center";
@@ -43,27 +41,21 @@ function playMusic(stage){
 // ---------- JOIN ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
-
-if (!nick || !char) {
-  alert("Nickname o character non selezionati!");
-} else {
-  socket.emit("joinTournament",{nick,char});
-}
+if (!nick || !char) alert("Nickname o character non selezionati!");
+else socket.emit("joinTournament",{nick,char});
 
 // ---------- WAITING COUNT ----------
 socket.on("waitingCount", data => {
-  if (data.count < data.required) {
-    waitingDiv.textContent = `Waiting for ${data.count}/${data.required} players...`;
-  } else {
-    waitingDiv.textContent = "";
-  }
+  waitingDiv.textContent = data.count < data.required 
+    ? `Waiting for ${data.count}/${data.required} players...` 
+    : "";
 });
 
 // ---------- CHAT ----------
 chatInput.addEventListener("keydown", e => {
-  if(e.key === "Enter" && e.target.value.trim() !== ""){
+  if(e.key==="Enter" && e.target.value.trim()!==""){
     socket.emit("chatMessage", e.target.value);
-    e.target.value = "";
+    e.target.value="";
   }
 });
 socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
@@ -86,17 +78,19 @@ function showEventEffect(playerDiv, text){
   span.textContent = text;
   span.classList.add("event-effect");
   playerDiv.appendChild(span);
-  setTimeout(() => span.remove(), 1000);
+  setTimeout(()=>span.remove(),1000);
 }
 
-// ---------- AGGIORNAMENTO MATCH ----------
+// ---------- MATCH & BRACKET ----------
+let tournamentBracket = []; // memorizza match finiti
+
 socket.on("matchStart", data => updateMatch([data]));
 socket.on("updateMatch", data => updateMatch([data]));
 
 function updateMatch(matches){
   battleArea.innerHTML = "";
   matches.forEach(match => {
-    const container = document.createElement("div"); 
+    const container = document.createElement("div");
     container.classList.add("match-container");
 
     const p1Div = createPlayerDiv(match.player1);
@@ -108,7 +102,7 @@ function updateMatch(matches){
 
     if(match.stage) playMusic(match.stage);
   });
-  updateBracket();
+  updateBracketDisplay(matches);
 }
 
 function createPlayerDiv(player){
@@ -123,109 +117,72 @@ function createPlayerDiv(player){
   return div;
 }
 
-// ---------- DADI ANIMATI & HP ----------
 socket.on("log", msg => {
   addEventMessage(msg);
 
-  const matchDivs = battleArea.querySelectorAll(".match-container");
-  matchDivs.forEach(container => {
-    const pDivs = container.querySelectorAll(".player");
-    pDivs.forEach(div => {
+  battleArea.querySelectorAll(".match-container").forEach(container=>{
+    container.querySelectorAll(".player").forEach(div=>{
       const diceImg = div.querySelector(".dice");
       const hpDiv = div.querySelector(".hp");
       const playerNick = div.querySelector(".player-label").textContent.split(" ")[0];
 
       if(msg.includes(playerNick)){
-        const diceVal = msg.match(/rolls (\d+)/)?.[1] || 1;
-        diceImg.src = `img/dice${diceVal}.png`;
-        diceImg.style.width = "80px"; 
-        diceImg.style.height = "80px";
+        const diceVal = msg.match(/rolls (\d+)/)?.[1]||1;
+        diceImg.src=`img/dice${diceVal}.png`;
+        diceImg.style.width="80px"; 
+        diceImg.style.height="80px";
 
-        const dmg = parseInt(msg.match(/deals (\d+)/)?.[1] || 0);
-        const currentHP = parseInt(hpDiv.style.width);
-        const newHP = Math.max(0, currentHP - dmg);
-        animateHP(hpDiv, currentHP, newHP);
+        const dmg=parseInt(msg.match(/deals (\d+)/)?.[1]||0);
+        const currentHP=parseInt(hpDiv.style.width);
+        const newHP=Math.max(0,currentHP-dmg);
+        animateHP(hpDiv,currentHP,newHP);
 
-        showEventEffect(div, "💥");
+        showEventEffect(div,"💥");
       }
     });
   });
 });
 
 function animateHP(hpDiv, from, to){
-  const step = from > to ? -1 : 1;
-  let val = from;
-  const interval = setInterval(()=>{
-    if(val === to){ clearInterval(interval); return; }
-    val += step;
-    hpDiv.style.width = val + "%";
-  }, 30);
+  const step = from>to?-1:1;
+  let val=from;
+  const interval=setInterval(()=>{
+    if(val===to){ clearInterval(interval); return; }
+    val+=step;
+    hpDiv.style.width=val+"%";
+  },30);
 }
 
-// ---------- BRACKET ----------
-const tournamentBracket = []; // array per memorizzare i match completati
-
+// ---------- BRACKET DISPLAY ----------
 function updateBracketDisplay(matches){
-  bracket.innerHTML = "";
-  
-  // Prima mostra i match completati
-  tournamentBracket.forEach(m => {
-    const row = document.createElement("div");
-    if(m.winner){
-      row.textContent = `${m.player1} ${m.winner === m.player1 ? "🏆" : ""} vs ${m.player2} ${m.winner === m.player2 ? "🏆" : ""}`;
-    } else {
-      row.textContent = `${m.player1} vs ${m.player2}`;
-    }
+  bracket.innerHTML="";
+  tournamentBracket.forEach(m=>{
+    const row=document.createElement("div");
+    row.textContent=`${m.player1} vs ${m.player2} → Winner: ${m.winner}`;
     bracket.appendChild(row);
   });
-
-  // Poi aggiunge i match in corso
-  matches.forEach(m => {
-    const row = document.createElement("div");
-    row.textContent = `${m.player1.nick} vs ${m.player2.nick}`;
+  // Aggiunge match in corso
+  matches.forEach(m=>{
+    const row=document.createElement("div");
+    row.textContent=`${m.player1.nick} vs ${m.player2.nick}`;
     bracket.appendChild(row);
   });
 }
 
-socket.on("matchStart", data => updateMatch([data]));
-socket.on("updateMatch", data => updateMatch([data]));
-
-function updateMatch(matches){
-  battleArea.innerHTML = "";
-  matches.forEach(match => {
-    const container = document.createElement("div"); 
-    container.classList.add("match-container");
-
-    const p1Div = createPlayerDiv(match.player1);
-    const p2Div = createPlayerDiv(match.player2);
-
-    container.appendChild(p1Div);
-    container.appendChild(p2Div);
-    battleArea.appendChild(container);
-
-    if(match.stage) playMusic(match.stage);
-  });
-
-  updateBracketDisplay(matches);
-}
-
-// ---------- MATCH & TOURNAMENT FINITI ----------
-socket.on("matchOver", data => {
-  addEventMessage(`🏆 ${data.winner} won the match!`);
-  // salva match completato per il bracket
-  tournamentBracket.push({ player1: data.player1, player2: data.player2, winner: data.winner });
-  updateBracketDisplay([]);
-});
-
-socket.on("tournamentOver", winner => {
-  addEventMessage(`🏆 ${winner.nick} won the Tournament!`);
-  document.body.style.backgroundImage = `url("img/${winner.char}.webp")`;
-  musicAudio.pause();
-  waitingDiv.textContent = "";
-});
-
-// ---------- TROPHY BTN ----------
 trophyBtn.addEventListener("click", ()=> overlay.classList.remove("hidden"));
 
+// ---------- MATCH/TORNEO FINITI ----------
+socket.on("matchOver", data=>{
+  addEventMessage(`🏆 ${data.winner} won the match!`);
+  tournamentBracket.push({player1:data.player1.nick,player2:data.player2.nick,winner:data.winner});
+  updateBracketDisplay([]);
+});
+socket.on("tournamentOver", winner=>{
+  addEventMessage(`🏆 ${winner.nick} won the Tournament!`);
+  document.body.style.backgroundImage=`url("img/${winner.char}.webp")`;
+  musicAudio.pause();
+  waitingDiv.textContent="";
+});
+
 // ---------- MOBILE SCROLL FIX ----------
-document.body.style.overflowY = "auto";
+document.body.style.overflowY="auto";
