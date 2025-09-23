@@ -1,9 +1,11 @@
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
-// ---------- SOCKET.IO ----------
-const socket = io(); // stesso server principale
+// ---------- SOCKET.IO HOME ----------
+const socket = io("/home"); // namespace dedicato per la home
 const onlineCounter = document.getElementById("online");
-socket.on("onlineCount", (count) => {
+
+// Aggiornamento live del conteggio online
+socket.on("onlineCount", count => {
   onlineCounter.textContent = `Online: ${count}`;
 });
 
@@ -21,7 +23,6 @@ confirmBtn.addEventListener("click", () => {
   nicknameInput.disabled = true;
 
   socket.emit("setNickname", nick);
-  // niente alert così non interrompe fullscreen
 });
 
 // ---------- PERSONAGGI ----------
@@ -31,44 +32,44 @@ let selectedChar = null;
 chars.forEach(c => {
   c.addEventListener("click", () => {
     if (!nickConfirmed) return;
+
+    // Deseleziona tutti e seleziona il cliccato
     chars.forEach(el => el.classList.remove("selected"));
     c.classList.add("selected");
     selectedChar = c.dataset.char;
 
+    // Abilita le modalità solo se nickname e character confermati
     document.getElementById("mode-1vs1").disabled = false;
     document.getElementById("mode-tournament").disabled = false;
   });
 });
 
 // ---------- MODALITA ----------
-document.getElementById("mode-1vs1").addEventListener("click", () => {
+function startGame(mode) {
   if (!selectedChar || !nickConfirmed) return;
 
-  localStorage.setItem("selectedNick", nicknameInput.value.trim());
+  const nick = nicknameInput.value.trim();
+  localStorage.setItem("selectedNick", nick);
   localStorage.setItem("selectedChar", selectedChar);
 
-  window.location.href = "/1vs1.html";
-});
+  if (mode === "1vs1") window.location.href = "/1vs1.html";
+  else if (mode === "tournament") window.location.href = "/tour.html";
+}
 
-document.getElementById("mode-tournament").addEventListener("click", () => {
-  if (!selectedChar) return;
-  socket.emit("startGame", { mode: "tournament", character: selectedChar });
-});
+document.getElementById("mode-1vs1").addEventListener("click", () => startGame("1vs1"));
+document.getElementById("mode-tournament").addEventListener("click", () => startGame("tournament"));
 
 // ---------- RULES POPUP ----------
-document.getElementById("rules-btn").addEventListener("click", () => {
-  document.getElementById("rules-popup").classList.remove("hidden");
-});
-document.getElementById("close-rules").addEventListener("click", () => {
-  document.getElementById("rules-popup").classList.add("hidden");
-});
+const rulesPopup = document.getElementById("rules-popup");
+document.getElementById("rules-btn").addEventListener("click", () => rulesPopup.classList.remove("hidden"));
+document.getElementById("close-rules").addEventListener("click", () => rulesPopup.classList.add("hidden"));
 
 // ---------- MUSICA ----------
 const music = new Audio("img/8.mp3");
 music.loop = true;
 music.volume = 0.5;
 
-// partenza musica al primo click sul container
+// Partenza musica al primo click sul container
 const container = document.getElementById("game-container");
 container.addEventListener("click", () => {
   music.play().catch(() => {});
@@ -76,20 +77,22 @@ container.addEventListener("click", () => {
 
 // ---------- FULLSCREEN ----------
 const fullscreenBtn = document.getElementById("fullscreen-btn");
-
 fullscreenBtn.addEventListener("click", async () => {
-  if (!document.fullscreenElement) {
-    try {
+  try {
+    if (!document.fullscreenElement) {
       await container.requestFullscreen?.();
       container.style.height = "100vh";
       container.style.width = "100vw";
       if (screen.orientation?.lock) await screen.orientation.lock("landscape").catch(()=>{});
-    } catch (err) {
-      console.log("Fullscreen error:", err);
+    } else {
+      await document.exitFullscreen?.();
+      container.style.height = "100%";
+      container.style.width = "100%";
     }
-  } else {
-    await document.exitFullscreen?.();
-    container.style.height = "100%";
-    container.style.width = "100%";
+  } catch (err) {
+    console.log("Fullscreen error:", err);
   }
 });
+
+// ---------- MOBILE SCROLL FIX ----------
+document.body.style.overflowY = "auto";

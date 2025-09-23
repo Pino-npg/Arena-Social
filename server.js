@@ -14,13 +14,17 @@ app.get("/1vs1.html", (req, res) => {
 app.get("/tour.html", (req, res) => {
   res.sendFile(new URL("public/tour.html", import.meta.url).pathname);
 });
+app.get("/", (req, res) => {
+  res.sendFile(new URL("public/index.html", import.meta.url).pathname);
+});
 
-// ----------- 1VS1 ----------- //
+// ----------- UTILITY -----------
+function rollDice() { return Math.floor(Math.random() * 8) + 1; }
+
+// ----------- 1VS1 -----------
 const games1vs1 = {};
 let waitingPlayer1vs1 = null;
 const lastGames1vs1 = {};
-
-function rollDice() { return Math.floor(Math.random() * 8) + 1; }
 
 async function nextTurn1vs1(game, attackerIndex) {
   const defenderIndex = attackerIndex === 0 ? 1 : 0;
@@ -57,25 +61,6 @@ async function nextTurn1vs1(game, attackerIndex) {
 // 1vs1 namespace
 const nsp1vs1 = io.of("/1vs1");
 nsp1vs1.on("connection", socket=>{
-  nsp1vs1.emit("onlineCount", nsp1vs1.sockets.size);
-
-  socket.on("disconnect", ()=>{
-    nsp1vs1.emit("onlineCount", nsp1vs1.sockets.size);
-    if(waitingPlayer1vs1 && waitingPlayer1vs1.id===socket.id) waitingPlayer1vs1=null;
-
-    for(const gameId in games1vs1){
-      const game = games1vs1[gameId];
-      const index = game.players.findIndex(p=>p.id===socket.id);
-      if(index!==-1){
-        const other = game.players.find(p=>p.id!==socket.id);
-        nsp1vs1.to(other.id).emit("gameOver",{winnerNick:other.nick,winnerChar:other.char});
-        lastGames1vs1[other.id]=game;
-        delete games1vs1[gameId];
-        break;
-      }
-    }
-  });
-
   socket.on("join1vs1",({nick,char})=>{
     socket.nick=nick; socket.char=char;
     if(!waitingPlayer1vs1){ waitingPlayer1vs1=socket; socket.emit("waiting","Waiting for opponent..."); }
@@ -94,6 +79,7 @@ nsp1vs1.on("connection", socket=>{
       setTimeout(()=>nextTurn1vs1(games1vs1[gameId],first),1000);
       waitingPlayer1vs1=null;
     }
+    updateHomeOnlineCount();
   });
 
   socket.on("chatMessage", text=>{
@@ -102,12 +88,26 @@ nsp1vs1.on("connection", socket=>{
     if(!game) return;
     for(const p of game.players) nsp1vs1.to(p.id).emit("chatMessage",{nick:socket.nick,text});
   });
+
+  socket.on("disconnect", ()=>{
+    if(waitingPlayer1vs1 && waitingPlayer1vs1.id===socket.id) waitingPlayer1vs1=null;
+    for(const gameId in games1vs1){
+      const game = games1vs1[gameId];
+      const index = game.players.findIndex(p=>p.id===socket.id);
+      if(index!==-1){
+        const other = game.players.find(p=>p.id!==socket.id);
+        nsp1vs1.to(other.id).emit("gameOver",{winnerNick:other.nick,winnerChar:other.char});
+        lastGames1vs1[other.id]=game;
+        delete games1vs1[gameId];
+        break;
+      }
+    }
+    updateHomeOnlineCount();
+  });
 });
 
-// ----------- TOURNAMENT ----------- //
-const tournament = {
-  waiting: [], matches:{}, bracket:[], chat:[]
-};
+// ----------- TOURNAMENT -----------
+const tournament = { waiting: [], matches:{}, bracket:[], chat:[] };
 
 function nextTurnTournament(match, attackerIndex){
   const defenderIndex = attackerIndex===0?1:0;
@@ -176,8 +176,6 @@ function checkNextStageTournament(){
 // Tournament namespace
 const nspTournament = io.of("/tournament");
 nspTournament.on("connection",socket=>{
-  nspTournament.emit("onlineCount", nspTournament.sockets.size);
-
   socket.on("joinTournament",({nick,char})=>{
     socket.nick=nick; socket.char=char;
     tournament.waiting.push({id:socket.id,nick,char});
@@ -187,6 +185,7 @@ nspTournament.on("connection",socket=>{
         startMatchTournament(tournament.waiting[i],tournament.waiting[i+1],"quarti");
       }
     }
+    updateHomeOnlineCount();
   });
 
   socket.on("chatMessage",text=>{
@@ -198,7 +197,6 @@ nspTournament.on("connection",socket=>{
   });
 
   socket.on("disconnect",()=>{
-    nspTournament.emit("onlineCount", nspTournament.sockets.size);
     tournament.waiting=tournament.waiting.filter(p=>p.id!==socket.id);
     for(const matchId in tournament.matches){
       const match=tournament.matches[matchId];
@@ -209,7 +207,30 @@ nspTournament.on("connection",socket=>{
         delete tournament.matches[matchId];
       }
     }
+    updateHomeOnlineCount();
   });
+});
+
+// ----------- HOME (conteggio live) -----------
+const nspHome = io.of("/home");
+
+// Funzione per inviare il totale a tutti nella home
+function updateHomeOnlineCount() {
+  const total = nsp1vs1.sockets.size + nspTournament.sockets.size;
+  nspHome.emit("onlineCount", total);
+}
+
+// Aggiornamento al connect/disconnect in 1vs1
+nsp1vs1.on("connect", updateHomeOnlineCount);
+nsp1vs1.on("disconnect", updateHomeOnlineCount);
+
+// Aggiornamento al connect/disconnect nel torneo
+nspTournament.on("connect", updateHomeOnlineCount);
+nspTournament.on("disconnect", updateHomeOnlineCount);
+
+// Aggiornamento quando qualcuno si connette nella home
+nspHome.on("connection", socket => {
+  socket.emit("onlineCount", nsp1vs1.sockets.size + nspTournament.sockets.size);
 });
 
 httpServer.listen(PORT,()=>console.log(`Server attivo su http://localhost:${PORT}`));
