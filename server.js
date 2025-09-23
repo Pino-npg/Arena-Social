@@ -12,13 +12,16 @@ app.get("/1vs1.html", (req, res) => {
   res.sendFile(new URL("public/1vs1.html", import.meta.url).pathname);
 });
 
+// ------------------- GIOCHI -------------------
 const games = {};
 let waitingPlayer = null;
+const lastGames = {}; // <--- salva ultima partita per ogni giocatore
 
 function rollDice() { 
   return Math.floor(Math.random() * 8) + 1; 
 }
 
+// ------------------- TURNO -------------------
 async function nextTurn(game, attackerIndex) {
   const defenderIndex = attackerIndex === 0 ? 1 : 0;
   const attacker = game.players[attackerIndex];
@@ -26,20 +29,17 @@ async function nextTurn(game, attackerIndex) {
 
   let damage = rollDice();
 
-  // Stun riduce danno di 1
   if (attacker.stunned) {
     damage = Math.max(1, damage - 1);
-    attacker.stunned = false; // rimuovi stun dopo effetto
+    attacker.stunned = false;
   }
 
-  // Se il dado è 8, il difensore rimane stunned
   if (damage === 8) {
     defender.stunned = true;
   }
 
   defender.hp = Math.max(0, defender.hp - damage);
 
-  // Salva info dadi e danno
   attacker.dice = damage;
   attacker.dmg = damage;
   defender.dice = 0;
@@ -56,34 +56,36 @@ async function nextTurn(game, attackerIndex) {
   if (defender.hp === 0) {
     for (const p of game.players) {
       io.to(p.id).emit("gameOver", { winnerNick: attacker.nick, winnerChar: attacker.char });
+      lastGames[p.id] = game; // <--- salva partita per chat post-vittoria
     }
-    delete games[game.id];
+    delete games[game.id]; // cancella partita attiva
     return;
   }
 
   setTimeout(() => nextTurn(game, defenderIndex), 3000);
 }
 
+// ------------------- SOCKET -------------------
 io.on("connection", socket => {
   console.log("Player connected:", socket.id);
 
-  // Invia online count aggiornato a tutti
+  // Aggiorna online count
   io.emit("onlineCount", io.engine.clientsCount);
 
   socket.on("disconnect", () => {
     console.log("Player disconnected:", socket.id);
     io.emit("onlineCount", io.engine.clientsCount);
 
-    // Se era in attesa
     if (waitingPlayer && waitingPlayer.id === socket.id) waitingPlayer = null;
 
-    // Rimuovi il giocatore da eventuale partita
+    // Rimuovi da eventuale partita attiva
     for (const gameId in games) {
       const game = games[gameId];
       const index = game.players.findIndex(p => p.id === socket.id);
       if (index !== -1) {
         const other = game.players.find(p => p.id !== socket.id);
         io.to(other.id).emit("gameOver", { winnerNick: other.nick, winnerChar: other.char });
+        lastGames[other.id] = game; // salva partita per chat
         delete games[gameId];
         break;
       }
@@ -101,7 +103,7 @@ io.on("connection", socket => {
       const gameId = socket.id + "#" + waitingPlayer.id;
       const players = [
         { id: waitingPlayer.id, nick: waitingPlayer.nick, char: waitingPlayer.char, hp: 80, stunned: false, dice: 0, dmg: 0 },
-        { id: socket.id, nick: nick, char: char, hp: 80, stunned: false, dice: 0, dmg: 0 }
+        { id: socket.id, nick, char, hp: 80, stunned: false, dice: 0, dmg: 0 }
       ];
 
       games[gameId] = { id: gameId, players };
@@ -116,11 +118,13 @@ io.on("connection", socket => {
     }
   });
 
+  // ------------------- CHAT -------------------
   socket.on("chatMessage", text => {
-    // Trova la partita anche se gameOver
-    const game = Object.values(games).find(g => g.players.some(p => p.id === socket.id)) || lastGameFor(socket.id);
+    // Trova partita attiva o ultima partita
+    let game = Object.values(games).find(g => g.players.some(p => p.id === socket.id));
+    if (!game) game = lastGames[socket.id];
     if (!game) return;
-  
+
     const sender = { nick: socket.nick };
     for (const p of game.players) {
       io.to(p.id).emit("chatMessage", { nick: sender.nick, text });
@@ -128,4 +132,5 @@ io.on("connection", socket => {
   });
 });
 
+// ------------------- SERVER -------------------
 httpServer.listen(PORT, () => console.log(`Server attivo su http://localhost:${PORT}`));
