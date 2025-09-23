@@ -1,5 +1,5 @@
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
-const socket = io("/tournament");
+const socket = io("http://localhost:10001/tournament");
 
 // ---------- ELEMENTI ----------
 const battleArea = document.getElementById("battle-area");
