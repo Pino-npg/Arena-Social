@@ -51,8 +51,14 @@ document.getElementById("mode-1vs1").addEventListener("click", () => {
 });
 
 document.getElementById("mode-tournament").addEventListener("click", () => {
-  if (!selectedChar) return;
-  socket.emit("startGame", { mode: "tournament", character: selectedChar });
+  if (!selectedChar || !nickConfirmed) return;
+
+  // salva dati per tour.js
+  localStorage.setItem("selectedNick", nicknameInput.value.trim());
+  localStorage.setItem("selectedChar", selectedChar);
+
+  // apri la pagina torneo
+  window.location.href = "/tour.html";
 });
 
 // ---------- RULES POPUP ----------
