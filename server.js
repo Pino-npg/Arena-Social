@@ -117,9 +117,11 @@ io.on("connection", socket => {
   });
 
   socket.on("chatMessage", text => {
-    const game = Object.values(games).find(g => g.players.some(p => p.id === socket.id));
+    // Trova la partita anche se gameOver
+    const game = Object.values(games).find(g => g.players.some(p => p.id === socket.id)) || lastGameFor(socket.id);
     if (!game) return;
-    const sender = game.players.find(p => p.id === socket.id);
+  
+    const sender = { nick: socket.nick };
     for (const p of game.players) {
       io.to(p.id).emit("chatMessage", { nick: sender.nick, text });
     }
