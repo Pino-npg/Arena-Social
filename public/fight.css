@@ -60,9 +60,7 @@ header {
 
 /* -------- CHAT + EVENTI -------- */
 #bottom-area {
-  position: absolute;
-  bottom: 0;
-  left: 0;
+  position: relative; /* non più absolute */
   width: 100%;
   display: flex;
   gap: 10px;
@@ -78,6 +76,7 @@ header {
   padding: 5px;
   display: flex;
   flex-direction: column;
+  max-height: 7em; /* ≈ 5 righe di testo */
 }
 
 .side-box h3 {
@@ -85,24 +84,28 @@ header {
   font-size: 0.9rem;
 }
 
-/* Contenitore messaggi */
 #chat-messages,
 #event-messages {
   flex: 1;
   overflow-y: auto;
   display: flex;
-  flex-direction: column-reverse; /* nuovi messaggi in alto */
+  flex-direction: column-reverse; /* messaggi nuovi in alto */
   font-size: 0.85rem;
-  line-height: 1.2rem;
-  max-height: calc(1.2rem * 10); /* massimo 10 righe visibili */
 }
 
+/* Chat input dentro il box */
 #chat-input {
   border: none;
   padding: 4px;
   font-size: 0.85rem;
   outline: none;
   margin-top: 5px;
+  resize: none;
+  min-height: 1.2em;   /* parte da 1 riga */
+  max-height: 6em;     /* massimo circa 5 righe */
+  overflow-y: auto;
+  background: #333;
+  color: white;
 }
 
 /* -------- BATTLE -------- */
