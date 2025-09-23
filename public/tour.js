@@ -1,4 +1,6 @@
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
+
+// ---------- SOCKET.IO ----------
 const socket = io("http://localhost:10001/tournament");
 
 // ---------- ELEMENTI ----------
@@ -11,6 +13,13 @@ const trophyBtn = document.getElementById("trophy-btn");
 const overlay = document.getElementById("tournament-overlay");
 const bracket = document.getElementById("bracket");
 document.getElementById("close-overlay").addEventListener("click", ()=> overlay.classList.add("hidden"));
+
+// ---------- MESSAGGIO WAITING ----------
+const waitingDiv = document.createElement("div");
+waitingDiv.id = "waiting-msg";
+waitingDiv.style.textAlign = "center";
+waitingDiv.style.margin = "10px 0";
+battleArea.before(waitingDiv);
 
 // ---------- FULLSCREEN ----------
 fullscreenBtn.addEventListener("click", async () => {
@@ -34,7 +43,21 @@ function playMusic(stage){
 // ---------- JOIN ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
-socket.emit("joinTournament",{nick,char});
+
+if (!nick || !char) {
+  alert("Nickname o character non selezionati!");
+} else {
+  socket.emit("joinTournament",{nick,char});
+}
+
+// ---------- WAITING COUNT ----------
+socket.on("waitingCount", data => {
+  if (data.count < data.required) {
+    waitingDiv.textContent = `Waiting for ${data.count}/${data.required} players...`;
+  } else {
+    waitingDiv.textContent = "";
+  }
+});
 
 // ---------- CHAT ----------
 chatInput.addEventListener("keydown", e => {
@@ -58,8 +81,6 @@ function addEventMessage(text){
   eventBox.appendChild(msg);
   eventBox.scrollTop = eventBox.scrollHeight;
 }
-
-// Mostra animazione sopra il player
 function showEventEffect(playerDiv, text){
   const span = document.createElement("span");
   span.textContent = text;
@@ -125,7 +146,6 @@ socket.on("log", msg => {
         const newHP = Math.max(0, currentHP - dmg);
         animateHP(hpDiv, currentHP, newHP);
 
-        // Mostra effetto crit/stun
         showEventEffect(div, "💥");
       }
     });

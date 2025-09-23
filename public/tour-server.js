@@ -131,12 +131,19 @@ function resetTournament() {
 
 // --- Namespace torneo ---
 const nspTournament = io.of("/tournament");
+
 nspTournament.on("connection", socket => {
+
+  function updateWaitingCount() {
+    nspTournament.emit("waitingCount", { count: tournament.waiting.length, required: 8 });
+  }
+
   socket.on("joinTournament", ({ nick, char }) => {
     socket.nick = nick;
     socket.char = char;
     tournament.waiting.push({ id: socket.id, nick, char });
 
+    updateWaitingCount();
     nspTournament.to(socket.id).emit("waiting", "Waiting for 8 players...");
 
     if (tournament.waiting.length === 8) {
@@ -153,6 +160,9 @@ nspTournament.on("connection", socket => {
 
   socket.on("disconnect", () => {
     tournament.waiting = tournament.waiting.filter(p => p.id !== socket.id);
+    updateWaitingCount();
+
+    // se era in un match, l'altro vince
     for (const matchId in tournament.matches) {
       const match = tournament.matches[matchId];
       const index = match.players.findIndex(p => p.id === socket.id);
