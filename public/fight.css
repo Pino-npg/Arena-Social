@@ -88,9 +88,9 @@ header {
 #event-messages {
   flex: 1;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column-reverse; /* messaggi nuovi in alto */
   font-size: 0.85rem;
+  display: flex;
+  flex-direction: column; /* non più reverse */
 }
 
 /* Chat input dentro il box */
@@ -100,12 +100,9 @@ header {
   font-size: 0.85rem;
   outline: none;
   margin-top: 5px;
-  resize: none;
-  min-height: 1.2em;   /* parte da 1 riga */
-  max-height: 6em;     /* massimo circa 5 righe */
-  overflow-y: auto;
   background: #333;
   color: white;
+  height: 1.8em; /* sempre una riga */
 }
 
 /* -------- BATTLE -------- */

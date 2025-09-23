@@ -164,5 +164,21 @@ function updateCharacterImage(player,index){
   else player2CharImg.src=src;
 }
 
+function addChatMessage(text) {
+  const box = document.getElementById("chat-messages");
+  const msg = document.createElement("div");
+  msg.textContent = text;
+  box.appendChild(msg);
+  box.scrollTop = box.scrollHeight; // autoscroll
+}
+
+function addEventMessage(text) {
+  const box = document.getElementById("event-messages");
+  const msg = document.createElement("div");
+  msg.textContent = text;
+  box.appendChild(msg);
+  box.scrollTop = box.scrollHeight;
+}
+
 // ---------- FIX SCROLL MOBILE ----------
 document.body.style.overflowY = "auto";
