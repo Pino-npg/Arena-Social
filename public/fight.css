@@ -164,18 +164,6 @@ header {
   text-shadow: 1px 1px 4px black;
 }
 
-/* VS al centro */
-.vs {
-  font-size: 3rem;
-  font-weight: bold;
-  color: white;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  top: 40%;
-  text-shadow: 2px 2px 6px black;
-}
-
 /* Mobile: chat/eventi uno sopra l’altro */
 @media (max-width: 768px) {
   #bottom-area {

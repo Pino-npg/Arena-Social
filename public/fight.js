@@ -3,6 +3,9 @@ import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 const socket = io();
 
 // ---------- ELEMENTI ----------
+const player1Box = document.getElementById("player1");
+const player2Box = document.getElementById("player2");
+
 const player1Name = document.getElementById("player1-nick");
 const player2Name = document.getElementById("player2-nick");
 
@@ -19,7 +22,7 @@ const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
 const eventBox = document.getElementById("event-messages");
 
-// Online count
+// Nuovo elemento per mostrare online count
 const onlineCountDisplay = document.createElement("div");
 onlineCountDisplay.style.position = "absolute";
 onlineCountDisplay.style.top = "10px";
@@ -29,61 +32,21 @@ onlineCountDisplay.style.fontSize = "1.2rem";
 onlineCountDisplay.style.textShadow = "1px 1px 4px black";
 document.body.appendChild(onlineCountDisplay);
 
-// ---------- VARIABILI AUDIO ----------
+// ---------- MUSICA ----------
 const musicBattle = new Audio("img/9.mp3");
 musicBattle.loop = true;
 musicBattle.volume = 0.5;
+window.addEventListener("click", () => { 
+  if (musicBattle.paused) musicBattle.play(); 
+}, { once: true });
 
-const winnerMusic = new Audio();
-winnerMusic.volume = 0.7;
-let winnerMusicPending = null; // salva vincitore se audio bloccato
-
-// ---------- TRUCCO MOBILE ----------
-// ---------- TRUCCO MOBILE ----------
-let audioUnlocked = false;
-function unlockAudio() {
-  if (audioUnlocked) return;
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const buffer = ctx.createBuffer(1, 1, 22050);
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-  source.connect(ctx.destination);
-  source.start(0);
-  audioUnlocked = true;
-
-  // Se c'era musica vincitore in attesa, la facciamo partire
-  if (winnerMusicPending) {
-    winnerMusic.src = `img/${winnerMusicPending}.mp3`;
-    winnerMusic.play().catch(()=>{});
-    winnerMusicPending = null;
-  }
-
-  // Solo su mobile, partiamo musica battaglia se non è partita
-  if(musicBattle.paused) musicBattle.play().catch(()=>{});
-}
-
-// ---------- FUNZIONE PER SUONARE MUSICA VINCITORE ----------
-function playWinnerMusic(winnerChar){
-  // Ferma solo la battaglia su PC e mobile se partita
-  if(!musicBattle.paused) musicBattle.pause();
-
-  if(!audioUnlocked){
-    // su mobile bloccato, memorizzo vincitore
-    winnerMusicPending = winnerChar;
-    return;
-  }
-
-  winnerMusic.src = `img/${winnerChar}.mp3`;
-  winnerMusic.play().catch(() => {
-    winnerMusicPending = winnerChar; // fallback se bloccato
-  });
-}
+let winnerMusic = new Audio();
 
 // ---------- FULLSCREEN ----------
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const container = document.getElementById("game-container");
 fullscreenBtn.addEventListener("click", async () => {
-  if(!document.fullscreenElement) await container.requestFullscreen();
+  if (!document.fullscreenElement) await container.requestFullscreen();
   else await document.exitFullscreen();
 });
 
@@ -100,35 +63,43 @@ socket.on("onlineCount", count => {
   onlineCountDisplay.textContent = `Online: ${count}`;
 });
 
-socket.on("waiting", msg => logEvent(msg, "dice"));
+socket.on("waiting", msg => {
+  logEvent(msg, "dice");
+});
+
 socket.on("gameStart", game => updateGame(game));
 socket.on("1vs1Update", game => updateGame(game));
-
 socket.on("gameOver", ({ winnerNick, winnerChar }) => {
   logEvent(`🏆 ${winnerNick} has won the battle!`, "win");
   playWinnerMusic(winnerChar);
 });
 
-// ---------- CHAT DINAMICA ----------
+// ---------- CHAT ----------
 chatInput.addEventListener("keydown", e => {
-  if(e.key === "Enter" && e.target.value.trim() !== ""){
+  if(e.key === "Enter" && e.target.value.trim() !== "") {
     socket.emit("chatMessage", e.target.value);
     e.target.value = "";
   }
 });
 
 socket.on("chatMessage", data => {
-  appendLine(chatMessages, `${data.nick}: ${data.text}`);
+  const msg = document.createElement("div");
+  msg.textContent = `${data.nick}: ${data.text}`;
+  chatMessages.appendChild(msg);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 });
 
 // ---------- FUNZIONI ----------
-function updateGame(game){
+function updateGame(game) {
+  // Label sopra barra HP
   player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${game.player1.hp}`;
   player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${game.player2.hp}`;
 
+  // Barre HP
   player1HpBar.style.width = `${Math.max(game.player1.hp,0)}%`;
   player2HpBar.style.width = `${Math.max(game.player2.hp,0)}%`;
 
+  // Dadi e personaggi
   if(game.player1.dice) handleDice(0, game);
   if(game.player2.dice) handleDice(1, game);
 
@@ -136,54 +107,51 @@ function updateGame(game){
   updateCharacterImage(game.player2, 1);
 }
 
-function handleDice(playerIndex, game){
+function handleDice(playerIndex, game) {
   const player = playerIndex === 0 ? game.player1 : game.player2;
+  const opponent = playerIndex === 0 ? game.player2 : game.player1;
+
   let finalDmg = player.dmg;
   let type = "damage";
 
-  if((playerIndex===0 && stunned.p1) || (playerIndex===1 && stunned.p2)){
+  // Se era stunned infligge dado-1
+  if ((playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2)) {
     finalDmg = Math.max(0, player.dice - 1);
     logEvent(`${player.nick} is stunned and only deals ${finalDmg} damage!`, "dice");
-    if(playerIndex===0) stunned.p1=false; else stunned.p2=false;
-  } else if(player.dice===8){
-    type="crit";
+    if (playerIndex === 0) stunned.p1 = false; else stunned.p2 = false;
+  } 
+  else if (player.dice === 8) {
+    type = "crit";
     logEvent(`${player.nick} CRIT! ${player.dmg} damage dealt ⚡`, type);
-    if(playerIndex===0) stunned.p2=true; else stunned.p1=true;
-  } else {
+    // Stunna l'avversario
+    if (playerIndex === 0) stunned.p2 = true; else stunned.p1 = true;
+  } 
+  else {
     logEvent(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage!`, type);
   }
 
+  // Mostra il dado
   showDice(playerIndex, player.dice);
 }
 
-// ---------- CHAT/LOG MAX 10 RIGHE ----------
-function appendLine(container, text, type="normal"){
+function logEvent(msg, type="normal") {
   const line = document.createElement("div");
   switch(type){
-    case "crit": line.textContent = "⚡💥 " + text; break;
-    case "damage": line.textContent = "💥 " + text; break;
-    case "dice": line.textContent = "😵‍💫 " + text; break;
-    case "win": line.textContent = "🏆 " + text; break;
-    default: line.textContent = text;
+    case "crit": line.textContent = "⚡💥 " + msg; break;
+    case "damage": line.textContent = "💥 " + msg; break;
+    case "dice": line.textContent = "😵‍💫 " + msg; break;
+    case "win": line.textContent = "🏆 " + msg; break;
+    default: line.textContent = msg;
   }
-  container.appendChild(line);
-
-  while(container.children.length > 10){
-    container.removeChild(container.firstChild);
-  }
-
-  container.scrollTop = container.scrollHeight;
-}
-
-function logEvent(msg, type="normal"){
-  appendLine(eventBox, msg, type);
+  eventBox.appendChild(line);
+  eventBox.scrollTop = eventBox.scrollHeight;
 }
 
 function showDice(playerIndex, value){
-  const diceEl = playerIndex===0 ? diceP1 : diceP2;
+  const diceEl = playerIndex === 0 ? diceP1 : diceP2;
   diceEl.src = `img/dice${value}.png`;
-  diceEl.style.width="80px";
-  diceEl.style.height="80px";
+  diceEl.style.width = "80px";
+  diceEl.style.height = "80px";
 }
 
 function updateCharacterImage(player,index){
@@ -197,6 +165,15 @@ function updateCharacterImage(player,index){
   if(index===0) player1CharImg.src=src;
   else player2CharImg.src=src;
 }
+
+function playWinnerMusic(winnerChar) {
+  musicBattle.pause();
+  winnerMusic.src = `img/${winnerChar}.mp3`;
+  winnerMusic.play().catch(()=>{});
+}
+window.addEventListener("click", () => { 
+  if (winnerMusic.paused) winnerMusic.play(); 
+}, { once: true });
 
 // ---------- FIX SCROLL MOBILE ----------
 document.body.style.overflowY = "auto";
