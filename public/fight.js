@@ -36,9 +36,12 @@ document.body.appendChild(onlineCountDisplay);
 const musicBattle = new Audio("img/9.mp3");
 musicBattle.loop = true;
 musicBattle.volume = 0.5;
-window.addEventListener("click", () => { 
-  if (musicBattle.paused) musicBattle.play(); 
-}, { once: true });
+function unlockAudio() {
+  if (musicBattle.paused) musicBattle.play().catch(()=>{});
+  if (winnerMusic.paused) winnerMusic.play().catch(()=>{});
+}
+
+
 
 let winnerMusic = new Audio();
 
@@ -171,9 +174,8 @@ function playWinnerMusic(winnerChar) {
   winnerMusic.src = `img/${winnerChar}.mp3`;
   winnerMusic.play().catch(()=>{});
 }
-window.addEventListener("click", () => { 
-  if (winnerMusic.paused) winnerMusic.play(); 
-}, { once: true });
+window.addEventListener("click", unlockAudio, { once: true });
+window.addEventListener("touchstart", unlockAudio, { once: true });
 
 // ---------- FIX SCROLL MOBILE ----------
 document.body.style.overflowY = "auto";

@@ -64,6 +64,7 @@ header {
   justify-content: space-between;
   width: 100%;
   gap: 10px;
+  margin-top: 10px;
 }
 
 .side-box {
@@ -96,22 +97,35 @@ header {
 }
 
 /* Contenitori messaggi */
-#chat-messages,
-#event-messages {
-  flex: 1;
+#chat-messages, #event-messages {
+  background: rgba(0,0,0,0.6);
+  padding: 5px;
+  border-radius: 5px;
+  color: white;
+  line-height: 1.4rem;
+  max-height: calc(1.4rem * 5); /* 5 righe fisse */
   overflow-y: auto;
-  padding: 8px;
-  display: flex;
-  flex-direction: column-reverse; /* nuovi messaggi in alto */
-  font-size: 14px;
+  -webkit-overflow-scrolling: touch;
+  font-size: 0.9rem;
+}
+
+#chat-input {
+  width: 100%;
+  padding: 6px;
+  border-radius: 5px;
+  border: none;
+  background: rgba(255,255,255,0.1);
+  color: black;
+  font-size: 0.9rem;
 }
 
 /* -------- BATTLE -------- */
 #battle-area {
+  flex:1;
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  width: 60%;
+  width: 100%;
   position: relative;
 }
 
