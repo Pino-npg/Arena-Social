@@ -108,7 +108,7 @@ function updateMatch(matches){
 
     if(match.stage) playMusic(match.stage);
   });
-  updateBracket(matches);
+  updateBracket();
 }
 
 function createPlayerDiv(player){
@@ -116,7 +116,7 @@ function createPlayerDiv(player){
   div.classList.add("player");
   div.innerHTML = `
     <div class="player-label">${player.nick} (${player.char})</div>
-    <img class="char-img" src="img/${player.char}.png" alt="${player.nick}">
+    <img class="char-img" src="img/${player.char}.webp" alt="${player.nick}">
     <div class="hp-bar"><div class="hp" style="width:${player.hp}%"></div></div>
     <img class="dice" src="img/dice1.png">
   `;
@@ -163,26 +163,28 @@ function animateHP(hpDiv, from, to){
 }
 
 // ---------- BRACKET ----------
-function updateBracket(matches){
+function updateBracket(){
   bracket.innerHTML = "";
-  matches.forEach(m => {
-    const row = document.createElement("div");
-    if(m.winner){
-      row.textContent = `${m.player1.nick} ${m.winner === m.player1.nick ? "🏆" : ""} vs ${m.player2.nick} ${m.winner === m.player2.nick ? "🏆" : ""}`;
-    } else {
-      row.textContent = `${m.player1.nick} vs ${m.player2.nick}`;
+  const matchContainers = document.querySelectorAll(".match-container");
+  matchContainers.forEach(mc => {
+    const pDivs = mc.querySelectorAll(".player");
+    if(pDivs.length === 2){
+      const nick1 = pDivs[0].querySelector(".player-label").textContent.split(" ")[0];
+      const nick2 = pDivs[1].querySelector(".player-label").textContent.split(" ")[0];
+      const row = document.createElement("div");
+      row.textContent = `${nick1} vs ${nick2}`;
+      bracket.appendChild(row);
     }
-    bracket.appendChild(row);
   });
 }
-trophyBtn.addEventListener("click", ()=> overlay.classList.remove("hidden"));
 
-// ---------- MATCH & TOURNAMENT FINITI ----------
+// ---------- TOURNAMENT FINITO ----------
 socket.on("matchOver", data => addEventMessage(`🏆 ${data.winner} won the match!`));
 socket.on("tournamentOver", winner => {
   addEventMessage(`🏆 ${winner.nick} won the Tournament!`);
   document.body.style.backgroundImage = `url("img/${winner.char}.webp")`;
   musicAudio.pause();
+  waitingDiv.textContent = "";
 });
 
 // ---------- MOBILE SCROLL FIX ----------
