@@ -2,8 +2,7 @@ import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   // ---------- SOCKET.IO ----------
-  const socket = io("http://localhost:10001/tournament");
-
+  const socket = io("https://fight-game-server-1.onrender.com/tournament");
   // ---------- ELEMENTI ----------
   const battleArea = document.getElementById("battle-area");
   const chatMessages = document.getElementById("chat-messages");
