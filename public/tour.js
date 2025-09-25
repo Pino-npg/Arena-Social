@@ -1,40 +1,42 @@
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
-// ---------- SOCKET.IO ----------
-const socket = io("http://localhost:10001/tournament");
+document.addEventListener("DOMContentLoaded", () => {
+  // ---------- SOCKET.IO ----------
+  const socket = io("http://localhost:10001/tournament");
 
-// ---------- ELEMENTI ----------
-const battleArea = document.getElementById("battle-area");
-const chatMessages = document.getElementById("chat-messages");
-const chatInput = document.getElementById("chat-input");
-const eventBox = document.getElementById("event-messages");
-const fullscreenBtn = document.getElementById("fullscreen-btn");
-const trophyBtn = document.getElementById("trophy-btn");
-const overlay = document.getElementById("tournament-overlay");
-const bracket = document.getElementById("bracket");
-const closeOverlayBtn = document.getElementById("close-overlay");
+  // ---------- ELEMENTI ----------
+  const battleArea = document.getElementById("battle-area");
+  const chatMessages = document.getElementById("chat-messages");
+  const chatInput = document.getElementById("chat-input");
+  const eventBox = document.getElementById("event-messages");
+  const fullscreenBtn = document.getElementById("fullscreen-btn");
+  const trophyBtn = document.getElementById("trophy-btn");
+  const overlay = document.getElementById("tournament-overlay");
+  const bracket = document.getElementById("bracket");
+  const closeOverlayBtn = document.getElementById("close-overlay");
 
-// ---------- DEBUG ----------
-console.log("Tour JS loaded");
+  console.log("Tour JS loaded and DOM ready ✅");
 
-// ---------- WAITING MESSAGE ----------
-const waitingDiv = document.createElement("div");
-waitingDiv.id = "waiting-msg";
-waitingDiv.style.textAlign = "center";
-waitingDiv.style.margin = "10px 0";
-battleArea.before(waitingDiv);
+  // ---------- WAITING MESSAGE ----------
+  const waitingDiv = document.createElement("div");
+  waitingDiv.id = "waiting-msg";
+  waitingDiv.style.textAlign = "center";
+  waitingDiv.style.margin = "10px 0";
+  battleArea.before(waitingDiv);
 
-// ---------- FULLSCREEN ----------
-fullscreenBtn.addEventListener("click", async () => {
-  const container = document.getElementById("game-container");
-  if (!document.fullscreenElement) await container.requestFullscreen();
-  else await document.exitFullscreen();
+  // ---------- FULLSCREEN ----------
+  fullscreenBtn.addEventListener("click", async () => {
+    const container = document.getElementById("game-container");
+    if (!document.fullscreenElement) await container.requestFullscreen();
+    else await document.exitFullscreen();
+  });
+
+  // ---------- TROPHY OVERLAY ----------
+  trophyBtn.addEventListener("click", () => overlay.classList.remove("hidden"));
+  closeOverlayBtn.addEventListener("click", () => overlay.classList.add("hidden"));
+
+  // 🔽 … qui sotto resta uguale tutto il codice chat, eventi, match, bracket …
 });
-
-// ---------- TROPHY OVERLAY ----------
-trophyBtn.addEventListener("click", () => overlay.classList.remove("hidden"));
-closeOverlayBtn.addEventListener("click", () => overlay.classList.add("hidden"));
-
 // ---------- MUSICA ----------
 const music = {5:"img/5.mp3",6:"img/6.mp3",7:"img/7.mp3"};
 let musicAudio = new Audio();
