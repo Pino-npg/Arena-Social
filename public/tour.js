@@ -1,7 +1,6 @@
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
 document.addEventListener("DOMContentLoaded", () => {
-  // ---------- SOCKET.IO ----------
   const socket = io("https://fight-game-server-1.onrender.com/tournament");
 
   // ---------- ELEMENTI ----------
@@ -12,10 +11,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const fullscreenBtn = document.getElementById("fullscreen-btn");
   const trophyBtn = document.getElementById("trophy-btn");
   const overlay = document.getElementById("tournament-overlay");
-  const bracket = document.getElementById("bracket");
+  const bracketDiv = document.getElementById("bracket");
   const closeOverlayBtn = document.getElementById("close-overlay");
-
-  console.log("Tour JS loaded and DOM ready ✅");
 
   // ---------- WAITING MESSAGE ----------
   const waitingDiv = document.createElement("div");
@@ -36,30 +33,38 @@ document.addEventListener("DOMContentLoaded", () => {
   closeOverlayBtn.addEventListener("click", () => overlay.classList.add("hidden"));
 
   // ---------- MUSICA ----------
-  const music = {5:"img/5.mp3",6:"img/6.mp3",7:"img/7.mp3"};
-  let musicAudio = new Audio();
-  musicAudio.loop = true; 
-  musicAudio.volume = 0.5;
-  function playMusic(stage){ 
-    if(music[stage]){ 
-      musicAudio.src = music[stage]; 
-      musicAudio.play().catch(()=>{}); 
+  const stageMusic = {5:"img/5.mp3",6:"img/6.mp3",7:"img/7.mp3"};
+  let battleMusic = new Audio(); battleMusic.loop = true; battleMusic.volume = 0.5;
+  let winnerMusic = new Audio(); winnerMusic.loop = false; winnerMusic.volume = 0.7;
+  let activeWinnerMusic = false;
+
+  function playStageMusic(stage){
+    if(stageMusic[stage]){
+      battleMusic.src = stageMusic[stage];
+      battleMusic.play().catch(()=>{});
     }
+  }
+
+  function playWinnerMusicLoop(char){
+    winnerMusic.src = `img/${char}.mp3`;
+    winnerMusic.loop = true;
+    winnerMusic.play().catch(()=>{});
+  }
+
+  function stopWinnerMusic(){
+    winnerMusic.pause();
+    winnerMusic.currentTime = 0;
+    activeWinnerMusic = false;
   }
 
   // ---------- JOIN ----------
   const nick = localStorage.getItem("selectedNick");
   const char = localStorage.getItem("selectedChar");
-  if(!nick || !char){
-    alert("Nickname o character non selezionati!");
-  } else {
-    console.log(`Joining tournament with: ${nick} (${char})`);
-    socket.emit("joinTournament", {nick, char});
-  }
+  if(!nick || !char){ alert("Nickname o character non selezionati!"); }
+  else { socket.emit("joinTournament", {nick, char}); }
 
   // ---------- WAITING COUNT ----------
   socket.on("waitingCount", data => {
-    console.log("Waiting count update:", data.count, "/", data.required); // DEBUG
     waitingDiv.textContent = data.count < data.required 
       ? `Waiting for ${data.count}/${data.required} players...` 
       : "";
@@ -73,6 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
   socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
+
   function addChatMessage(text){
     const msg = document.createElement("div");
     msg.textContent = text;
@@ -87,6 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
     eventBox.appendChild(msg);
     eventBox.scrollTop = eventBox.scrollHeight;
   }
+
   function showEventEffect(playerDiv, text){
     const span = document.createElement("span");
     span.textContent = text;
@@ -95,15 +102,18 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(()=>span.remove(),1000);
   }
 
-  // ---------- MATCH & BRACKET ----------
+  // ---------- TOURNAMENT STATE ----------
   let tournamentBracket = [];
+  let stageMatchesCount = {quarter:0, semi:0, final:0};
+  let stageMatchesFinished = {quarter:0, semi:0, final:0};
 
-  socket.on("matchStart", data => updateMatch([data]));
-  socket.on("updateMatch", data => updateMatch([data]));
+  // ---------- MATCH & BRACKET ----------
+  socket.on("matchStart", data => updateMatches([data]));
+  socket.on("updateMatch", data => updateMatches([data]));
 
-  function updateMatch(matches){
+  function updateMatches(matches){
     battleArea.innerHTML = "";
-    matches.forEach(match => {
+    matches.forEach(match=>{
       const container = document.createElement("div");
       container.classList.add("match-container");
 
@@ -114,7 +124,11 @@ document.addEventListener("DOMContentLoaded", () => {
       container.appendChild(p2Div);
       battleArea.appendChild(container);
 
-      if(match.stage) playMusic(match.stage);
+      if(match.stage) playStageMusic(match.stage);
+
+      // Conta quante partite ci sono in questo stage
+      if(stageMatchesCount[match.stage]===0) stageMatchesCount[match.stage]=1;
+      else stageMatchesCount[match.stage]++;
     });
     updateBracketDisplay();
   }
@@ -123,7 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const div = document.createElement("div");
     div.classList.add("player");
     div.innerHTML = `
-      <div class="player-label">${player.nick} (${player.char})</div>
+      <div class="player-label">${player.nick} (${player.char}) HP: ${player.hp}</div>
       <img class="char-img" src="img/${player.char}.webp" alt="${player.nick}">
       <div class="hp-bar"><div class="hp" style="width:${player.hp}%"></div></div>
       <img class="dice" src="img/dice1.png">
@@ -132,7 +146,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ---------- LOG & HP ----------
-  socket.on("log", msg => {
+  socket.on("log", msg=>{
     addEventMessage(msg);
 
     battleArea.querySelectorAll(".match-container").forEach(container=>{
@@ -148,11 +162,12 @@ document.addEventListener("DOMContentLoaded", () => {
           diceImg.style.height = "80px";
 
           const dmg = parseInt(msg.match(/deals (\d+)/)?.[1] || 0);
-          const currentHP = parseInt(hpDiv.style.width);
+          let currentHP = parseInt(hpDiv.style.width);
+          if(isNaN(currentHP)) currentHP = 80; // default
           const newHP = Math.max(0, currentHP - dmg);
           animateHP(hpDiv, currentHP, newHP);
 
-          showEventEffect(div, "💥");
+          showEventEffect(div, diceVal==8?"⚡":"💥");
         }
       });
     });
@@ -160,39 +175,58 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function animateHP(hpDiv, from, to){
     const step = from>to?-1:1;
-    let val = from;
+    let val=from;
     const interval = setInterval(()=>{
       if(val===to){ clearInterval(interval); return; }
-      val += step;
-      hpDiv.style.width = val + "%";
+      val+=step;
+      hpDiv.style.width=val+"%";
     },30);
-  }
-
-  // ---------- BRACKET DISPLAY ----------
-  function updateBracketDisplay(){
-    bracket.innerHTML="";
-    tournamentBracket.forEach(m=>{
-      const row = document.createElement("div");
-      row.textContent = `${m.player1} vs ${m.player2} → Winner: ${m.winner}`;
-      bracket.appendChild(row);
-    });
   }
 
   // ---------- MATCH/TORNEO FINITI ----------
   socket.on("matchOver", data=>{
-    console.log("Match over event:", data); // DEBUG
     addEventMessage(`🏆 ${data.winner} won the match!`);
-    tournamentBracket.push({player1:data.player1.nick, player2:data.player2.nick, winner:data.winner});
+
+    tournamentBracket.push({
+      player1: data.player1.nick, 
+      player2: data.player2.nick, 
+      winner: data.winner,
+      stage: data.stage
+    });
+
+    // Controlla se tutte le partite di questo stage sono finite
+    stageMatchesFinished[data.stage] = (stageMatchesFinished[data.stage]||0)+1;
+    if(stageMatchesFinished[data.stage] < stageMatchesCount[data.stage]){
+      // suona musica vincitore solo fino alla fine del turno
+      if(!activeWinnerMusic){
+        winnerMusic.src = `img/${data.winner}.mp3`;
+        winnerMusic.loop=false;
+        winnerMusic.play().catch(()=>{});
+        activeWinnerMusic=true;
+      }
+    } else {
+      stopWinnerMusic();
+    }
+
     updateBracketDisplay();
   });
+
   socket.on("tournamentOver", winner=>{
-    console.log("Tournament over:", winner); // DEBUG
     addEventMessage(`🏆 ${winner.nick} won the Tournament!`);
+    battleArea.innerHTML="";
     document.body.style.backgroundImage=`url("img/${winner.char}.webp")`;
-    musicAudio.pause();
+    playWinnerMusicLoop(winner.char);
     waitingDiv.textContent="";
   });
 
-  // ---------- MOBILE SCROLL FIX ----------
+  function updateBracketDisplay(){
+    bracketDiv.innerHTML="";
+    tournamentBracket.forEach(m=>{
+      const row = document.createElement("div");
+      row.textContent = `[${m.stage?.toUpperCase()||""}] ${m.player1} vs ${m.player2} → Winner: ${m.winner}`;
+      bracketDiv.appendChild(row);
+    });
+  }
+
   document.body.style.overflowY="auto";
 });
