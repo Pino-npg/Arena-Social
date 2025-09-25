@@ -1,3 +1,5 @@
+import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
+
 // ---------- SOCKET.IO ----------
 const socket = io("http://localhost:10001/tournament");
 
@@ -10,9 +12,12 @@ const fullscreenBtn = document.getElementById("fullscreen-btn");
 const trophyBtn = document.getElementById("trophy-btn");
 const overlay = document.getElementById("tournament-overlay");
 const bracket = document.getElementById("bracket");
-document.getElementById("close-overlay").addEventListener("click", ()=> overlay.classList.add("hidden"));
+const closeOverlayBtn = document.getElementById("close-overlay");
 
-// ---------- WAITING ----------
+// ---------- DEBUG ----------
+console.log("Tour JS loaded");
+
+// ---------- WAITING MESSAGE ----------
 const waitingDiv = document.createElement("div");
 waitingDiv.id = "waiting-msg";
 waitingDiv.style.textAlign = "center";
@@ -26,9 +31,13 @@ fullscreenBtn.addEventListener("click", async () => {
   else await document.exitFullscreen();
 });
 
+// ---------- TROPHY OVERLAY ----------
+trophyBtn.addEventListener("click", () => overlay.classList.remove("hidden"));
+closeOverlayBtn.addEventListener("click", () => overlay.classList.add("hidden"));
+
 // ---------- MUSICA ----------
 const music = {5:"img/5.mp3",6:"img/6.mp3",7:"img/7.mp3"};
-let musicAudio = new Audio(); 
+let musicAudio = new Audio();
 musicAudio.loop = true; 
 musicAudio.volume = 0.5;
 function playMusic(stage){ 
@@ -41,11 +50,16 @@ function playMusic(stage){
 // ---------- JOIN ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
-if (!nick || !char) alert("Nickname o character non selezionati!");
-else socket.emit("joinTournament",{nick,char});
+if(!nick || !char){
+  alert("Nickname o character non selezionati!");
+} else {
+  console.log(`Joining tournament with: ${nick} (${char})`);
+  socket.emit("joinTournament", {nick, char});
+}
 
 // ---------- WAITING COUNT ----------
 socket.on("waitingCount", data => {
+  console.log("Waiting count update:", data.count, "/", data.required); // DEBUG
   waitingDiv.textContent = data.count < data.required 
     ? `Waiting for ${data.count}/${data.required} players...` 
     : "";
@@ -82,7 +96,7 @@ function showEventEffect(playerDiv, text){
 }
 
 // ---------- MATCH & BRACKET ----------
-let tournamentBracket = []; // memorizza match finiti
+let tournamentBracket = [];
 
 socket.on("matchStart", data => updateMatch([data]));
 socket.on("updateMatch", data => updateMatch([data]));
@@ -102,7 +116,7 @@ function updateMatch(matches){
 
     if(match.stage) playMusic(match.stage);
   });
-  updateBracketDisplay(matches);
+  updateBracketDisplay();
 }
 
 function createPlayerDiv(player){
@@ -117,6 +131,7 @@ function createPlayerDiv(player){
   return div;
 }
 
+// ---------- LOG & HP ----------
 socket.on("log", msg => {
   addEventMessage(msg);
 
@@ -127,17 +142,17 @@ socket.on("log", msg => {
       const playerNick = div.querySelector(".player-label").textContent.split(" ")[0];
 
       if(msg.includes(playerNick)){
-        const diceVal = msg.match(/rolls (\d+)/)?.[1]||1;
-        diceImg.src=`img/dice${diceVal}.png`;
-        diceImg.style.width="80px"; 
-        diceImg.style.height="80px";
+        const diceVal = msg.match(/rolls (\d+)/)?.[1] || 1;
+        diceImg.src = `img/dice${diceVal}.png`;
+        diceImg.style.width = "80px";
+        diceImg.style.height = "80px";
 
-        const dmg=parseInt(msg.match(/deals (\d+)/)?.[1]||0);
-        const currentHP=parseInt(hpDiv.style.width);
-        const newHP=Math.max(0,currentHP-dmg);
-        animateHP(hpDiv,currentHP,newHP);
+        const dmg = parseInt(msg.match(/deals (\d+)/)?.[1] || 0);
+        const currentHP = parseInt(hpDiv.style.width);
+        const newHP = Math.max(0, currentHP - dmg);
+        animateHP(hpDiv, currentHP, newHP);
 
-        showEventEffect(div,"💥");
+        showEventEffect(div, "💥");
       }
     });
   });
@@ -145,39 +160,33 @@ socket.on("log", msg => {
 
 function animateHP(hpDiv, from, to){
   const step = from>to?-1:1;
-  let val=from;
-  const interval=setInterval(()=>{
+  let val = from;
+  const interval = setInterval(()=>{
     if(val===to){ clearInterval(interval); return; }
-    val+=step;
-    hpDiv.style.width=val+"%";
+    val += step;
+    hpDiv.style.width = val + "%";
   },30);
 }
 
 // ---------- BRACKET DISPLAY ----------
-function updateBracketDisplay(matches){
+function updateBracketDisplay(){
   bracket.innerHTML="";
   tournamentBracket.forEach(m=>{
-    const row=document.createElement("div");
-    row.textContent=`${m.player1} vs ${m.player2} → Winner: ${m.winner}`;
-    bracket.appendChild(row);
-  });
-  // Aggiunge match in corso
-  matches.forEach(m=>{
-    const row=document.createElement("div");
-    row.textContent=`${m.player1.nick} vs ${m.player2.nick}`;
+    const row = document.createElement("div");
+    row.textContent = `${m.player1} vs ${m.player2} → Winner: ${m.winner}`;
     bracket.appendChild(row);
   });
 }
 
-trophyBtn.addEventListener("click", ()=> overlay.classList.remove("hidden"));
-
 // ---------- MATCH/TORNEO FINITI ----------
 socket.on("matchOver", data=>{
+  console.log("Match over event:", data); // DEBUG
   addEventMessage(`🏆 ${data.winner} won the match!`);
-  tournamentBracket.push({player1:data.player1.nick,player2:data.player2.nick,winner:data.winner});
-  updateBracketDisplay([]);
+  tournamentBracket.push({player1:data.player1.nick, player2:data.player2.nick, winner:data.winner});
+  updateBracketDisplay();
 });
 socket.on("tournamentOver", winner=>{
+  console.log("Tournament over:", winner); // DEBUG
   addEventMessage(`🏆 ${winner.nick} won the Tournament!`);
   document.body.style.backgroundImage=`url("img/${winner.char}.webp")`;
   musicAudio.pause();
