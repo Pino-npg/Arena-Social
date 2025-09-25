@@ -95,7 +95,19 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
     return div;
   }
+// ---------- WAITING MESSAGE ----------
+const waitingDiv = document.createElement("div");
+waitingDiv.id = "waiting-msg";
+waitingDiv.style.textAlign = "center";
+waitingDiv.style.margin = "10px 0";
+battleArea.before(waitingDiv);
 
+// ---------- SOCKET WAITING COUNT ----------
+socket.on("waitingCount", data => {
+  waitingDiv.textContent = data.count < data.required
+    ? `Waiting for ${data.count}/${data.required} players...`
+    : "";
+});
   function getCharImage(player){
     let src = `img/${player.char}`;
     if(player.hp<=0) src+='0';
