@@ -20,9 +20,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let winnerMusicAudio = new Audio();
   winnerMusicAudio.loop = false;
   winnerMusicAudio.volume = 0.7;
-  let musicAudio = new Audio();
-  musicAudio.loop = true;
-  musicAudio.volume = 0.5;
 
   const nick = localStorage.getItem("selectedNick");
   const char = localStorage.getItem("selectedChar");
@@ -47,7 +44,9 @@ document.addEventListener("DOMContentLoaded", () => {
       e.target.value = "";
     }
   });
+
   socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
+
   function addChatMessage(text) {
     const msg = document.createElement("div");
     msg.textContent = text;
@@ -62,6 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
     eventBox.appendChild(msg);
     eventBox.scrollTop = eventBox.scrollHeight;
   }
+
   function showEventEffect(playerDiv, text) {
     const span = document.createElement("span");
     span.textContent = text;
@@ -88,20 +88,21 @@ document.addEventListener("DOMContentLoaded", () => {
       : "";
   });
 
-  // ---------- MATCH RENDER ----------
+  // ---------- MATCH RENDER 1vs1 ----------
   function renderMatches(matches) {
-    // Rimuove solo i match precedenti, il waitingDiv resta
+    // rimuove solo match-container esistenti
     battleArea.querySelectorAll(".match-container").forEach(c => c.remove());
 
     stageMatches = matches;
-    if(matches.length > 0) waitingDiv.style.display = "none";
-    else waitingDiv.style.display = "block";
+    waitingDiv.style.display = matches.length > 0 ? "none" : "block";
 
     matches.forEach(match => {
       const container = document.createElement("div");
       container.classList.add("match-container");
+
       container.appendChild(createPlayerDiv(match.player1));
       container.appendChild(createPlayerDiv(match.player2));
+
       battleArea.appendChild(container);
     });
   }
@@ -109,12 +110,33 @@ document.addEventListener("DOMContentLoaded", () => {
   function createPlayerDiv(player) {
     const div = document.createElement("div");
     div.classList.add("player");
-    div.innerHTML = `
-      <div class="player-label">${player.nick} (${player.char}) HP: ${player.hp}</div>
-      <img class="char-img" src="${getCharImage(player)}" alt="${player.nick}">
-      <div class="hp-bar"><div class="hp" style="width:${player.hp}%"></div></div>
-      <img class="dice" src="img/dice1.png">
-    `;
+    div.style.position = "relative";
+
+    const label = document.createElement("div");
+    label.classList.add("player-label");
+    label.textContent = `${player.nick} (${player.char}) HP: ${player.hp}`;
+
+    const charImg = document.createElement("img");
+    charImg.classList.add("char-img");
+    charImg.src = getCharImage(player);
+    charImg.alt = player.nick;
+
+    const hpBar = document.createElement("div");
+    hpBar.classList.add("hp-bar");
+    const hp = document.createElement("div");
+    hp.classList.add("hp");
+    hp.style.width = player.hp + "%";
+    hpBar.appendChild(hp);
+
+    const dice = document.createElement("img");
+    dice.classList.add("dice");
+    dice.src = "img/dice1.png";
+
+    div.appendChild(label);
+    div.appendChild(charImg);
+    div.appendChild(hpBar);
+    div.appendChild(dice);
+
     return div;
   }
 
@@ -128,7 +150,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return src;
   }
 
-  // ---------- LOG E HP CON CRITICI ----------
+  // ---------- LOG E HP CRITICI ----------
   socket.on("log", msg => {
     addEventMessage(msg);
 
@@ -136,7 +158,8 @@ document.addEventListener("DOMContentLoaded", () => {
       container.querySelectorAll(".player").forEach(div => {
         const diceImg = div.querySelector(".dice");
         const hpDiv = div.querySelector(".hp");
-        const playerLabel = div.querySelector(".player-label").textContent;
+        const labelDiv = div.querySelector(".player-label");
+        const playerLabel = labelDiv.textContent;
         const playerNick = playerLabel.split(" ")[0];
         const charName = playerLabel.match(/\((.*?)\)/)[1];
 
@@ -145,21 +168,19 @@ document.addEventListener("DOMContentLoaded", () => {
           const isCrit = /CRIT/.test(msg);
 
           diceImg.src = `img/dice${diceVal}.png`;
-          diceImg.style.width = "80px"; diceImg.style.height = "80px";
+          diceImg.style.width = "80px";
+          diceImg.style.height = "80px";
 
           const dmg = parseInt(msg.match(/deals (\d+)/)?.[1] || 0);
           const currentHP = parseInt(hpDiv.style.width);
           const newHP = Math.max(0, currentHP - dmg);
           animateHP(hpDiv, currentHP, newHP);
 
-          // Mostra critico
-          if (isCrit) showEventEffect(div, "⚡💥");
-          else showEventEffect(div, "💥");
+          showEventEffect(div, isCrit ? "⚡💥" : "💥");
 
-          // Aggiorna immagine e HP
           const charImg = div.querySelector(".char-img");
           charImg.src = getCharImage({ char: charName, hp: newHP });
-          div.querySelector(".player-label").textContent = `${playerNick} (${charName}) HP: ${newHP}`;
+          labelDiv.textContent = `${playerNick} (${charName}) HP: ${newHP}`;
         }
       });
     });
@@ -182,7 +203,7 @@ document.addEventListener("DOMContentLoaded", () => {
     updateBracketDisplay();
 
     winnerMusicAudio.src = `img/${data.winnerChar}.mp3`;
-    winnerMusicAudio.play().catch(() => {});
+    winnerMusicAudio.play().catch(() => { });
 
     const finishedMatches = tournamentBracket.filter(m => m.stage === currentStage).length;
     if (finishedMatches === stageMatches.length) {
