@@ -26,13 +26,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const nick = localStorage.getItem("selectedNick");
   const char = localStorage.getItem("selectedChar");
-  if(!nick || !char) { alert("Nickname o character non selezionati!"); return; }
-  socket.emit("joinTournament", {nick, char});
+  if (!nick || !char) { alert("Nickname o character non selezionati!"); return; }
+  socket.emit("joinTournament", { nick, char });
 
   // ---------- FULLSCREEN ----------
   fullscreenBtn.addEventListener("click", async () => {
     const container = document.getElementById("game-container");
-    if(!document.fullscreenElement) await container.requestFullscreen();
+    if (!document.fullscreenElement) await container.requestFullscreen();
     else await document.exitFullscreen();
   });
 
@@ -42,13 +42,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---------- CHAT ----------
   chatInput.addEventListener("keydown", e => {
-    if(e.key==="Enter" && e.target.value.trim()!=="") {
+    if (e.key === "Enter" && e.target.value.trim() !== "") {
       socket.emit("chatMessage", e.target.value);
-      e.target.value="";
+      e.target.value = "";
     }
   });
+
   socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
-  function addChatMessage(text){
+
+  function addChatMessage(text) {
     const msg = document.createElement("div");
     msg.textContent = text;
     chatMessages.appendChild(msg);
@@ -56,26 +58,45 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ---------- EVENTI ----------
-  function addEventMessage(text){
+  function addEventMessage(text) {
     const msg = document.createElement("div");
     msg.textContent = text;
     eventBox.appendChild(msg);
     eventBox.scrollTop = eventBox.scrollHeight;
   }
 
-  function showEventEffect(playerDiv, text){
+  function showEventEffect(playerDiv, text) {
     const span = document.createElement("span");
     span.textContent = text;
     span.classList.add("event-effect");
     playerDiv.appendChild(span);
-    setTimeout(()=>span.remove(),1000);
+    setTimeout(() => span.remove(), 1000);
   }
 
+  // ---------- WAITING MESSAGE ----------
+  const waitingDiv = document.createElement("div");
+  waitingDiv.id = "waiting-msg";
+  waitingDiv.style.textAlign = "center";
+  waitingDiv.style.margin = "10px 0";
+  waitingDiv.style.width = "100%";
+  waitingDiv.style.fontSize = "1.5rem";
+  waitingDiv.style.color = "gold";
+  waitingDiv.style.position = "relative";
+  waitingDiv.style.zIndex = "10";
+  battleArea.prepend(waitingDiv);
+
+  socket.on("waitingCount", data => {
+    waitingDiv.textContent = data.count < data.required
+      ? `Waiting for ${data.count}/${data.required} players...`
+      : "";
+  });
+
   // ---------- MATCH RENDER ----------
-  function renderMatches(matches){
-    battleArea.innerHTML="";
+  function renderMatches(matches) {
+    battleArea.innerHTML = "";
+    battleArea.prepend(waitingDiv); // assicurati che il waitingDiv resti sopra
     stageMatches = matches;
-    matches.forEach(match=>{
+    matches.forEach(match => {
       const container = document.createElement("div");
       container.classList.add("match-container");
       container.appendChild(createPlayerDiv(match.player1));
@@ -84,7 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function createPlayerDiv(player){
+  function createPlayerDiv(player) {
     const div = document.createElement("div");
     div.classList.add("player");
     div.innerHTML = `
@@ -95,28 +116,17 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
     return div;
   }
-// ---------- WAITING MESSAGE ----------
-const waitingDiv = document.createElement("div");
-waitingDiv.id = "waiting-msg";
-waitingDiv.style.textAlign = "center";
-waitingDiv.style.margin = "10px 0";
-battleArea.before(waitingDiv);
 
-// ---------- SOCKET WAITING COUNT ----------
-socket.on("waitingCount", data => {
-  waitingDiv.textContent = data.count < data.required
-    ? `Waiting for ${data.count}/${data.required} players...`
-    : "";
-});
-  function getCharImage(player){
+  function getCharImage(player) {
     let src = `img/${player.char}`;
-    if(player.hp<=0) src+='0';
-    else if(player.hp<=20) src+='20';
-    else if(player.hp<=40) src+='40';
-    else if(player.hp<=60) src+='60';
-    src+='.png';
+    if (player.hp <= 0) src += '0';
+    else if (player.hp <= 20) src += '20';
+    else if (player.hp <= 40) src += '40';
+    else if (player.hp <= 60) src += '60';
+    src += '.png';
     return src;
   }
+
 
   // ---------- LOG E HP CON CRITICI ----------
   socket.on("log", msg=>{
