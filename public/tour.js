@@ -2,7 +2,7 @@ import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
 const socket = io("/tournament");
 
-// UI
+// UI elements
 const battleArea = document.getElementById("battle-area");
 const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
@@ -12,7 +12,7 @@ const trophyBtn = document.getElementById("trophy-btn");
 const overlay = document.getElementById("tournament-overlay");
 const closeOverlayBtn = document.getElementById("close-overlay");
 
-const matchUI = {}; // matchId -> { p1, p2 }
+let matchUI = {}; // matchId -> { p1, p2 }
 let currentStage = "waiting";
 
 // Musica
@@ -47,9 +47,7 @@ chatInput.addEventListener("keydown", e => {
     e.target.value = "";
   }
 });
-socket.on("chatMessage", data =>
-  addChatMessage(`${data.nick}: ${data.text}`)
-);
+socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
 
 function addChatMessage(txt) {
   const d = document.createElement("div");
@@ -78,16 +76,14 @@ if (nick && char) {
 // Waiting iniziale
 socket.on("waitingCount", ({ count, required, players }) => {
   if (currentStage !== "waiting") return;
-  if (count < required) {
-    battleArea.innerHTML = `
-      <div class="waiting-container">
-        <h2>Waiting for players... (${count}/${required})</h2>
-        <ul>
-          ${players.map(p => `<li>${escapeHtml(p.nick)} (${escapeHtml(p.char)})</li>`).join("")}
-        </ul>
-      </div>
-    `;
-  }
+  battleArea.innerHTML = `
+    <div class="waiting-container">
+      <h2>Waiting for players... (${count}/${required})</h2>
+      <ul>
+        ${players.map(p => `<li>${escapeHtml(p.nick)} (${escapeHtml(p.char)})</li>`).join("")}
+      </ul>
+    </div>
+  `;
 });
 
 // Tournament events
@@ -96,23 +92,16 @@ socket.on("startTournament", matches => {
     battleArea.innerHTML = "<h2>Waiting for tournament...</h2>";
     return;
   }
+  matches.forEach(match => renderMatchCard(match));
   currentStage = matches[0]?.stage || "quarter";
-  battleArea.innerHTML = "";
   setStage(currentStage);
-  matches.forEach(renderMatchCard);
 });
 
-socket.on("startMatch", match => {
-  setStage(match.stage);
-  renderMatchCard(match);
-});
-
-socket.on("updateMatch", match => {
-  updateMatchUI(match);
-});
-
+socket.on("startMatch", match => renderMatchCard(match));
+socket.on("updateMatch", match => updateMatchUI(match));
 socket.on("log", msg => addEventMessage(msg));
 
+// Match over
 socket.on("matchOver", ({ winnerNick, winnerChar, stage }) => {
   const nickText = winnerNick ?? "???";
   const charText = winnerChar ?? "???";
@@ -120,23 +109,24 @@ socket.on("matchOver", ({ winnerNick, winnerChar, stage }) => {
   playWinnerMusic(charText);
 });
 
+// Tournament over
 socket.on("tournamentOver", ({ nick, char }) => {
   const nickText = nick ?? "???";
   const charText = char ?? "???";
   addEventMessage(`🎉 ${nickText} won the tournament!`);
   playWinnerMusic(charText);
-  setTimeout(() => (battleArea.innerHTML = "<h2>Waiting for new tournament...</h2>"), 3000);
+  setTimeout(() => battleArea.innerHTML = "<h2>Waiting for new tournament...</h2>", 3000);
 });
 
-// Nuovo evento per tabellone
+// Tournament bracket
 socket.on("tournamentState", bracket => {
   overlay.innerHTML = "<h2>🏆 Tournament Bracket</h2>";
   bracket.forEach(match => {
     const div = document.createElement("div");
     const p1 = match.player1?.nick ?? "??";
     const p2 = match.player2?.nick ?? "??";
-    const status = match.winner ? `Winner: ${match.winner.nick}` : "";
-    div.textContent = `${p1} vs ${p2} (${match.stage}) ${status}`;
+    const winner = match.winner ? ` - Winner: ${match.winner.nick}` : "";
+    div.textContent = `${p1} vs ${p2} (${match.stage})${winner}`;
     overlay.appendChild(div);
   });
 });

@@ -16,25 +16,21 @@ app.get("/tour.html", (req, res) => {
 app.get("/", (req, res) => res.send("Tournament server attivo!"));
 
 // utility
-function rollDice() { return Math.floor(Math.random() * 8) + 1; }
+const rollDice = () => Math.floor(Math.random() * 8) + 1;
 
 // tournament state
-const tournament = {
-  waiting: [],     // {id,nick,char}
-  matches: {},     // matchId -> match object
-  bracket: []      // full bracket with all stages
-};
+const tournament = { waiting: [], matches: {}, bracket: [] };
 
+// broadcast waiting players
 function broadcastWaiting() {
-  const payload = {
+  io.of("/tournament").emit("waitingCount", {
     count: tournament.waiting.length,
     required: 8,
     players: tournament.waiting.slice()
-  };
-  io.of("/tournament").emit("waitingCount", payload);
+  });
 }
 
-// --- bracket helpers ---
+// generate bracket
 function generateBracket(players) {
   tournament.bracket = [
     { id: "Q1", stage: "quarter", player1: players[0], player2: players[1], next: "S1", winner: null },
@@ -48,6 +44,7 @@ function generateBracket(players) {
   io.of("/tournament").emit("tournamentState", tournament.bracket);
 }
 
+// advance winner
 function advanceWinner(matchId, winner) {
   const match = tournament.bracket.find(m => m.id === matchId);
   if (!match) return;
@@ -60,7 +57,10 @@ function advanceWinner(matchId, winner) {
       if (!nextMatch.player1) nextMatch.player1 = winner;
       else if (!nextMatch.player2) nextMatch.player2 = winner;
 
-      startMatch(nextMatch.player1, nextMatch.player2, nextMatch.stage, nextMatch.id);
+      // solo se entrambi i giocatori ci sono
+      if (nextMatch.player1 && nextMatch.player2) {
+        startMatch(nextMatch.player1, nextMatch.player2, nextMatch.stage, nextMatch.id);
+      }
     }
   }
 
@@ -78,7 +78,7 @@ function advanceWinner(matchId, winner) {
   }
 }
 
-// --- turn logic (per match) ---
+// next turn logic
 function nextTurn(match, attackerIndex) {
   const defenderIndex = attackerIndex === 0 ? 1 : 0;
   const attacker = match.players[attackerIndex];
@@ -90,7 +90,7 @@ function nextTurn(match, attackerIndex) {
   if (attacker.stunned) {
     damage = Math.max(0, damage - 1);
     attacker.stunned = false;
-    logMsg = `${attacker.nick} is stunned and only deals ${damage} damage 😵‍💫`;
+    logMsg = `${attacker.nick} is stunned and deals only ${damage} damage 😵‍💫`;
   } else if (damage === 8) {
     defender.stunned = true;
     logMsg = `${attacker.nick} CRIT! Deals ${damage} damage ⚡💥`;
@@ -101,12 +101,7 @@ function nextTurn(match, attackerIndex) {
   defender.hp = Math.max(0, defender.hp - damage);
   attacker.dice = damage;
 
-  io.of("/tournament").emit("updateMatch", {
-    id: match.id,
-    stage: match.stage,
-    player1: { ...match.players[0] },
-    player2: { ...match.players[1] }
-  });
+  io.of("/tournament").emit("updateMatch", { id: match.id, stage: match.stage, player1: { ...match.players[0] }, player2: { ...match.players[1] } });
   io.of("/tournament").emit("log", logMsg);
 
   if (defender.hp <= 0) {
@@ -131,32 +126,23 @@ function nextTurn(match, attackerIndex) {
   setTimeout(() => nextTurn(match, defenderIndex), 3000);
 }
 
-// --- start a match ---
+// start match
 function startMatch(p1, p2, stage, matchIdOverride = null) {
-  if (!p1 || !p2) return; // attesa per semi/finale
+  if (!p1 || !p2) return; // aspettare giocatori
   const matchId = matchIdOverride || `${p1.id}#${p2.id}`;
-  const players = [
-    { ...p1, hp: 80, stunned: false, dice: 0 },
-    { ...p2, hp: 80, stunned: false, dice: 0 }
-  ];
+  const players = [{ ...p1, hp: 80, stunned: false, dice: 0 }, { ...p2, hp: 80, stunned: false, dice: 0 }];
   const match = { id: matchId, players, stage };
   tournament.matches[matchId] = match;
 
   io.of("/tournament").emit("startTournament", Object.values(tournament.matches));
-  io.of("/tournament").emit("startMatch", {
-    id: matchId,
-    player1: players[0],
-    player2: players[1],
-    stage
-  });
+  io.of("/tournament").emit("startMatch", { id: matchId, player1: players[0], player2: players[1], stage });
 
   const first = Math.floor(Math.random() * 2);
   setTimeout(() => nextTurn(match, first), 1000);
 }
 
-// --- namespace connection ---
+// namespace connection
 const nsp = io.of("/tournament");
-
 nsp.on("connection", socket => {
   socket.emit("waitingCount", { count: tournament.waiting.length, required: 8, players: tournament.waiting });
   socket.emit("startTournament", Object.values(tournament.matches));
