@@ -1,4 +1,3 @@
-// tour.js
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
 const socket = io("https://fight-game-server.onrender.com/tournament");
@@ -11,8 +10,8 @@ const eventBox = document.getElementById("event-messages");
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const trophyBtn = document.getElementById("trophy-btn");
 const overlay = document.getElementById("tournament-overlay");
-const bracket = document.getElementById("bracket");
 const closeOverlayBtn = document.getElementById("close-overlay");
+const matchUI = {}; // mappa match attivi
 
 // ---------- MUSICA ----------
 const musicBattle = new Audio("img/9.mp3");
@@ -24,8 +23,8 @@ winnerMusic.loop = false;
 winnerMusic.volume = 0.7;
 
 function unlockAudio() {
-  if (musicBattle.paused) musicBattle.play().catch(()=>{});
-  if (winnerMusic.paused) winnerMusic.play().catch(()=>{});
+  if (musicBattle.paused) musicBattle.play().catch(() => {});
+  if (winnerMusic.paused) winnerMusic.play().catch(() => {});
 }
 window.addEventListener("click", unlockAudio, { once: true });
 window.addEventListener("touchstart", unlockAudio, { once: true });
@@ -50,7 +49,6 @@ chatInput.addEventListener("keydown", e => {
 });
 
 socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
-
 function addChatMessage(text) {
   const msg = document.createElement("div");
   msg.textContent = text;
@@ -66,27 +64,29 @@ function addEventMessage(text) {
   eventBox.scrollTop = eventBox.scrollHeight;
 }
 
-// ---------- GESTIONE TORNEO ----------
+// ---------- TORNEO ----------
 
-// Lista giocatori in attesa
+// Mostra giocatori in attesa
 socket.on("waitingCount", ({ count, required, players }) => {
-  battleArea.innerHTML = `
-    <h2>In attesa di giocatori... (${count}/${required})</h2>
-    <ul>${players.map(p => `<li>${p.nick} (${p.char})</li>`).join("")}</ul>
-  `;
+  if (count < required) {
+    battleArea.innerHTML = `
+      <h2>In attesa di giocatori... (${count}/${required})</h2>
+      <ul>${players.map(p => `<li>${p.nick} (${p.char})</li>`).join("")}</ul>
+    `;
+  }
 });
 
-// Quando ci sono 8 → partono i quarti
+// Quando parte torneo o match nuovo
 socket.on("startTournament", matches => {
   renderMatches(matches);
 });
 
-// Aggiornamento stato match (hp, dadi, immagini)
+// Aggiornamento match
 socket.on("updateMatch", match => {
   updateMatch(match);
 });
 
-// Log
+// Log eventi
 socket.on("log", msg => addEventMessage(msg));
 
 // Fine match
@@ -95,25 +95,31 @@ socket.on("matchOver", ({ winnerNick, winnerChar }) => {
   playWinnerMusic(winnerChar);
 });
 
+// Fine torneo
+socket.on("tournamentOver", ({ nick, char }) => {
+  addEventMessage(`🎉 ${nick} ha vinto il torneo!`);
+  playWinnerMusic(char);
+  setTimeout(() => battleArea.innerHTML = "<h2>In attesa di nuovo torneo...</h2>", 3000);
+});
+
 // ---------- FUNZIONI ----------
+
 function renderMatches(matches) {
-  battleArea.innerHTML = ""; // reset
   matches.forEach(match => {
-    const container = document.createElement("div");
-    container.classList.add("match-container");
+    if (!matchUI[match.id]) {
+      const container = document.createElement("div");
+      container.classList.add("match-container");
+      container.id = `match-${match.id}`;
 
-    container.id = `match-${match.id}`;
+      const p1 = createPlayerDiv(match.player1, "p1");
+      const p2 = createPlayerDiv(match.player2, "p2");
 
-    const p1 = createPlayerDiv(match.player1, "p1");
-    const p2 = createPlayerDiv(match.player2, "p2");
+      container.appendChild(p1.div);
+      container.appendChild(p2.div);
+      battleArea.appendChild(container);
 
-    container.appendChild(p1.div);
-    container.appendChild(p2.div);
-
-    battleArea.appendChild(container);
-
-    // salvo refs per update
-    matchUI[match.id] = { p1, p2 };
+      matchUI[match.id] = { p1, p2 };
+    }
   });
 }
 
@@ -148,17 +154,10 @@ function createPlayerDiv(player, side) {
   return { div, label, charImg, hp, dice };
 }
 
-// Mappa dei match attivi
-const matchUI = {};
-
 function updateMatch(match) {
   const ui = matchUI[match.id];
   if (!ui) return;
-
-  // Aggiorna player1
   updatePlayerUI(ui.p1, match.player1);
-
-  // Aggiorna player2
   updatePlayerUI(ui.p2, match.player2);
 }
 
@@ -166,7 +165,6 @@ function updatePlayerUI(uiPlayer, player) {
   uiPlayer.label.textContent = `${player.nick} (${player.char}) HP: ${player.hp}`;
   uiPlayer.hp.style.width = player.hp + "%";
   uiPlayer.charImg.src = getCharImage(player);
-
   if (player.dice) uiPlayer.dice.src = `img/dice${player.dice}.png`;
 }
 
