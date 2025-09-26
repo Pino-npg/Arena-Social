@@ -73,7 +73,7 @@ if (nick && char) {
   socket.emit("joinTournament", { nick, char });
 } else {
   battleArea.innerHTML =
-    "<h2>Errore: nick o personaggio mancanti. Torna alla home.</h2>";
+    "<h2>Error: Missing nickname or character. Return to home page.</h2>";
 }
 
 // waiting
@@ -82,7 +82,7 @@ socket.on("waitingCount", ({ count, required, players }) => {
     currentStage = "waiting";
     battleArea.innerHTML = `
       <div class="waiting-container">
-        <h2>In attesa di giocatori... (${count}/${required})</h2>
+        <h2>Waiting for players... (${count}/${required})</h2>
         <ul>
           ${players
             .map(
@@ -95,7 +95,7 @@ socket.on("waitingCount", ({ count, required, players }) => {
     `;
   } else {
     if (Object.keys(matchUI).length === 0) {
-      battleArea.innerHTML = `<h2>Preparazione quarti...</h2>`;
+      battleArea.innerHTML = `<h2>Preparation of quarters...</h2>`;
     }
   }
 });
@@ -103,7 +103,7 @@ socket.on("waitingCount", ({ count, required, players }) => {
 // startTournament (array di match)
 socket.on("startTournament", matches => {
   if (!matches || matches.length === 0) {
-    battleArea.innerHTML = `<h2>In attesa di torneo...</h2>`;
+    battleArea.innerHTML = `<h2>Waiting for tournament...</h2>`;
     return;
   }
   battleArea.innerHTML = "";
@@ -127,15 +127,19 @@ socket.on("updateMatch", match => {
 socket.on("log", msg => addEventMessage(msg));
 
 socket.on("matchOver", ({ winnerNick, winnerChar, stage }) => {
-  addEventMessage(`🏆 ${winnerNick} ha vinto il match (${stage})!`);
-  playWinnerMusic(winnerChar);
+  const nickText = winnerNick ?? "???";
+  const charText = winnerChar ?? "???";
+  addEventMessage(`🏆 ${nickText} won the match (${stage})!`);
+  playWinnerMusic(charText);
 });
 
 socket.on("tournamentOver", ({ nick, char }) => {
-  addEventMessage(`🎉 ${nick} ha vinto il torneo!`);
-  playWinnerMusic(char);
+  const nickText = nick ?? "???";
+  const charText = char ?? "???";
+  addEventMessage(`🎉 ${nickText} won the tournament!`);
+  playWinnerMusic(charText);
   setTimeout(
-    () => (battleArea.innerHTML = "<h2>In attesa nuovo torneo...</h2>"),
+    () => (battleArea.innerHTML = "<h2>Waiting for new tournament...</h2>"),
     3000
   );
 });
@@ -144,11 +148,16 @@ socket.on("tournamentOver", ({ nick, char }) => {
 function setStage(stage) {
   if (stage !== currentStage) {
     currentStage = stage;
+    // rimuovo vecchio h2 dello stage se presente
+    const oldTitle = battleArea.querySelector(".stage-title");
+    if (oldTitle) battleArea.removeChild(oldTitle);
+
     const title = document.createElement("h2");
-    if (stage === "quarter") title.textContent = "⚔️ Quarti di finale";
-    if (stage === "semi") title.textContent = "🔥 Semifinali";
-    if (stage === "final") title.textContent = "👑 Finale!";
-    battleArea.appendChild(title);
+    title.className = "stage-title";
+    if (stage === "quarter") title.textContent = "⚔️ Quarter-finals";
+    if (stage === "semi") title.textContent = "🔥 Semi-finals";
+    if (stage === "final") title.textContent = "👑 Final!";
+    battleArea.prepend(title); // meglio prepend per essere sopra i match
   }
 }
 
