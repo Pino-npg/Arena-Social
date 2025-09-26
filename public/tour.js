@@ -65,9 +65,9 @@ function addEventMessage(txt) {
   eventBox.scrollTop = eventBox.scrollHeight;
 }
 
-// join torneo
-const nick = localStorage.getItem("nick");
-const char = localStorage.getItem("char");
+// join torneo - ora usa le chiavi corrette
+const nick = localStorage.getItem("selectedNick");
+const char = localStorage.getItem("selectedChar");
 
 if (nick && char) {
   socket.emit("joinTournament", { nick, char });
