@@ -129,11 +129,14 @@ socket.on("tournamentOver", ({ nick, char }) => {
 });
 
 // Nuovo evento per tabellone
-socket.on("tournamentState", matches => {
+socket.on("tournamentState", bracket => {
   overlay.innerHTML = "<h2>🏆 Tournament Bracket</h2>";
-  matches.forEach(match => {
+  bracket.forEach(match => {
     const div = document.createElement("div");
-    div.textContent = `${match.player1?.nick ?? "??"} vs ${match.player2?.nick ?? "??"} (${match.stage})`;
+    const p1 = match.player1?.nick ?? "??";
+    const p2 = match.player2?.nick ?? "??";
+    const status = match.winner ? `Winner: ${match.winner.nick}` : "";
+    div.textContent = `${p1} vs ${p2} (${match.stage}) ${status}`;
     overlay.appendChild(div);
   });
 });
