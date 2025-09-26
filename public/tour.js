@@ -67,14 +67,31 @@ function addEventMessage(text) {
 }
 
 // ---------- GESTIONE TORNEO ----------
-socket.on("updateStage", matches => {
+
+// Lista giocatori in attesa
+socket.on("waitingCount", ({ count, required, players }) => {
+  battleArea.innerHTML = `
+    <h2>In attesa di giocatori... (${count}/${required})</h2>
+    <ul>${players.map(p => `<li>${p.nick} (${p.char})</li>`).join("")}</ul>
+  `;
+});
+
+// Quando ci sono 8 → partono i quarti
+socket.on("startTournament", matches => {
   renderMatches(matches);
 });
 
+// Aggiornamento stato match (hp, dadi, immagini)
+socket.on("updateMatch", match => {
+  updateMatch(match);
+});
+
+// Log
 socket.on("log", msg => addEventMessage(msg));
 
+// Fine match
 socket.on("matchOver", ({ winnerNick, winnerChar }) => {
-  addEventMessage(`🏆 ${winnerNick} has won the match!`);
+  addEventMessage(`🏆 ${winnerNick} ha vinto il match!`);
   playWinnerMusic(winnerChar);
 });
 
@@ -85,6 +102,8 @@ function renderMatches(matches) {
     const container = document.createElement("div");
     container.classList.add("match-container");
 
+    container.id = `match-${match.id}`;
+
     const p1 = createPlayerDiv(match.player1, "p1");
     const p2 = createPlayerDiv(match.player2, "p2");
 
@@ -92,6 +111,9 @@ function renderMatches(matches) {
     container.appendChild(p2.div);
 
     battleArea.appendChild(container);
+
+    // salvo refs per update
+    matchUI[match.id] = { p1, p2 };
   });
 }
 
@@ -124,6 +146,28 @@ function createPlayerDiv(player, side) {
   div.appendChild(dice);
 
   return { div, label, charImg, hp, dice };
+}
+
+// Mappa dei match attivi
+const matchUI = {};
+
+function updateMatch(match) {
+  const ui = matchUI[match.id];
+  if (!ui) return;
+
+  // Aggiorna player1
+  updatePlayerUI(ui.p1, match.player1);
+
+  // Aggiorna player2
+  updatePlayerUI(ui.p2, match.player2);
+}
+
+function updatePlayerUI(uiPlayer, player) {
+  uiPlayer.label.textContent = `${player.nick} (${player.char}) HP: ${player.hp}`;
+  uiPlayer.hp.style.width = player.hp + "%";
+  uiPlayer.charImg.src = getCharImage(player);
+
+  if (player.dice) uiPlayer.dice.src = `img/dice${player.dice}.png`;
 }
 
 function getCharImage(player) {

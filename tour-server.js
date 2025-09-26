@@ -20,9 +20,9 @@ function rollDice() { return Math.floor(Math.random() * 8) + 1; }
 
 // --- Torneo ---
 const tournament = {
-  waiting: [],       // giocatori in attesa
-  matches: {},       // match correnti {id: {players, stage}}
-  bracket: []        // match finiti {winner, loser, stage, player1, player2}
+  waiting: [],        // giocatori in attesa
+  matches: {},        // match correnti {id: {players, stage}}
+  bracket: []         // match finiti {winner, loser, stage, player1, player2}
 };
 
 // --- Turno ---
@@ -32,30 +32,45 @@ function nextTurn(match, attackerIndex) {
   const defender = match.players[defenderIndex];
 
   let damage = rollDice();
-  if (attacker.stunned) { damage = Math.max(1, damage - 1); attacker.stunned = false; }
-  if (damage === 8) defender.stunned = true;
+  let logMsg = "";
+
+  if (attacker.stunned) {
+    damage = Math.max(0, damage - 1);
+    attacker.stunned = false;
+    logMsg = `${attacker.nick} is stunned and only deals ${damage} damage 😵‍💫`;
+  } else if (damage === 8) {
+    defender.stunned = true;
+    logMsg = `${attacker.nick} CRIT! Deals ${damage} damage ⚡💥`;
+  } else {
+    logMsg = `${attacker.nick} rolls ${damage} and deals ${damage} damage 💥`;
+  }
 
   defender.hp = Math.max(0, defender.hp - damage);
   attacker.dice = damage;
 
+  // Invia update ai due giocatori
   match.players.forEach(p => {
-    const me = match.players.find(pl => pl.id === p.id);
+    const me = p;
     const opp = match.players.find(pl => pl.id !== p.id);
-    io.of("/tournament").to(p.id).emit("updateMatch", { player1: me, player2: opp, stage: match.stage });
-    io.of("/tournament").to(p.id).emit("log", `${attacker.nick} rolls ${damage} and deals ${damage} damage!`);
+    io.of("/tournament").to(p.id).emit("updateMatch", { ...match, id: match.id, player1: me, player2: opp });
+    io.of("/tournament").to(p.id).emit("log", logMsg);
   });
 
-  if (defender.hp === 0) {
+  if (defender.hp <= 0) {
     const winner = attacker;
     const loser = defender;
 
     match.players.forEach(p => {
-      io.of("/tournament").to(p.id).emit("matchOver", { winner: winner.nick, stage: match.stage, player1: match.players[0], player2: match.players[1] });
+      io.of("/tournament").to(p.id).emit("matchOver", { 
+        winnerNick: winner.nick, 
+        winnerChar: winner.char, 
+        stage: match.stage, 
+        player1: match.players[0], 
+        player2: match.players[1] 
+      });
     });
 
     tournament.bracket.push({ winner: winner.nick, loser: loser.nick, stage: match.stage, player1: match.players[0], player2: match.players[1] });
-
-    // rimuovi il loser da waiting, winner resta per fasi successive
     tournament.waiting = tournament.waiting.filter(p => p.id !== loser.id);
     delete tournament.matches[match.id];
 
@@ -75,9 +90,10 @@ function startMatch(p1, p2, stage) {
   ];
   tournament.matches[matchId] = { id: matchId, players, stage };
 
+  // Invia matchStart
   players.forEach(p => {
     const other = players.find(pl => pl.id !== p.id);
-    io.of("/tournament").to(p.id).emit("matchStart", { player1: p, player2: other, stage });
+    io.of("/tournament").to(p.id).emit("startMatch", { player1: p, player2: other, stage });
   });
 
   const first = Math.floor(Math.random() * 2);
@@ -92,22 +108,19 @@ function checkNextStage() {
     const stage = stages[i];
     const prevStage = i === 0 ? null : stages[i - 1];
 
-    const active = Object.values(tournament.matches).some(m => m.stage === stage);
-    if (active) continue; // match in corso → salta
+    const activeMatches = Object.values(tournament.matches).some(m => m.stage === stage);
+    if (activeMatches) continue;
 
     let candidates;
     if (!prevStage) {
-      // quarti: i primi 8 in waiting
       if (tournament.waiting.length >= 8) candidates = tournament.waiting.slice(0, 8);
-      else return; // aspetta che arrivino 8 giocatori
+      else return; // aspetta altri giocatori
     } else {
-      // fasi successive: vincitori precedenti
       candidates = tournament.bracket.filter(b => b.stage === prevStage)
         .map(b => tournament.waiting.find(p => p.nick === b.winner))
         .filter(Boolean);
     }
 
-    // Avvia match a coppie
     for (let j = 0; j < candidates.length; j += 2) {
       const p1 = candidates[j];
       const p2 = candidates[j + 1];
@@ -136,40 +149,46 @@ const nspTournament = io.of("/tournament");
 nspTournament.on("connection", socket => {
 
   function updateWaitingCount() {
-    nspTournament.emit("waitingCount", { count: tournament.waiting.length, required: 8 });
+    nspTournament.emit("waitingCount", {
+      count: tournament.waiting.length,
+      required: 8,
+      players: tournament.waiting
+    });
   }
 
   socket.on("joinTournament", ({ nick, char }) => {
     if (tournament.waiting.find(p => p.id === socket.id)) return;
 
-    socket.nick = nick;
-    socket.char = char;
     tournament.waiting.push({ id: socket.id, nick, char });
-
     updateWaitingCount();
 
     nspTournament.to(socket.id).emit("waiting", `Waiting for 8 players...`);
 
-    // Avvia quarti se ci sono 8 giocatori
     if (tournament.waiting.length === 8) checkNextStage();
   });
 
   socket.on("chatMessage", text => {
-    nspTournament.emit("chatMessage", { nick: socket.nick, text });
+    nspTournament.emit("chatMessage", { nick: socket.nick || "Anon", text });
   });
 
   socket.on("disconnect", () => {
     tournament.waiting = tournament.waiting.filter(p => p.id !== socket.id);
     updateWaitingCount();
 
-    // Se il giocatore era in match → l'altro vince
+    // Se giocatore in match → l'altro vince
     for (const matchId in tournament.matches) {
       const match = tournament.matches[matchId];
-      const index = match.players.findIndex(p => p.id === socket.id);
-      if (index !== -1) {
+      const idx = match.players.findIndex(p => p.id === socket.id);
+      if (idx !== -1) {
         const other = match.players.find(p => p.id !== socket.id);
-        nspTournament.to(other.id).emit("matchOver", { winner: other.nick, stage: match.stage, player1: match.players[0], player2: match.players[1] });
-        tournament.bracket.push({ winner: other.nick, loser: socket.nick, stage: match.stage, player1: match.players[0], player2: match.players[1] });
+        nspTournament.to(other.id).emit("matchOver", { 
+          winnerNick: other.nick, 
+          winnerChar: other.char,
+          stage: match.stage,
+          player1: match.players[0],
+          player2: match.players[1]
+        });
+        tournament.bracket.push({ winner: other.nick, loser: socket.id, stage: match.stage, player1: match.players[0], player2: match.players[1] });
         delete tournament.matches[matchId];
         checkNextStage();
       }
