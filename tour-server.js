@@ -6,7 +6,7 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, { cors: { origin: "*" } });
 
-const PORT = process.env.PORT || 10001;
+const PORT = process.env.PORT || 10000;
 
 // --- Static ---
 app.use(express.static("public"));
