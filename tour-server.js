@@ -29,7 +29,7 @@ function broadcastWaiting() {
   const payload = {
     count: tournament.waiting.length,
     required: 8,
-    players: tournament.waiting.slice(0) // shallow copy
+    players: tournament.waiting.slice()
   };
   io.of("/tournament").emit("waitingCount", payload);
 }
@@ -57,17 +57,14 @@ function nextTurn(match, attackerIndex) {
   defender.hp = Math.max(0, defender.hp - damage);
   attacker.dice = damage;
 
-  const matchSnapshot = {
+  io.of("/tournament").emit("updateMatch", {
     id: match.id,
     stage: match.stage,
     player1: { ...match.players[0] },
     player2: { ...match.players[1] }
-  };
-
-  io.of("/tournament").emit("updateMatch", matchSnapshot);
+  });
   io.of("/tournament").emit("log", logMsg);
 
-  // check end
   if (defender.hp <= 0) {
     const winner = attacker;
     const loser = defender;
@@ -92,7 +89,6 @@ function nextTurn(match, attackerIndex) {
     delete tournament.matches[match.id];
 
     io.of("/tournament").emit("startTournament", Object.values(tournament.matches));
-
     checkNextStage();
     broadcastWaiting();
     return;
@@ -111,25 +107,12 @@ function startMatch(p1, p2, stage) {
   const match = { id: matchId, players, stage };
   tournament.matches[matchId] = match;
 
-  // notify global clients: new active matches
   io.of("/tournament").emit("startTournament", Object.values(tournament.matches));
-
-  // 🔥 notify all clients so everyone sees the match card
   io.of("/tournament").emit("startMatch", {
     id: matchId,
     player1: players[0],
     player2: players[1],
     stage
-  });
-
-  // notify participants individually (if still connected)
-  players.forEach(p => {
-    io.of("/tournament").to(p.id).emit("startMatch", {
-      id: matchId,
-      player1: p,
-      player2: players.find(pl => pl.id !== p.id),
-      stage
-    });
   });
 
   const first = Math.floor(Math.random() * 2);
@@ -150,16 +133,12 @@ function checkNextStage() {
     let candidates = [];
 
     if (!prev) {
-      if (tournament.waiting.length >= 8) {
-        candidates = tournament.waiting.slice(0, 8);
-      } else {
-        return;
-      }
+      if (tournament.waiting.length >= 8) candidates = tournament.waiting.slice(0, 8);
+      else return;
     } else {
       candidates = tournament.bracket
         .filter(b => b.stage === prev)
-        .map(b => ({ id: b.winner.id, nick: b.winner.nick, char: b.winner.char }))
-        .filter(Boolean);
+        .map(b => ({ id: b.winner.id, nick: b.winner.nick, char: b.winner.char }));
     }
 
     for (let j = 0; j < candidates.length; j += 2) {
@@ -168,6 +147,7 @@ function checkNextStage() {
       if (p1 && p2) startMatch(p1, p2, stage);
     }
 
+    // se solo un giocatore rimasto in finale
     if (stage === "final" && candidates.length === 1) {
       const champ = candidates[0];
       io.of("/tournament").emit("tournamentOver", { nick: champ.nick, char: champ.char });
@@ -189,21 +169,22 @@ function checkNextStage() {
 const nsp = io.of("/tournament");
 
 nsp.on("connection", socket => {
+  // invio stato iniziale
   socket.emit("waitingCount", { count: tournament.waiting.length, required: 8, players: tournament.waiting });
   socket.emit("startTournament", Object.values(tournament.matches));
 
   socket.on("joinTournament", ({ nick, char }) => {
     if (!nick || !char) return;
     if (tournament.waiting.find(p => p.id === socket.id)) return;
+
     tournament.waiting.push({ id: socket.id, nick, char });
     broadcastWaiting();
-    nsp.to(socket.id).emit("waiting", `Waiting for 8 players...`);
-    // 🔥 adesso parte anche con più di 8
+
     if (tournament.waiting.length >= 8) checkNextStage();
   });
 
   socket.on("chatMessage", text => {
-    const nick = socket.nick || (tournament.waiting.find(p=>p.id===socket.id)?.nick) || "Anon";
+    const nick = tournament.waiting.find(p => p.id === socket.id)?.nick || "Anon";
     nsp.emit("chatMessage", { nick, text });
   });
 
