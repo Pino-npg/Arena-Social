@@ -57,8 +57,6 @@ function nextTurn(match, attackerIndex) {
   defender.hp = Math.max(0, defender.hp - damage);
   attacker.dice = damage;
 
-  // send update to all clients (global UI) as well as per-player
-  // For simplicity we emit updateMatch to namespace for global clients; also to individual players
   const matchSnapshot = {
     id: match.id,
     stage: match.stage,
@@ -74,7 +72,6 @@ function nextTurn(match, attackerIndex) {
     const winner = attacker;
     const loser = defender;
 
-    // notify matchOver
     io.of("/tournament").emit("matchOver", {
       winnerNick: winner.nick,
       winnerChar: winner.char,
@@ -83,7 +80,6 @@ function nextTurn(match, attackerIndex) {
       player2: match.players[1]
     });
 
-    // store bracket entry (save winner/loser objects)
     tournament.bracket.push({
       winner: { id: winner.id, nick: winner.nick, char: winner.char },
       loser: { id: loser.id, nick: loser.nick, char: loser.char },
@@ -92,22 +88,16 @@ function nextTurn(match, attackerIndex) {
       player2: match.players[1]
     });
 
-    // remove loser from waiting (winner remains for next stage)
     tournament.waiting = tournament.waiting.filter(p => p.id !== loser.id);
-
-    // remove match
     delete tournament.matches[match.id];
 
-    // refresh global matches list to clients
     io.of("/tournament").emit("startTournament", Object.values(tournament.matches));
 
-    // continue tournament progression
     checkNextStage();
     broadcastWaiting();
     return;
   }
 
-  // continue turns (delay)
   setTimeout(() => nextTurn(match, defenderIndex), 3000);
 }
 
@@ -124,6 +114,14 @@ function startMatch(p1, p2, stage) {
   // notify global clients: new active matches
   io.of("/tournament").emit("startTournament", Object.values(tournament.matches));
 
+  // 🔥 notify all clients so everyone sees the match card
+  io.of("/tournament").emit("startMatch", {
+    id: matchId,
+    player1: players[0],
+    player2: players[1],
+    stage
+  });
+
   // notify participants individually (if still connected)
   players.forEach(p => {
     io.of("/tournament").to(p.id).emit("startMatch", {
@@ -134,66 +132,56 @@ function startMatch(p1, p2, stage) {
     });
   });
 
-  // start turns
   const first = Math.floor(Math.random() * 2);
   setTimeout(() => nextTurn(match, first), 1000);
 }
 
 // --- advance stages / pair winners ---
 function checkNextStage() {
-  // stages order
   const stages = ["quarter", "semi", "final"];
 
   for (let i = 0; i < stages.length; i++) {
     const stage = stages[i];
     const prev = i === 0 ? null : stages[i - 1];
 
-    // if there are active matches in this stage, skip
     const active = Object.values(tournament.matches).some(m => m.stage === stage);
     if (active) continue;
 
     let candidates = [];
 
     if (!prev) {
-      // initial: take first 8 waiting players (if exist)
-      if (tournament.waiting.length >= 8) candidates = tournament.waiting.slice(0, 8);
-      else {
-        // not enough players yet, stop trying
+      if (tournament.waiting.length >= 8) {
+        candidates = tournament.waiting.slice(0, 8);
+      } else {
         return;
       }
     } else {
-      // pick winners from bracket of prev stage
       candidates = tournament.bracket
         .filter(b => b.stage === prev)
         .map(b => ({ id: b.winner.id, nick: b.winner.nick, char: b.winner.char }))
         .filter(Boolean);
-      // Note: if some winners are no longer in waiting we still proceed with winner objects
     }
 
-    // pair and start matches
     for (let j = 0; j < candidates.length; j += 2) {
       const p1 = candidates[j];
       const p2 = candidates[j + 1];
       if (p1 && p2) startMatch(p1, p2, stage);
     }
 
-    // if final stage and only 1 candidate left -> tournament finished
     if (stage === "final" && candidates.length === 1) {
       const champ = candidates[0];
       io.of("/tournament").emit("tournamentOver", { nick: champ.nick, char: champ.char });
-      // reset after small delay
       setTimeout(() => {
         tournament.waiting = [];
         tournament.matches = {};
         tournament.bracket = [];
         broadcastWaiting();
-        io.of("/tournament").emit("startTournament", []); // clear matches UI
+        io.of("/tournament").emit("startTournament", []);
       }, 2000);
       return;
     }
   }
 
-  // always update waiting display
   broadcastWaiting();
 }
 
@@ -201,7 +189,6 @@ function checkNextStage() {
 const nsp = io.of("/tournament");
 
 nsp.on("connection", socket => {
-  // send current waiting and matches immediately
   socket.emit("waitingCount", { count: tournament.waiting.length, required: 8, players: tournament.waiting });
   socket.emit("startTournament", Object.values(tournament.matches));
 
@@ -211,8 +198,8 @@ nsp.on("connection", socket => {
     tournament.waiting.push({ id: socket.id, nick, char });
     broadcastWaiting();
     nsp.to(socket.id).emit("waiting", `Waiting for 8 players...`);
-    // attempt to start if we have 8
-    if (tournament.waiting.length === 8) checkNextStage();
+    // 🔥 adesso parte anche con più di 8
+    if (tournament.waiting.length >= 8) checkNextStage();
   });
 
   socket.on("chatMessage", text => {
@@ -221,10 +208,8 @@ nsp.on("connection", socket => {
   });
 
   socket.on("disconnect", () => {
-    // remove from waiting
     tournament.waiting = tournament.waiting.filter(p => p.id !== socket.id);
 
-    // if disconnected while in a match, award win to other
     for (const matchId in tournament.matches) {
       const match = tournament.matches[matchId];
       const idx = match.players.findIndex(p => p.id === socket.id);
