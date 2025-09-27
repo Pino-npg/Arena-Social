@@ -16,8 +16,8 @@ const closeOverlayBtn = document.getElementById("close-overlay");
 let matchUI = {};
 let currentStage = "waiting";
 let waitingContainer = null;
-let stunned = { p1:false, p2:false }; // gestisce stun
-let fullBracket = []; // salva tutti i match per il bracket completo
+let stunned = { p1:false, p2:false };
+let fullBracket = [];
 
 // ---------- Music ----------
 const musicQuarter = "img/5.mp3";    
@@ -94,7 +94,7 @@ const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
 if (nick && char) {
   socket.emit("joinTournament", { nick, char });
-  renderWaiting(0, 8, []); // forzare waiting iniziale
+  renderWaiting(0, 8, []);
 } else {
   battleArea.innerHTML = "<h2>Error: Missing nickname or character. Return to home page.</h2>";
 }
@@ -106,7 +106,6 @@ socket.on("waitingCount", ({ count, required, players }) => {
 
 function renderWaiting(count, required, players) {
   if(waitingContainer) waitingContainer.remove();
-
   waitingContainer = document.createElement("div");
   waitingContainer.className = "waiting-container";
 
@@ -156,14 +155,14 @@ function setMusic(src){
   if(wasPlaying) musicBattle.play().catch(()=>{});
 }
 
-// ---------- Matches ----------
+// ---------- Player card ----------
 function makePlayerCard(player){
   const div=document.createElement("div");
   div.className="player";
 
   const label=document.createElement("div");
   label.className="player-label";
-  label.textContent=`${player.nick} (${player.char}) HP: ${player.hp ?? 0}`;
+  label.textContent=`${player.nick} (${player.char}) HP: ${player.hp ?? 80}`;
 
   const img=document.createElement("img");
   img.className="char-img";
@@ -174,7 +173,7 @@ function makePlayerCard(player){
   hpBar.className="hp-bar";
   const hpInner=document.createElement("div");
   hpInner.className="hp";
-  hpInner.style.width=Math.max(0,player.hp??0)+"%";
+  hpInner.style.width=Math.max(0,player.hp??80)/80*100+"%";
   hpBar.appendChild(hpInner);
 
   const dice=document.createElement("img");
@@ -189,17 +188,22 @@ function makePlayerCard(player){
   return { div,label,charImg:img,hp:hpInner,dice };
 }
 
+function updatePlayerUI(ref, player){
+  const hp = Math.max(0, Math.min(player.hp ?? 80, 80));
+  ref.label.textContent = `${player.nick} (${player.char}) HP: ${hp}`;
+  ref.hp.style.width = (hp/80*100)+"%";
+
+  if(hp>60) ref.hp.style.backgroundColor = "green";
+  else if(hp>40) ref.hp.style.backgroundColor = "yellowgreen";
+  else if(hp>20) ref.hp.style.backgroundColor = "orange";
+  else ref.hp.style.backgroundColor = "red";
+
+  ref.charImg.src = getCharImage(player.char, hp);
+}
+
+// ---------- Render match ----------
 function renderMatchCard(match){
   if(!match?.id) return;
-
-  // Rimuove dalla UI tutti i match finiti prima di renderizzare i nuovi
-  Object.keys(matchUI).forEach(id => {
-    if(matchUI[id].processed) {
-      const el = document.getElementById(`match-${id}`);
-      if(el) el.remove();
-      delete matchUI[id];
-    }
-  });
 
   if(matchUI[match.id]) return;
 
@@ -212,8 +216,8 @@ function renderMatchCard(match){
   stageLabel.textContent=`${match.stage.toUpperCase()} - ${match.id}`;
   container.appendChild(stageLabel);
 
-  const p1 = makePlayerCard(match.player1 || { nick:"??", char:"??", hp:0 });
-  const p2 = makePlayerCard(match.player2 || { nick:"??", char:"??", hp:0 });
+  const p1 = makePlayerCard(match.player1 || { nick:"??", char:"??", hp:80 });
+  const p2 = makePlayerCard(match.player2 || { nick:"??", char:"??", hp:80 });
 
   container.appendChild(p1.div);
   container.appendChild(p2.div);
@@ -224,9 +228,9 @@ function renderMatchCard(match){
 
 // ---------- Damage handling ----------
 function handleDamage(match){
-  if(!match?.id || !matchUI[match.id]) return;
-  if(matchUI[match.id].processed) return; // evita doppio processamento
-  matchUI[match.id].processed = true;
+  if(!match?.id) return;
+  if(!matchUI[match.id]) renderMatchCard(match);
+
   const refs = matchUI[match.id];
 
   ["player1","player2"].forEach((key,i)=>{
@@ -249,10 +253,7 @@ function handleDamage(match){
       addEventMessage(`${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`);
     }
 
-    // Aggiorna UI correttamente
-    ref.label.textContent=`${player.nick} (${player.char}) HP: ${player.hp}`;
-    ref.hp.style.width=Math.max(0,player.hp)+"%";
-    ref.charImg.src = getCharImage(player.char, player.hp);
+    updatePlayerUI(ref, player);
     ref.dice.src = `img/dice${diceDisplay}.png`;
   });
 }
@@ -288,35 +289,21 @@ function playWinnerMusic(winnerChar){
 // ---------- Socket events ----------
 socket.on("startTournament", matches => {
   if(waitingContainer) { waitingContainer.remove(); waitingContainer=null; }
-  
-  // Rimuove tutti i match finiti dalla UI
-  Object.keys(matchUI).forEach(id => {
-    const el = document.getElementById(`match-${id}`);
-    if(el) el.remove();
-  });
-  matchUI = {};
-
+  clearMatchesUI();
   currentStage = matches[0]?.stage || "quarter";
   setStage(currentStage);
-
-  // Reset bracket
   fullBracket = [];
-
   matches.forEach(m => {
     renderMatchCard(m);
     fullBracket.push(m);
   });
-
   renderBracket(fullBracket);
 });
 
 socket.on("startMatch", match => {
   if(match.stage) setStage(match.stage);
+  handleDamage(match);
 
-  // Se il match esiste già e non è finito, non fare nulla
-  if(!matchUI[match.id]) renderMatchCard(match);
-
-  // Aggiorna bracket
   const idx = fullBracket.findIndex(m => m.id === match.id);
   if(idx>=0) fullBracket[idx] = match; 
   else fullBracket.push(match);
@@ -328,14 +315,12 @@ socket.on("matchOver", ({ winnerNick, winnerChar, stage, matchId }) => {
   addEventMessage(`🏆 ${winnerNick ?? "??"} won the match (${stage})!`);
   if(stage==="final") playWinnerMusic(winnerChar);
 
-  // Rimuove il match finito dalla UI
   if(matchId){
     const el = document.getElementById(`match-${matchId}`);
     if(el) el.remove();
     delete matchUI[matchId];
   }
 
-  // Aggiorna il bracket
   const idx = fullBracket.findIndex(m => m.id===matchId);
   if(idx>=0) fullBracket[idx].winner = { nick:winnerNick, char:winnerChar };
   renderBracket(fullBracket);
@@ -350,17 +335,17 @@ socket.on("tournamentOver", ({ nick, char }) => {
 
 socket.on("log", msg => addEventMessage(msg));
 socket.on("tournamentState", bracket => {
-  fullBracket = bracket; // sincronizza bracket completo
+  fullBracket = bracket;
   renderBracket(fullBracket);
 });
 
 // ---------- Bracket rendering ----------
 function renderBracket(bracket){
   bracketContainer.innerHTML = "";
-
   const table = document.createElement("table");
   table.style.width="100%";
   table.style.borderCollapse="collapse";
+
   const head = document.createElement("tr");
   head.innerHTML="<th>Player 1</th><th>Player 2</th><th>Winner</th><th>Stage</th>";
   table.appendChild(head);
