@@ -76,7 +76,7 @@ function advanceWinner(matchId, winnerObj) {
 
   // finale conclusa
   if (brMatch.id === "F" && brMatch.winner) {
-    io.of("/tournament").emit("tournamentWinner", {
+    io.of("/tournament").emit("tournamentOver", {
       nick: brMatch.winner.nick,
       char: brMatch.winner.char
     });
