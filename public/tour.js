@@ -1,7 +1,8 @@
-// --- tour.js (client) corretto ---
+// --- tour.js (client) completo ---
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 const socket = io("/tournament");
 
+// --- DOM elements ---
 const battleArea = document.getElementById("battle-area");
 const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
@@ -12,9 +13,11 @@ const overlay = document.getElementById("tournament-overlay");
 const bracketContainer = document.getElementById("bracket");
 const closeOverlayBtn = document.getElementById("close-overlay");
 
+// --- State ---
 let matchUI = {};
 let currentStage = "waiting";
 
+// --- Music ---
 const musicQuarter = "img/5.mp3";    
 const musicSemi    = "img/6.mp3"; 
 const musicFinal   = "img/7.mp3";
@@ -22,9 +25,6 @@ const musicFinal   = "img/7.mp3";
 const musicBattle = new Audio(musicQuarter);
 musicBattle.loop = true;
 musicBattle.volume = 0.5;
-
-const winnerMusic = new Audio();
-winnerMusic.volume = 0.7;
 
 // --- Audio unlock ---
 function unlockAudio() {
@@ -101,7 +101,6 @@ socket.on("startTournament", matches => {
   currentStage = matches[0]?.stage || "quarter";
   setStage(currentStage);
   matches.forEach(m => renderMatchCard(m));
-  // rimuove messaggio waiting
   const waiting = battleArea.querySelector(".waiting-container");
   if(waiting) waiting.remove();
 });
@@ -126,8 +125,7 @@ socket.on("matchOver", ({ winnerNick, winnerChar, stage }) => {
 // --- Tournament Over ---
 socket.on("tournamentOver", ({ nick, char }) => {
   addEventMessage(`🎉 ${nick ?? "??"} won the tournament!`);
-  musicBattle.pause();    // stop musica torneo
-  showWinnerChar(char);
+  showWinnerChar(char);   // fullscreen webp
   playWinnerMusic(char);
   setTimeout(()=> battleArea.innerHTML = "<h2>Waiting for new tournament...</h2>", 2500);
 });
@@ -222,7 +220,7 @@ function makePlayerCard(player){
   const img=document.createElement("img");
   img.className="char-img";
   img.src = player.char ? `img/${player.char}.png` : "img/unknown.png";
-  img.onerror = () => { img.src = "img/unknown.png"; };  // fallback
+  img.onerror = () => { img.src = "img/unknown.png"; };
 
   const hpBar=document.createElement("div");
   hpBar.className="hp-bar";
@@ -262,7 +260,6 @@ function updateMatchUI(match){
 function showWinnerChar(char){
   if(!char) return;
   const winnerImg = document.createElement("img");
-  // prova webp, fallback png se webp non carica
   winnerImg.src = `img/${char}.webp`;
   winnerImg.onerror = () => { winnerImg.src = `img/${char}.png`; };
   winnerImg.style.position = "fixed";
@@ -274,12 +271,15 @@ function showWinnerChar(char){
   winnerImg.style.zIndex = "9999";
   winnerImg.style.backgroundColor = "black";
   document.body.appendChild(winnerImg);
+  // click per chiudere
   winnerImg.addEventListener("click", () => winnerImg.remove());
 }
 
 // --- Winner music ---
 function playWinnerMusic(winnerChar){
   if(!winnerChar) return;
+  // stop musica torneo
+  musicBattle.pause();
   const audio = new Audio(`img/${winnerChar}.mp3`);
   audio.volume = 0.7;
   audio.play().catch(()=>{});
