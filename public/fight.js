@@ -108,25 +108,45 @@ function updateGame(game) {
   updateCharacterImage(game.player2, 1);
 }
 
-function handleDice(playerIndex, game) {
-  const player = playerIndex === 0 ? game.player1 : game.player2;
-  let finalDmg = player.dmg;
-  let type = "damage";
+// ---------- Damage handling ----------
+function handleDamage(match){
+  if(!match?.id || !matchUI[match.id]) return;
+  if(matchUI[match.id].processed) return; // evita doppio processamento
+  matchUI[match.id].processed = true;
+  const refs = matchUI[match.id];
 
-  if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
-    addEventMessage(`${player.nick} is stunned! Rolled ${diceDisplay} → deals ${dmg} 😵‍💫`);
-    if(i===0) stunned.p1=false; else stunned.p2=false;
-  } 
-  else if(diceDisplay === 8){
-    addEventMessage(`${player.nick} CRIT! Rolled 8 → ${dmg} damage ⚡💥`);
-    if(i===0) stunned.p2=true; else stunned.p1=true;
-  } 
-  else {
-    addEventMessage(`${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`);
-  }
+  ["player1","player2"].forEach((key,i)=>{
+    const player = match[key];
+    const ref = i===0 ? refs.p1 : refs.p2;
+    if(!player) return;
+
+    const dmg = player.dmg ?? 0;
+    const diceDisplay = player.dice ?? 1;
+
+    if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
+      addEventMessage(`${player.nick} is stunned! Rolled ${diceDisplay} → deals ${dmg} 😵‍💫`);
+      if(i===0) stunned.p1=false; else stunned.p2=false;
+    } 
+    else if(diceDisplay === 8){
+      addEventMessage(`${player.nick} CRIT! Rolled 8 → ${dmg} damage ⚡💥`);
+      if(i===0) stunned.p2=true; else stunned.p1=true;
+    } 
+    else {
+      addEventMessage(`${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`);
+    }
+
+    // Aggiorna UI correttamente
+    ref.label.textContent=`${player.nick} (${player.char}) HP: ${player.hp}`;
+    ref.hp.style.width=Math.max(0,player.hp)+"%";
+    ref.charImg.src = getCharImage(player.char, player.hp);
+    ref.dice.src = `img/dice${diceDisplay}.png`;
+  });
+}
+
+socket.on("updateMatch", match => handleDamage(match));
 
   showDice(playerIndex, player.dice);
-}
+
 
 function showDice(playerIndex, value){
   const diceEl = playerIndex === 0 ? diceP1 : diceP2;
