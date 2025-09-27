@@ -17,9 +17,9 @@ let matchUI = {}; // matchId -> { p1, p2 }
 let currentStage = "waiting";
 
 // Music
-const musicQuarter = "img/5.mp3";    // quarters
-const musicSemi    = "img/6.mp3"; // optional, add file
-const musicFinal   = "img/7.mp3";// optional, add file
+const musicQuarter = "img/5.mp3";    
+const musicSemi    = "img/6.mp3"; 
+const musicFinal   = "img/7.mp3";
 
 const musicBattle = new Audio(musicQuarter);
 musicBattle.loop = true;
@@ -80,7 +80,6 @@ socket.on("waitingCount", ({ count, required, players }) => {
   renderWaiting(count, required, players);
 });
 function renderWaiting(count, required, players) {
-  // only show waiting box while tournament hasn't started (but show players list always at top)
   const existing = battleArea.querySelector(".waiting-container");
   const html = `
     <div class="waiting-container">
@@ -96,13 +95,11 @@ function renderWaiting(count, required, players) {
 
 // startTournament: list of matches active
 socket.on("startTournament", matches => {
-  // clear UI matches and recreate from active matches
   clearMatchesUI();
   if (!matches || matches.length === 0) {
     battleArea.innerHTML = "<h2>Waiting for tournament...</h2>";
     return;
   }
-  // stage comes from matches[0] usually
   const stage = matches[0]?.stage || "quarter";
   setStage(stage);
   matches.forEach(m => renderMatchCard(m));
@@ -126,18 +123,6 @@ socket.on("matchOver", ({ winnerNick, winnerChar, stage }) => {
   const charText = winnerChar ?? "???";
   addEventMessage(`🏆 ${nickText} won the match (${stage})!`);
   playWinnerMusic(charText);
-  // remove finished match UI after a short delay to keep screen tidy
-  setTimeout(() => {
-    // find match id in UI by stage players (some matches use bracket id)
-    Object.keys(matchUI).forEach(id => {
-      const refs = matchUI[id];
-      if (!refs) return;
-      const labels = [refs.p1.label.textContent, refs.p2.label.textContent].join("|");
-      if (labels.includes(winnerNick)) {
-        // keep winner visible but remove container when bracket advances (server will emit startTournament)
-      }
-    });
-  }, 1500);
 });
 
 // tournament over
@@ -149,7 +134,6 @@ socket.on("tournamentOver", ({ nick, char }) => {
 
 // bracket / trophy update
 socket.on("tournamentState", bracket => {
-  // show bracket inside bracketContainer (not overlay root)
   bracketContainer.innerHTML = "";
   bracket.forEach(m => {
     const div = document.createElement("div");
@@ -161,7 +145,6 @@ socket.on("tournamentState", bracket => {
     if (m.winner) div.style.color = "#FFD700";
     bracketContainer.appendChild(div);
   });
-  // also ensure overlay visible if requested by user via trophy button
 });
 
 // --- UI helpers ---
@@ -169,10 +152,9 @@ function setStage(stage) {
   if (stage === currentStage) return;
   currentStage = stage;
 
-  // set music by stage
-  if (stage === "quarter") { setMusic(musicQuarter); }
-  else if (stage === "semi") { setMusic(musicSemi); }
-  else if (stage === "final") { setMusic(musicFinal); }
+  if (stage === "quarter") setMusic(musicQuarter);
+  else if (stage === "semi") setMusic(musicSemi);
+  else if (stage === "final") setMusic(musicFinal);
 
   const old = battleArea.querySelector(".stage-title");
   if (old) old.remove();
@@ -189,17 +171,20 @@ function setMusic(src) {
   if (wasPlaying) musicBattle.play().catch(()=>{});
 }
 
+// Render multiple matches
 function renderMatchCard(match) {
   if (!match?.id) return;
   if (matchUI[match.id]) {
-    // update existing
     updateMatchUI(match);
     return;
   }
-  // create UI
   const container = document.createElement("div");
   container.className = "match-container";
   container.id = `match-${match.id}`;
+
+  const stageLabel = document.createElement("h3");
+  stageLabel.textContent = `${match.stage.toUpperCase()} - ${match.id}`;
+  container.appendChild(stageLabel);
 
   const p1 = makePlayerCard(match.player1 || { nick: "??", char: "??", hp: 0 });
   const p2 = makePlayerCard(match.player2 || { nick: "??", char: "??", hp: 0 });
@@ -247,6 +232,7 @@ function updateMatchUI(match) {
   if (!matchUI[match.id]) renderMatchCard(match);
   const refs = matchUI[match.id];
   if (!refs) return;
+
   refs.p1.label.textContent = `${match.player1.nick} (${match.player1.char}) HP: ${match.player1.hp}`;
   refs.p1.hp.style.width = Math.max(0, match.player1.hp) + "%";
   refs.p1.charImg.src = getCharImage(match.player1);
@@ -259,14 +245,8 @@ function updateMatchUI(match) {
 }
 
 function getCharImage(player) {
-  const base = player?.char ? `img/${player.char}` : `img/??`;
-  const hp = player?.hp ?? 0;
-  let suffix = "";
-  if (hp <= 0) suffix = "0";
-  else if (hp <= 20) suffix = "20";
-  else if (hp <= 40) suffix = "40";
-  else if (hp <= 60) suffix = "60";
-  return `${base}${suffix}.png`;
+  if (!player || !player.char) return "img/unknown.webp";
+  return `img/${player.char}.webp`;
 }
 
 function playWinnerMusic(winnerChar) {
