@@ -16,6 +16,7 @@ const closeOverlayBtn = document.getElementById("close-overlay");
 // --- State ---
 let matchUI = {};
 let currentStage = "waiting";
+let waitingContainer = null;
 
 // --- Music ---
 const musicQuarter = "img/5.mp3";    
@@ -82,7 +83,6 @@ socket.on("waitingCount", ({ count, required, players }) => {
 });
 
 function renderWaiting(count, required, players) {
-  const existing = battleArea.querySelector(".waiting-container");
   const html = `
     <div class="waiting-container">
       <h2>Waiting for players... (${count}/${required})</h2>
@@ -91,18 +91,25 @@ function renderWaiting(count, required, players) {
       </ul>
     </div>
   `;
-  if (existing) existing.outerHTML = html;
-  else battleArea.prepend(createFragment(html));
+  if (waitingContainer) waitingContainer.outerHTML = html;
+  else {
+    waitingContainer = createFragment(html);
+    battleArea.prepend(waitingContainer);
+  }
 }
 
 // --- Start Tournament ---
 socket.on("startTournament", matches => {
+  // sparisce il waiting
+  if(waitingContainer) {
+    waitingContainer.remove();
+    waitingContainer = null;
+  }
+
   clearMatchesUI();
   currentStage = matches[0]?.stage || "quarter";
   setStage(currentStage);
   matches.forEach(m => renderMatchCard(m));
-  const waiting = battleArea.querySelector(".waiting-container");
-  if(waiting) waiting.remove();
 });
 
 // --- Start / Update Match ---
@@ -250,10 +257,12 @@ function updateMatchUI(match){
   refs.p1.label.textContent=`${match.player1.nick} (${match.player1.char}) HP: ${match.player1.hp}`;
   refs.p1.hp.style.width=Math.max(0,match.player1.hp)+"%";
   if(match.player1.dice) refs.p1.dice.src=`img/dice${match.player1.dice}.png`;
+  if(refs.p1.charImg) refs.p1.charImg.onerror = () => { refs.p1.charImg.src = "img/unknown.png"; };
 
   refs.p2.label.textContent=`${match.player2.nick} (${match.player2.char}) HP: ${match.player2.hp}`;
   refs.p2.hp.style.width=Math.max(0,match.player2.hp)+"%";
   if(match.player2.dice) refs.p2.dice.src=`img/dice${match.player2.dice}.png`;
+  if(refs.p2.charImg) refs.p2.charImg.onerror = () => { refs.p2.charImg.src = "img/unknown.png"; };
 }
 
 // --- Winner fullscreen ---
