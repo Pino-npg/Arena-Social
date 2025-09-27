@@ -83,19 +83,35 @@ socket.on("waitingCount", ({ count, required, players }) => {
 });
 
 function renderWaiting(count, required, players) {
-  const html = `
-    <div class="waiting-container">
-      <h2>Waiting for players... (${count}/${required})</h2>
-      <ul>
-        ${players.map(p => `<li>${escapeHtml(p.nick)} (${escapeHtml(p.char)})</li>`).join("")}
-      </ul>
-    </div>
-  `;
-  if (waitingContainer) waitingContainer.outerHTML = html;
-  else {
-    waitingContainer = createFragment(html);
-    battleArea.prepend(waitingContainer);
-  }
+  if(waitingContainer) waitingContainer.remove();
+
+  waitingContainer = document.createElement("div");
+  waitingContainer.className = "waiting-container";
+
+  const title = document.createElement("h2");
+  title.textContent = `Waiting for players... (${count}/${required})`;
+  waitingContainer.appendChild(title);
+
+  const ul = document.createElement("ul");
+  players.forEach(p => {
+    const li = document.createElement("li");
+
+    const img = document.createElement("img");
+    img.src = p.char ? `img/${p.char}.png` : "img/unknown.png";
+    img.alt = p.char;
+    img.width = 32;
+    img.height = 32;
+    img.onerror = () => { img.src = "img/unknown.png"; };
+    li.appendChild(img);
+
+    const text = document.createTextNode(` ${p.nick} (${p.char})`);
+    li.appendChild(text);
+
+    ul.appendChild(li);
+  });
+
+  waitingContainer.appendChild(ul);
+  battleArea.prepend(waitingContainer);
 }
 
 // --- Start Tournament ---
@@ -132,7 +148,7 @@ socket.on("matchOver", ({ winnerNick, winnerChar, stage }) => {
 // --- Tournament Over ---
 socket.on("tournamentOver", ({ nick, char }) => {
   addEventMessage(`🎉 ${nick ?? "??"} won the tournament!`);
-  showWinnerChar(char);   // fullscreen webp
+  showWinnerChar(char);
   playWinnerMusic(char);
   setTimeout(()=> battleArea.innerHTML = "<h2>Waiting for new tournament...</h2>", 2500);
 });
@@ -256,12 +272,12 @@ function updateMatchUI(match){
 
   refs.p1.label.textContent=`${match.player1.nick} (${match.player1.char}) HP: ${match.player1.hp}`;
   refs.p1.hp.style.width=Math.max(0,match.player1.hp)+"%";
-  if(match.player1.dice) refs.p1.dice.src=`img/dice${match.player1.dice}.png`;
+  if(match.p1?.dice) refs.p1.dice.src=`img/dice${match.player1.dice}.png`;
   if(refs.p1.charImg) refs.p1.charImg.onerror = () => { refs.p1.charImg.src = "img/unknown.png"; };
 
   refs.p2.label.textContent=`${match.player2.nick} (${match.player2.char}) HP: ${match.player2.hp}`;
   refs.p2.hp.style.width=Math.max(0,match.player2.hp)+"%";
-  if(match.player2.dice) refs.p2.dice.src=`img/dice${match.player2.dice}.png`;
+  if(match.player2?.dice) refs.p2.dice.src=`img/dice${match.player2.dice}.png`;
   if(refs.p2.charImg) refs.p2.charImg.onerror = () => { refs.p2.charImg.src = "img/unknown.png"; };
 }
 
@@ -280,14 +296,12 @@ function showWinnerChar(char){
   winnerImg.style.zIndex = "9999";
   winnerImg.style.backgroundColor = "black";
   document.body.appendChild(winnerImg);
-  // click per chiudere
   winnerImg.addEventListener("click", () => winnerImg.remove());
 }
 
 // --- Winner music ---
 function playWinnerMusic(winnerChar){
   if(!winnerChar) return;
-  // stop musica torneo
   musicBattle.pause();
   const audio = new Audio(`img/${winnerChar}.mp3`);
   audio.volume = 0.7;
