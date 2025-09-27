@@ -1,7 +1,8 @@
-// server.js
+// server_parallel_tournaments.js
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
+import { v4 as uuidv4 } from "uuid";
 
 const app = express();
 const httpServer = createServer(app);
@@ -11,13 +12,8 @@ const PORT = process.env.PORT || 10000;
 
 // ------------------- STATIC -------------------
 app.use(express.static("public"));
-
-app.get("/1vs1.html", (req, res) => {
-  res.sendFile(new URL("public/1vs1.html", import.meta.url).pathname);
-});
-app.get("/tour.html", (req, res) => {
-  res.sendFile(new URL("public/tour.html", import.meta.url).pathname);
-});
+app.get("/1vs1.html", (req, res) => res.sendFile(new URL("public/1vs1.html", import.meta.url).pathname));
+app.get("/tour.html", (req, res) => res.sendFile(new URL("public/tour.html", import.meta.url).pathname));
 app.get("/", (req, res) => res.send("Fight server attivo!"));
 
 const rollDice = () => Math.floor(Math.random() * 8) + 1;
@@ -35,10 +31,7 @@ async function nextTurn1vs1(game, attackerIndex) {
   const defender = game.players[defenderIndex];
 
   let damage = rollDice();
-  if (attacker.stunned) {
-    damage = Math.max(1, damage - 1);
-    attacker.stunned = false;
-  }
+  if (attacker.stunned) { damage = Math.max(1, damage - 1); attacker.stunned = false; }
   if (damage === 8) defender.stunned = true;
 
   defender.hp = Math.max(0, defender.hp - damage);
@@ -118,24 +111,31 @@ io.on("connection", socket => {
 });
 
 /* ===================================================
-   TOURNAMENT MODE
+   PARALLEL TOURNAMENT MODE
 =================================================== */
-const tournament = { waiting: [], matches: {}, bracket: [] };
+const tournaments = {}; // id => { waiting: [], matches: {}, bracket: [] }
+const nsp = io.of("/tournament");
 
-function broadcastWaiting() {
-  nsp.emit("waitingCount", {
-    count: tournament.waiting.length,
-    required: 8,
-    players: tournament.waiting.slice()
-  });
+function createTournament() {
+  const id = uuidv4();
+  tournaments[id] = { waiting: [], matches: {}, bracket: [] };
+  return id;
 }
 
-function emitBracket() {
-  nsp.emit("tournamentState", tournament.bracket);
+function broadcastWaiting(tournamentId) {
+  const t = tournaments[tournamentId];
+  if (!t) return;
+  nsp.to(tournamentId).emit("waitingCount", { count: t.waiting.length, required: 8, players: t.waiting });
 }
 
-function generateBracket(players8) {
-  tournament.bracket = [
+function emitBracket(tournamentId) {
+  const t = tournaments[tournamentId];
+  if (!t) return;
+  nsp.to(tournamentId).emit("tournamentState", t.bracket);
+}
+
+function generateBracket(players8, t) {
+  t.bracket = [
     { id: "Q1", stage: "quarter", player1: players8[0], player2: players8[1], next: "S1", winner: null },
     { id: "Q2", stage: "quarter", player1: players8[2], player2: players8[3], next: "S1", winner: null },
     { id: "Q3", stage: "quarter", player1: players8[4], player2: players8[5], next: "S2", winner: null },
@@ -144,49 +144,38 @@ function generateBracket(players8) {
     { id: "S2", stage: "semi", player1: null, player2: null, next: "F", winner: null },
     { id: "F", stage: "final", player1: null, player2: null, next: null, winner: null }
   ];
-  emitBracket();
+  emitBracket(t.id);
 }
 
-function advanceWinner(matchId, winnerObj) {
-  const brMatch = tournament.bracket.find(m => m.id === matchId);
+function advanceWinner(tournamentId, matchId, winnerObj) {
+  const t = tournaments[tournamentId];
+  if (!t) return;
+  const brMatch = t.bracket.find(m => m.id === matchId);
   if (!brMatch) return;
 
   brMatch.winner = { id: winnerObj.id, nick: winnerObj.nick, char: winnerObj.char };
 
   if (brMatch.next) {
-    const next = tournament.bracket.find(m => m.id === brMatch.next);
-    if (next) {
-      if (!next.player1) next.player1 = brMatch.winner;
-      else if (!next.player2) next.player2 = brMatch.winner;
-
-      if (next.player1 && next.player2) {
-        startMatch(next.player1, next.player2, next.stage, next.id);
-      }
-    }
+    const next = t.bracket.find(m => m.id === brMatch.next);
+    if (!next) return;
+    if (!next.player1) next.player1 = brMatch.winner;
+    else if (!next.player2) next.player2 = brMatch.winner;
+    if (next.player1 && next.player2) startMatch(tournamentId, next.player1, next.player2, next.stage, next.id);
   }
 
-  emitBracket();
+  emitBracket(tournamentId);
 
   if (brMatch.id === "F" && brMatch.winner) {
-    nsp.emit("tournamentOver", {
-      nick: brMatch.winner.nick,
-      char: brMatch.winner.char
-    });
-
-    setTimeout(() => resetTournament(), 5000);
+    nsp.to(tournamentId).emit("tournamentOver", { nick: brMatch.winner.nick, char: brMatch.winner.char });
+    setTimeout(() => resetTournament(tournamentId), 5000);
   }
 }
 
-function resetTournament() {
-  tournament.waiting = [];
-  tournament.matches = {};
-  tournament.bracket = [];
-  broadcastWaiting();
-  nsp.emit("startTournament", []);
-  emitBracket();
+function resetTournament(tournamentId) {
+  delete tournaments[tournamentId];
 }
 
-function nextTurn(match, attackerIndex) {
+function nextTurn(match, tournamentId, attackerIndex) {
   const defenderIndex = attackerIndex === 0 ? 1 : 0;
   const attacker = match.players[attackerIndex];
   const defender = match.players[defenderIndex];
@@ -194,120 +183,97 @@ function nextTurn(match, attackerIndex) {
   let damage = rollDice();
   let logMsg = "";
 
-  if (attacker.stunned) {
-    damage = Math.max(0, damage - 1);
-    attacker.stunned = false;
-    logMsg = `${attacker.nick} is stunned and deals only ${damage} 😵‍💫`;
-  } else if (damage === 8) {
-    defender.stunned = true;
-    logMsg = `${attacker.nick} CRIT! Deals ${damage} ⚡💥`;
-  } else {
-    logMsg = `${attacker.nick} rolls ${damage} and deals ${damage} 💥`;
-  }
+  if (attacker.stunned) { damage = Math.max(0, damage - 1); attacker.stunned = false; logMsg = `${attacker.nick} is stunned and deals only ${damage} 😵‍💫`; }
+  else if (damage === 8) { defender.stunned = true; logMsg = `${attacker.nick} CRIT! Deals ${damage} ⚡💥`; }
+  else logMsg = `${attacker.nick} rolls ${damage} and deals ${damage} 💥`;
 
   defender.hp = Math.max(0, defender.hp - damage);
   attacker.dice = damage;
 
-  nsp.emit("updateMatch", {
-    id: match.id,
-    stage: match.stage,
-    player1: { ...match.players[0] },
-    player2: { ...match.players[1] }
-  });
-  nsp.emit("log", logMsg);
+  nsp.to(tournamentId).emit("updateMatch", { id: match.id, stage: match.stage, player1: match.players[0], player2: match.players[1] });
+  nsp.to(tournamentId).emit("log", logMsg);
 
   if (defender.hp <= 0) {
     const winner = attacker;
     const loser = defender;
 
-    nsp.emit("matchOver", {
-      winnerNick: winner.nick,
-      winnerChar: winner.char,
-      stage: match.stage,
-      player1: match.players[0],
-      player2: match.players[1]
-    });
-
-    advanceWinner(match.id, winner);
-    tournament.waiting = tournament.waiting.filter(p => p.id !== loser.id);
-    delete tournament.matches[match.id];
-
-    nsp.emit("startTournament", Object.values(tournament.matches));
-    broadcastWaiting();
-    emitBracket();
+    nsp.to(tournamentId).emit("matchOver", { winnerNick: winner.nick, winnerChar: winner.char, stage: match.stage, player1: match.players[0], player2: match.players[1] });
+    advanceWinner(tournamentId, match.id, winner);
+    delete tournaments[tournamentId].matches[match.id];
     return;
   }
 
-  setTimeout(() => nextTurn(match, defenderIndex), 3000);
+  setTimeout(() => nextTurn(match, tournamentId, defenderIndex), 3000);
 }
 
-function startMatch(p1, p2, stage, matchId) {
-  if (!p1 || !p2) return;
-  const players = [
-    { ...p1, hp: 80, stunned: false, dice: 0 },
-    { ...p2, hp: 80, stunned: false, dice: 0 }
-  ];
+function startMatch(tournamentId, p1, p2, stage, matchId) {
+  const t = tournaments[tournamentId];
+  if (!t || !p1 || !p2) return;
+  const players = [{ ...p1, hp: 80, stunned: false, dice: 0 }, { ...p2, hp: 80, stunned: false, dice: 0 }];
   const match = { id: matchId, players, stage };
-  tournament.matches[matchId] = match;
+  t.matches[matchId] = match;
 
-  nsp.emit("startTournament", Object.values(tournament.matches));
-  nsp.emit("startMatch", { id: matchId, player1: players[0], player2: players[1], stage });
+  nsp.to(tournamentId).emit("startTournament", Object.values(t.matches));
+  nsp.to(tournamentId).emit("startMatch", { id: matchId, player1: players[0], player2: players[1], stage });
 
   const first = Math.floor(Math.random() * 2);
-  setTimeout(() => nextTurn(match, first), 1000);
+  setTimeout(() => nextTurn(match, tournamentId, first), 1000);
 }
 
-const nsp = io.of("/tournament");
 nsp.on("connection", socket => {
-  socket.emit("waitingCount", { count: tournament.waiting.length, required: 8, players: tournament.waiting });
-  socket.emit("startTournament", Object.values(tournament.matches));
-  socket.emit("tournamentState", tournament.bracket);
+  let currentTournament = null;
 
   socket.on("joinTournament", ({ nick, char }) => {
     if (!nick || !char) return;
-    if (tournament.waiting.find(p => p.id === socket.id)) return;
+
+    // Trova torneo disponibile con <8 giocatori o creane uno nuovo
+    let tId = Object.keys(tournaments).find(id => tournaments[id].waiting.length < 8);
+    if (!tId) tId = createTournament();
+
+    currentTournament = tId;
+    const t = tournaments[tId];
+    if (t.waiting.find(p => p.id === socket.id)) return;
 
     const player = { id: socket.id, nick, char };
-    tournament.waiting.push(player);
-    broadcastWaiting();
+    t.waiting.push(player);
+    socket.join(tId); // join room torneo
 
-    if (tournament.waiting.length === 8 && tournament.bracket.length === 0) {
-      const first8 = tournament.waiting.slice(0, 8);
-      nsp.emit("waitingStart", { players: first8.map(p => p.nick), total: 8 });
+    broadcastWaiting(tId);
 
-      generateBracket(first8);
-      tournament.bracket.filter(m => m.stage === "quarter").forEach(m => {
-        startMatch(m.player1, m.player2, m.stage, m.id);
-      });
+    if (t.waiting.length === 8 && t.bracket.length === 0) {
+      const first8 = t.waiting.slice(0, 8);
+      nsp.to(tId).emit("waitingStart", { players: first8.map(p => p.nick), total: 8 });
+      generateBracket(first8, t);
+      t.bracket.filter(m => m.stage === "quarter").forEach(m => startMatch(tId, m.player1, m.player2, m.stage, m.id));
     }
   });
 
   socket.on("chatMessage", text => {
-    const sNick = tournament.waiting.find(p => p.id === socket.id)?.nick || "Anon";
-    nsp.emit("chatMessage", { nick: sNick, text });
+    const tId = currentTournament;
+    if (!tId) return;
+    nsp.to(tId).emit("chatMessage", { nick: socket.nick || "Anon", text });
   });
 
   socket.on("disconnect", () => {
-    tournament.waiting = tournament.waiting.filter(p => p.id !== socket.id);
-    for (const matchId in tournament.matches) {
-      const match = tournament.matches[matchId];
+    const tId = currentTournament;
+    if (!tId) return;
+    const t = tournaments[tId];
+    if (!t) return;
+
+    t.waiting = t.waiting.filter(p => p.id !== socket.id);
+    for (const matchId in t.matches) {
+      const match = t.matches[matchId];
       const idx = match.players.findIndex(p => p.id === socket.id);
       if (idx !== -1) {
         const other = match.players.find(p => p.id !== socket.id);
-        nsp.emit("matchOver", {
-          winnerNick: other.nick,
-          winnerChar: other.char,
-          stage: match.stage,
-          player1: match.players[0],
-          player2: match.players[1]
-        });
-        advanceWinner(match.id, other);
-        delete tournament.matches[matchId];
+        nsp.to(tId).emit("matchOver", { winnerNick: other.nick, winnerChar: other.char, stage: match.stage, player1: match.players[0], player2: match.players[1] });
+        advanceWinner(tId, match.id, other);
+        delete t.matches[matchId];
         break;
       }
     }
-    broadcastWaiting();
-    emitBracket();
+    broadcastWaiting(tId);
+    emitBracket(tId);
   });
 });
 
