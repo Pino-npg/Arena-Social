@@ -75,11 +75,10 @@ function addEventMessage(txt) {
 
 // ---------- Helpers ----------
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]); }
-function createFragment(html){ const t=document.createElement("template"); t.innerHTML=html.trim(); return t.content.firstChild; }
 function clearMatchesUI(){ Object.keys(matchUI).forEach(id=>{ const el=document.getElementById(`match-${id}`); if(el) el.remove(); }); matchUI={}; }
 
 // ---------- Character image helper ----------
-function getCharImage(char,hp=100){
+function getCharImage(char,hp=80){
   if(!char) return "img/unknown.png";
   let suffix = "";
   if(hp<=0) suffix='0';
@@ -191,7 +190,7 @@ function makePlayerCard(player){
 
 function renderMatchCard(match){
   if(!match?.id) return;
-  if(matchUI[match.id]) { updateMatchUI(match); return; }
+  if(matchUI[match.id]) return;
   const container=document.createElement("div");
   container.className="match-container";
   container.id=`match-${match.id}`;
@@ -210,7 +209,7 @@ function renderMatchCard(match){
   matchUI[match.id] = { p1, p2 };
 }
 
-// ---------- Damage handling (crit / stun / dice) ----------
+// ---------- Damage handling ----------
 function handleDamage(match){
   if(!match?.id || !matchUI[match.id]) return;
   const refs = matchUI[match.id];
@@ -224,14 +223,15 @@ function handleDamage(match){
     const diceDisplay = player.dice ?? 1;
 
     if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
-      dmg = Math.max(0,dmg-1);
-      addEventMessage(`${player.nick} is stunned! Deals only ${dmg} damage 😵‍💫`);
+      const reduced = Math.max(0,dmg-1);
+      addEventMessage(`${player.nick} is stunned! Rolled ${diceDisplay} → deals only ${reduced} 😵‍💫`);
+      dmg = reduced;
       if(i===0) stunned.p1=false; else stunned.p2=false;
     } else if(player.dice === 8){
-      addEventMessage(`${player.nick} CRIT! ${dmg} damage ⚡💥`);
+      addEventMessage(`${player.nick} CRIT! Rolled 8 → ${dmg} damage ⚡💥`);
       if(i===0) stunned.p2=true; else stunned.p1=true;
     } else {
-      addEventMessage(`${player.nick} rolls ${diceDisplay} and deals ${dmg} damage 💥`);
+      addEventMessage(`${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`);
     }
 
     ref.label.textContent=`${player.nick} (${player.char}) HP: ${player.hp}`;
@@ -283,9 +283,14 @@ socket.on("startMatch", match => {
   renderMatchCard(match);
 });
 
-socket.on("matchOver", ({ winnerNick, winnerChar, stage }) => {
+socket.on("matchOver", ({ winnerNick, winnerChar, stage, matchId }) => {
   addEventMessage(`🏆 ${winnerNick ?? "??"} won the match (${stage})!`);
   if(stage==="final") playWinnerMusic(winnerChar);
+  if(matchId){
+    const el = document.getElementById(`match-${matchId}`);
+    if(el) el.remove();
+    delete matchUI[matchId];
+  }
 });
 
 socket.on("tournamentOver", ({ nick, char }) => {
@@ -298,36 +303,27 @@ socket.on("tournamentOver", ({ nick, char }) => {
 socket.on("log", msg => addEventMessage(msg));
 socket.on("tournamentState", bracket => renderBracket(bracket));
 
+// ---------- Bracket rendering ----------
 function renderBracket(bracket){
   bracketContainer.innerHTML = "";
-  if(currentStage==="final"){
-    const table = document.createElement("table");
-    table.style.width="100%";
-    table.style.borderCollapse="collapse";
-    const head = document.createElement("tr");
-    head.innerHTML="<th>Player 1</th><th>Player 2</th><th>Winner</th><th>Stage</th>";
-    table.appendChild(head);
-    bracket.forEach(m=>{
-      const row = document.createElement("tr");
-      row.innerHTML = `<td>${m.player1?.nick||"??"}</td>
-                       <td>${m.player2?.nick||"??"}</td>
-                       <td>${m.winner?.nick||"??"}</td>
-                       <td>${m.stage}</td>`;
-      table.appendChild(row);
-    });
-    bracketContainer.appendChild(table);
-  } else {
-    bracket.forEach(m=>{
-      const div = document.createElement("div");
-      div.className = "bracket-row";
-      const p1 = m.player1?.nick ?? "??";
-      const p2 = m.player2?.nick ?? "??";
-      const winner = m.winner ? ` - Winner: ${escapeHtml(m.winner.nick)}` : "";
-      div.textContent = `${p1} vs ${p2} (${m.stage})${winner}`;
-      if(m.winner) div.style.color = "#FFD700";
-      bracketContainer.appendChild(div);
-    });
-  }
+
+  const table = document.createElement("table");
+  table.style.width="100%";
+  table.style.borderCollapse="collapse";
+  const head = document.createElement("tr");
+  head.innerHTML="<th>Player 1</th><th>Player 2</th><th>Winner</th><th>Stage</th>";
+  table.appendChild(head);
+
+  bracket.forEach(m=>{
+    const row = document.createElement("tr");
+    row.innerHTML = `<td>${m.player1?.nick||"??"}</td>
+                     <td>${m.player2?.nick||"??"}</td>
+                     <td>${m.winner?.nick||"??"}</td>
+                     <td>${m.stage}</td>`;
+    table.appendChild(row);
+  });
+
+  bracketContainer.appendChild(table);
 }
 
 document.body.style.overflowY="auto";
