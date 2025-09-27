@@ -1,3 +1,4 @@
+// server.js
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -15,13 +16,16 @@ app.get("/tour.html", (req, res) => {
 });
 app.get("/", (req, res) => res.send("Tournament server attivo!"));
 
-// utility
+// util
 const rollDice = () => Math.floor(Math.random() * 8) + 1;
 
-// tournament state
-const tournament = { waiting: [], matches: {}, bracket: [] };
+// state
+const tournament = {
+  waiting: [],     // {id,nick,char}
+  matches: {},     // matchId -> match object
+  bracket: []      // bracket entries (Q1..Q4, S1..S2, F)
+};
 
-// broadcast waiting players
 function broadcastWaiting() {
   io.of("/tournament").emit("waitingCount", {
     count: tournament.waiting.length,
@@ -30,55 +34,63 @@ function broadcastWaiting() {
   });
 }
 
-// generate bracket
-function generateBracket(players) {
-  tournament.bracket = [
-    { id: "Q1", stage: "quarter", player1: players[0], player2: players[1], next: "S1", winner: null },
-    { id: "Q2", stage: "quarter", player1: players[2], player2: players[3], next: "S1", winner: null },
-    { id: "Q3", stage: "quarter", player1: players[4], player2: players[5], next: "S2", winner: null },
-    { id: "Q4", stage: "quarter", player1: players[6], player2: players[7], next: "S2", winner: null },
-    { id: "S1", stage: "semi", player1: null, player2: null, next: "F", winner: null },
-    { id: "S2", stage: "semi", player1: null, player2: null, next: "F", winner: null },
-    { id: "F", stage: "final", player1: null, player2: null, next: null, winner: null }
-  ];
+function emitBracket() {
   io.of("/tournament").emit("tournamentState", tournament.bracket);
 }
 
-// advance winner
-function advanceWinner(matchId, winner) {
-  const match = tournament.bracket.find(m => m.id === matchId);
-  if (!match) return;
+// build bracket: Q1,Q2 -> S1 ; Q3,Q4 -> S2 ; S1,S2 -> F
+function generateBracket(players8) {
+  tournament.bracket = [
+    { id: "Q1", stage: "quarter", player1: players8[0] ?? null, player2: players8[1] ?? null, next: "S1", winner: null },
+    { id: "Q2", stage: "quarter", player1: players8[2] ?? null, player2: players8[3] ?? null, next: "S1", winner: null },
+    { id: "Q3", stage: "quarter", player1: players8[4] ?? null, player2: players8[5] ?? null, next: "S2", winner: null },
+    { id: "Q4", stage: "quarter", player1: players8[6] ?? null, player2: players8[7] ?? null, next: "S2", winner: null },
+    { id: "S1", stage: "semi", player1: null, player2: null, next: "F", winner: null },
+    { id: "S2", stage: "semi", player1: null, player2: null, next: "F", winner: null },
+    { id: "F",  stage: "final", player1: null, player2: null, next: null, winner: null }
+  ];
+  emitBracket();
+}
 
-  match.winner = winner;
+// advance winner inside bracket and start next matches only when both sides are ready
+function advanceWinner(bracketMatchId, winnerObj) {
+  const brMatch = tournament.bracket.find(m => m.id === bracketMatchId);
+  if (!brMatch) return;
+  brMatch.winner = { id: winnerObj.id, nick: winnerObj.nick, char: winnerObj.char };
 
-  if (match.next) {
-    const nextMatch = tournament.bracket.find(m => m.id === match.next);
-    if (nextMatch) {
-      if (!nextMatch.player1) nextMatch.player1 = winner;
-      else if (!nextMatch.player2) nextMatch.player2 = winner;
+  // place winner into next match (player1 then player2)
+  if (brMatch.next) {
+    const next = tournament.bracket.find(m => m.id === brMatch.next);
+    if (next) {
+      if (!next.player1) next.player1 = { id: winnerObj.id, nick: winnerObj.nick, char: winnerObj.char };
+      else if (!next.player2) next.player2 = { id: winnerObj.id, nick: winnerObj.nick, char: winnerObj.char };
 
-      // solo se entrambi i giocatori ci sono
-      if (nextMatch.player1 && nextMatch.player2) {
-        startMatch(nextMatch.player1, nextMatch.player2, nextMatch.stage, nextMatch.id);
+      // start next match only when both player1 and player2 present
+      if (next.player1 && next.player2) {
+        // start match using bracket id as matchId so it's traceable (e.g. "S1")
+        startMatch(next.player1, next.player2, next.stage, next.id);
       }
     }
   }
 
-  io.of("/tournament").emit("tournamentState", tournament.bracket);
+  emitBracket();
 
-  if (match.stage === "final" && match.winner) {
-    io.of("/tournament").emit("tournamentOver", { nick: winner.nick, char: winner.char });
+  // if final decided
+  if (brMatch.id === "F" && brMatch.winner) {
+    io.of("/tournament").emit("tournamentOver", { nick: brMatch.winner.nick, char: brMatch.winner.char });
+    // reset after short delay
     setTimeout(() => {
       tournament.waiting = [];
       tournament.matches = {};
       tournament.bracket = [];
       broadcastWaiting();
       io.of("/tournament").emit("startTournament", []);
-    }, 3000);
+      emitBracket();
+    }, 2500);
   }
 }
 
-// next turn logic
+// match turn logic (shared)
 function nextTurn(match, attackerIndex) {
   const defenderIndex = attackerIndex === 0 ? 1 : 0;
   const attacker = match.players[attackerIndex];
@@ -101,13 +113,20 @@ function nextTurn(match, attackerIndex) {
   defender.hp = Math.max(0, defender.hp - damage);
   attacker.dice = damage;
 
-  io.of("/tournament").emit("updateMatch", { id: match.id, stage: match.stage, player1: { ...match.players[0] }, player2: { ...match.players[1] } });
+  // emit update & log
+  io.of("/tournament").emit("updateMatch", {
+    id: match.id,
+    stage: match.stage,
+    player1: { ...match.players[0] },
+    player2: { ...match.players[1] }
+  });
   io.of("/tournament").emit("log", logMsg);
 
   if (defender.hp <= 0) {
     const winner = attacker;
     const loser = defender;
 
+    // emit matchOver with clear data
     io.of("/tournament").emit("matchOver", {
       winnerNick: winner.nick,
       winnerChar: winner.char,
@@ -116,21 +135,45 @@ function nextTurn(match, attackerIndex) {
       player2: match.players[1]
     });
 
-    advanceWinner(match.id, winner);
+    // if match.id is a bracket id (like "Q1","S1") we advance that bracket entry
+    const bracketEntry = tournament.bracket.find(b => b.id === match.id);
+    if (bracketEntry) {
+      advanceWinner(bracketEntry.id, { id: winner.id, nick: winner.nick, char: winner.char });
+    } else {
+      // fallback: try to find by players combination
+      const found = tournament.bracket.find(b =>
+        (b.player1 && b.player2) &&
+        ((b.player1.id === match.players[0].id && b.player2.id === match.players[1].id) ||
+         (b.player1.id === match.players[1].id && b.player2.id === match.players[0].id))
+      );
+      if (found) advanceWinner(found.id, { id: winner.id, nick: winner.nick, char: winner.char });
+    }
+
+    // remove loser from waiting (winner proceeds)
     tournament.waiting = tournament.waiting.filter(p => p.id !== loser.id);
+
+    // delete active match
     delete tournament.matches[match.id];
+
+    // update clients
+    io.of("/tournament").emit("startTournament", Object.values(tournament.matches));
     broadcastWaiting();
+    emitBracket();
     return;
   }
 
+  // next turn
   setTimeout(() => nextTurn(match, defenderIndex), 3000);
 }
 
-// start match
+// start a match (p1,p2 are {id,nick,char})
 function startMatch(p1, p2, stage, matchIdOverride = null) {
-  if (!p1 || !p2) return; // aspettare giocatori
+  if (!p1 || !p2) return; // waiting for opponent
   const matchId = matchIdOverride || `${p1.id}#${p2.id}`;
-  const players = [{ ...p1, hp: 80, stunned: false, dice: 0 }, { ...p2, hp: 80, stunned: false, dice: 0 }];
+  const players = [
+    { ...p1, hp: 80, stunned: false, dice: 0 },
+    { ...p2, hp: 80, stunned: false, dice: 0 }
+  ];
   const match = { id: matchId, players, stage };
   tournament.matches[matchId] = match;
 
@@ -141,9 +184,10 @@ function startMatch(p1, p2, stage, matchIdOverride = null) {
   setTimeout(() => nextTurn(match, first), 1000);
 }
 
-// namespace connection
+// namespace
 const nsp = io.of("/tournament");
 nsp.on("connection", socket => {
+  // immediately send state
   socket.emit("waitingCount", { count: tournament.waiting.length, required: 8, players: tournament.waiting });
   socket.emit("startTournament", Object.values(tournament.matches));
   socket.emit("tournamentState", tournament.bracket);
@@ -156,8 +200,11 @@ nsp.on("connection", socket => {
     tournament.waiting.push(player);
     broadcastWaiting();
 
+    // when first time we gathered 8 players, generate bracket & start quarter matches
     if (tournament.waiting.length >= 8 && tournament.bracket.length === 0) {
-      generateBracket(tournament.waiting.slice(0, 8));
+      const first8 = tournament.waiting.slice(0, 8);
+      generateBracket(first8);
+      // start all quarter matches (use bracket ids Q1..Q4)
       tournament.bracket.filter(m => m.stage === "quarter").forEach(m => {
         startMatch(m.player1, m.player2, m.stage, m.id);
       });
@@ -165,12 +212,14 @@ nsp.on("connection", socket => {
   });
 
   socket.on("chatMessage", text => {
-    const nick = tournament.waiting.find(p => p.id === socket.id)?.nick || "Anon";
-    nsp.emit("chatMessage", { nick, text });
+    const sNick = tournament.waiting.find(p => p.id === socket.id)?.nick || "Anon";
+    nsp.emit("chatMessage", { nick: sNick, text });
   });
 
+  // handle disconnects (if in active match grant win to other)
   socket.on("disconnect", () => {
     tournament.waiting = tournament.waiting.filter(p => p.id !== socket.id);
+
     for (const matchId in tournament.matches) {
       const match = tournament.matches[matchId];
       const idx = match.players.findIndex(p => p.id === socket.id);
@@ -183,12 +232,21 @@ nsp.on("connection", socket => {
           player1: match.players[0],
           player2: match.players[1]
         });
-        advanceWinner(match.id, other);
+        // advance bracket if possible
+        const br = tournament.bracket.find(b => b.id === match.id);
+        if (br) {
+          advanceWinner(br.id, { id: other.id, nick: other.nick, char: other.char });
+        } else {
+          // fallback
+          advanceWinner(match.id, { id: other.id, nick: other.nick, char: other.char });
+        }
         delete tournament.matches[matchId];
         break;
       }
     }
+
     broadcastWaiting();
+    emitBracket();
   });
 });
 
