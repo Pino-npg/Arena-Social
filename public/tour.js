@@ -18,6 +18,7 @@ let currentStage = "waiting";
 let waitingContainer = null;
 let stunned = { p1:false, p2:false };
 let fullBracket = [];
+let matchLogs = {}; // <-- traccia i log per ogni match
 
 // ---------- Music ----------
 const musicQuarter = "img/5.mp3";    
@@ -67,7 +68,23 @@ function addChatMessage(txt) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-function addEventMessage(txt) {
+// ---------- Event messages with duplicate check ----------
+function addEventMessage(matchIdOrText, maybeText) {
+  let matchId, txt;
+  if(maybeText !== undefined){
+    matchId = matchIdOrText;
+    txt = maybeText;
+  } else {
+    matchId = null;
+    txt = matchIdOrText;
+  }
+
+  if(matchId){
+    if(!matchLogs[matchId]) matchLogs[matchId] = new Set();
+    if(matchLogs[matchId].has(txt)) return; // già loggato
+    matchLogs[matchId].add(txt);
+  }
+
   const d = document.createElement("div");
   d.textContent = txt;
   eventBox.appendChild(d);
@@ -173,7 +190,7 @@ function makePlayerCard(player){
   hpBar.className="hp-bar";
   const hpInner=document.createElement("div");
   hpInner.className="hp";
-  hpInner.style.width=Math.max(0,player.hp??80)/80*100+"%";
+  hpInner.style.width=(Math.max(0,player.hp??80)/80*100)+"%";
   hpBar.appendChild(hpInner);
 
   const dice=document.createElement("img");
@@ -242,23 +259,21 @@ function handleDamage(match){
     const diceDisplay = player.dice ?? 1;
 
     if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
-      addEventMessage(`${player.nick} is stunned! Rolled ${diceDisplay} → deals ${dmg} 😵‍💫`);
+      addEventMessage(match.id, `${player.nick} is stunned! Rolled ${diceDisplay} → deals ${dmg} 😵‍💫`);
       if(i===0) stunned.p1=false; else stunned.p2=false;
     } 
     else if(diceDisplay === 8){
-      addEventMessage(`${player.nick} CRIT! Rolled 8 → ${dmg} damage ⚡💥`);
+      addEventMessage(match.id, `${player.nick} CRIT! Rolled 8 → ${dmg} damage ⚡💥`);
       if(i===0) stunned.p2=true; else stunned.p1=true;
     } 
     else {
-      addEventMessage(`${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`);
+      addEventMessage(match.id, `${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`);
     }
 
     updatePlayerUI(ref, player);
     ref.dice.src = `img/dice${diceDisplay}.png`;
   });
 }
-
-socket.on("updateMatch", match => handleDamage(match));
 
 // ---------- Winner ----------
 function showWinnerChar(char){
@@ -293,6 +308,7 @@ socket.on("startTournament", matches => {
   currentStage = matches[0]?.stage || "quarter";
   setStage(currentStage);
   fullBracket = [];
+  matchLogs = {}; // reset log
   matches.forEach(m => {
     renderMatchCard(m);
     fullBracket.push(m);
@@ -311,14 +327,17 @@ socket.on("startMatch", match => {
   renderBracket(fullBracket);
 });
 
+socket.on("updateMatch", match => handleDamage(match));
+
 socket.on("matchOver", ({ winnerNick, winnerChar, stage, matchId }) => {
-  addEventMessage(`🏆 ${winnerNick ?? "??"} won the match (${stage})!`);
+  addEventMessage(null, `🏆 ${winnerNick ?? "??"} won the match (${stage})!`);
   if(stage==="final") playWinnerMusic(winnerChar);
 
   if(matchId){
     const el = document.getElementById(`match-${matchId}`);
     if(el) el.remove();
     delete matchUI[matchId];
+    if(matchLogs[matchId]) delete matchLogs[matchId]; // pulisci log
   }
 
   const idx = fullBracket.findIndex(m => m.id===matchId);
@@ -327,13 +346,13 @@ socket.on("matchOver", ({ winnerNick, winnerChar, stage, matchId }) => {
 });
 
 socket.on("tournamentOver", ({ nick, char }) => {
-  addEventMessage(`🎉 ${nick ?? "??"} won the tournament!`);
+  addEventMessage(null, `🎉 ${nick ?? "??"} won the tournament!`);
   showWinnerChar(char);
   playWinnerMusic(char);
   setTimeout(()=> battleArea.innerHTML = "<h2>Waiting for new tournament...</h2>", 2500);
 });
 
-socket.on("log", msg => addEventMessage(msg));
+socket.on("log", msg => addEventMessage(null, msg));
 socket.on("tournamentState", bracket => {
   fullBracket = bracket;
   renderBracket(fullBracket);

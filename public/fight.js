@@ -1,3 +1,4 @@
+//fight.js
 // --- WEBSOCKET ---
 const protocol = location.protocol === "https:" ? "wss" : "ws";
 const ws = new WebSocket(`${protocol}://${location.host}`);
@@ -164,14 +165,17 @@ function updatePlayersUI(){
 }
 
 // --- CALCOLO IMMAGINE IN BASE A HP ---
-function getCharImage(char,hp=80){
-  if(!char) return "img/unknown.png";
-  let suffix = "";
-  if(hp<=0) suffix='0';
+function getCharacterImage(player){
+  let hp = player.hp;
+  let src = `img/${player.character}`;
+
+  if(hp <= 0) src += '0';
   else if(hp<=20) suffix='20';
   else if(hp<=40) suffix='40';
   else if(hp<=60) suffix='60';
-  return `img/${char.replace(/\s/g,'')}${suffix}.png`;
+
+  src += '.png';
+  return src;
 }
 
 // --- DADI ---
