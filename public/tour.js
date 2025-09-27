@@ -212,6 +212,8 @@ function renderMatchCard(match){
 // ---------- Damage handling ----------
 function handleDamage(match){
   if(!match?.id || !matchUI[match.id]) return;
+  if(matchUI[match.id].processed) return; // <-- evita doppio processamento
+  matchUI[match.id].processed = true;
   const refs = matchUI[match.id];
 
   ["player1","player2"].forEach((key,i)=>{

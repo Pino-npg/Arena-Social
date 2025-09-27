@@ -113,18 +113,16 @@ function handleDice(playerIndex, game) {
   let finalDmg = player.dmg;
   let type = "damage";
 
-  if ((playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2)) {
-    finalDmg = Math.max(0, player.dice - 1);
-    addEventMessage(`${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
-    if (playerIndex === 0) stunned.p1 = false; else stunned.p2 = false;
+  if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
+    addEventMessage(`${player.nick} is stunned! Rolled ${diceDisplay} → deals ${dmg} 😵‍💫`);
+    if(i===0) stunned.p1=false; else stunned.p2=false;
   } 
-  else if (player.dice === 8) {
-    type = "crit";
-    addEventMessage(`${player.nick} CRIT! ${player.dmg} damage dealt ⚡💥`);
-    if (playerIndex === 0) stunned.p2 = true; else stunned.p1 = true;
+  else if(diceDisplay === 8){
+    addEventMessage(`${player.nick} CRIT! Rolled 8 → ${dmg} damage ⚡💥`);
+    if(i===0) stunned.p2=true; else stunned.p1=true;
   } 
   else {
-    addEventMessage(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);
+    addEventMessage(`${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`);
   }
 
   showDice(playerIndex, player.dice);
