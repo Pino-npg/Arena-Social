@@ -30,9 +30,20 @@ async function nextTurn1vs1(game, attackerIndex) {
   const attacker = game.players[attackerIndex];
   const defender = game.players[defenderIndex];
 
-  let damage = rollDice();
-  if (attacker.stunned) { damage = Math.max(1, damage - 1); attacker.stunned = false; }
-  if (damage === 8) defender.stunned = true;
+  const realRoll = rollDice();
+  let damage = realRoll;
+  let logMsg = "";
+
+  if (attacker.stunned) {
+    damage = Math.max(1, damage - 1);
+    attacker.stunned = false;
+    logMsg = `${attacker.nick} is stunned! Rolled ${realRoll} → deals only ${damage} 😵‍💫`;
+  } else if (realRoll === 8) {
+    defender.stunned = true;
+    logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥`;
+  } else {
+    logMsg = `${attacker.nick} rolls ${realRoll} and deals ${damage} 💥`;
+  }
 
   defender.hp = Math.max(0, defender.hp - damage);
   attacker.dice = damage;
@@ -41,7 +52,7 @@ async function nextTurn1vs1(game, attackerIndex) {
     const me = game.players.find(pl => pl.id === p.id);
     const opp = game.players.find(pl => pl.id !== p.id);
     io.to(p.id).emit("1vs1Update", { player1: me, player2: opp });
-    io.to(p.id).emit("log", `${attacker.nick} rolls ${damage} and deals ${damage} damage!`);
+    io.to(p.id).emit("log", logMsg);
   }
 
   if (defender.hp === 0) {
@@ -113,7 +124,7 @@ io.on("connection", socket => {
 /* ===================================================
    PARALLEL TOURNAMENT MODE
 =================================================== */
-const tournaments = {}; // id => { waiting: [], matches: {}, bracket: [] }
+const tournaments = {};
 const nsp = io.of("/tournament");
 
 function createTournament() {
@@ -160,8 +171,14 @@ function advanceWinner(tournamentId, matchId, winnerObj) {
     if (!next) return;
     if (!next.player1) next.player1 = brMatch.winner;
     else if (!next.player2) next.player2 = brMatch.winner;
-    if (next.player1 && next.player2) startMatch(tournamentId, next.player1, next.player2, next.stage, next.id);
+
+    if (next.player1 && next.player2) {
+      startMatch(tournamentId, next.player1, next.player2, next.stage, next.id);
+    }
   }
+
+  // Rimuovo il match finito
+  delete t.matches[matchId];
 
   emitBracket(tournamentId);
 
@@ -180,12 +197,20 @@ function nextTurn(match, tournamentId, attackerIndex) {
   const attacker = match.players[attackerIndex];
   const defender = match.players[defenderIndex];
 
-  let damage = rollDice();
+  const realRoll = rollDice();
+  let damage = realRoll;
   let logMsg = "";
 
-  if (attacker.stunned) { damage = Math.max(0, damage - 1); attacker.stunned = false; logMsg = `${attacker.nick} is stunned and deals only ${damage} 😵‍💫`; }
-  else if (damage === 8) { defender.stunned = true; logMsg = `${attacker.nick} CRIT! Deals ${damage} ⚡💥`; }
-  else logMsg = `${attacker.nick} rolls ${damage} and deals ${damage} 💥`;
+  if (attacker.stunned) {
+    damage = Math.max(0, damage - 1);
+    attacker.stunned = false;
+    logMsg = `${attacker.nick} is stunned! Rolled ${realRoll} → deals only ${damage} 😵‍💫`;
+  } else if (realRoll === 8) {
+    defender.stunned = true;
+    logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥`;
+  } else {
+    logMsg = `${attacker.nick} rolls ${realRoll} and deals ${damage} 💥`;
+  }
 
   defender.hp = Math.max(0, defender.hp - damage);
   attacker.dice = damage;
@@ -195,11 +220,8 @@ function nextTurn(match, tournamentId, attackerIndex) {
 
   if (defender.hp <= 0) {
     const winner = attacker;
-    const loser = defender;
-
     nsp.to(tournamentId).emit("matchOver", { winnerNick: winner.nick, winnerChar: winner.char, stage: match.stage, player1: match.players[0], player2: match.players[1] });
     advanceWinner(tournamentId, match.id, winner);
-    delete tournaments[tournamentId].matches[match.id];
     return;
   }
 
@@ -226,7 +248,6 @@ nsp.on("connection", socket => {
   socket.on("joinTournament", ({ nick, char }) => {
     if (!nick || !char) return;
 
-    // Trova torneo disponibile con <8 giocatori o creane uno nuovo
     let tId = Object.keys(tournaments).find(id => tournaments[id].waiting.length < 8);
     if (!tId) tId = createTournament();
 
@@ -236,7 +257,7 @@ nsp.on("connection", socket => {
 
     const player = { id: socket.id, nick, char };
     t.waiting.push(player);
-    socket.join(tId); // join room torneo
+    socket.join(tId);
 
     broadcastWaiting(tId);
 
@@ -268,7 +289,6 @@ nsp.on("connection", socket => {
         const other = match.players.find(p => p.id !== socket.id);
         nsp.to(tId).emit("matchOver", { winnerNick: other.nick, winnerChar: other.char, stage: match.stage, player1: match.players[0], player2: match.players[1] });
         advanceWinner(tId, match.id, other);
-        delete t.matches[matchId];
         break;
       }
     }

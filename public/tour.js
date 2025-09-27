@@ -219,21 +219,24 @@ function handleDamage(match){
     const ref = i===0 ? refs.p1 : refs.p2;
     if(!player) return;
 
-    let dmg = player.dmg ?? 0;
+    // Usa direttamente il danno e dado inviati dal server
+    const dmg = player.dmg ?? 0;
     const diceDisplay = player.dice ?? 1;
 
+    // Mostra solo effetto stun visivo, senza ridurre il danno
     if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
-      const reduced = Math.max(0,dmg-1);
-      addEventMessage(`${player.nick} is stunned! Rolled ${diceDisplay} → deals only ${reduced} 😵‍💫`);
-      dmg = reduced;
+      addEventMessage(`${player.nick} is stunned! Rolled ${diceDisplay} → deals ${dmg} 😵‍💫`);
       if(i===0) stunned.p1=false; else stunned.p2=false;
-    } else if(player.dice === 8){
+    } 
+    else if(diceDisplay === 8){
       addEventMessage(`${player.nick} CRIT! Rolled 8 → ${dmg} damage ⚡💥`);
       if(i===0) stunned.p2=true; else stunned.p1=true;
-    } else {
+    } 
+    else {
       addEventMessage(`${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`);
     }
 
+    // Aggiorna UI
     ref.label.textContent=`${player.nick} (${player.char}) HP: ${player.hp}`;
     ref.hp.style.width=Math.max(0,player.hp)+"%";
     ref.charImg.src = getCharImage(player.char, player.hp);
