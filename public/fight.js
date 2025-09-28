@@ -3,9 +3,6 @@ import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 const socket = io();
 
 // ---------- ELEMENTI ----------
-const player1Box = document.getElementById("player1");
-const player2Box = document.getElementById("player2");
-
 const player1Name = document.getElementById("player1-nick");
 const player2Name = document.getElementById("player2-nick");
 
@@ -22,7 +19,6 @@ const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
 const eventBox = document.getElementById("event-messages");
 
-// ---------- ONLINE & HOME ----------
 const onlineCountDisplay = document.getElementById("onlineCount");
 const homeBtn = document.getElementById("homeBtn");
 homeBtn.addEventListener("click", () => {
@@ -66,7 +62,6 @@ let stunned = { p1: false, p2: false };
 
 // ---------- SOCKET EVENTS ----------
 socket.on("onlineCount", count => onlineCountDisplay.textContent = `Online: ${count}`);
-
 socket.on("waiting", msg => addEventMessage(msg));
 
 socket.on("gameStart", (roomId, game) => {
@@ -74,7 +69,11 @@ socket.on("gameStart", (roomId, game) => {
 });
 
 socket.on("1vs1Update", (roomId, game) => {
-  if (roomId === socket.roomId) updateGame(game);
+  if (roomId === socket.roomId) {
+    updateGame(game);
+    handleDice(0, game.player1, stunned.p2);
+    handleDice(1, game.player2, stunned.p1);
+  }
 });
 
 socket.on("log", msg => addEventMessage(msg));
@@ -101,21 +100,38 @@ socket.on("chatMessage", data => {
 // ---------- FUNZIONI ----------
 function updateGame(game) {
   const maxHp = 80;
-  const hp1 = Math.min(game.player1.hp, maxHp);
-  const hp2 = Math.min(game.player2.hp, maxHp);
 
-  player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${hp1}/${maxHp}`;
-  player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${hp2}/${maxHp}`;
+  // Aggiorna nomi e HP
+  player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${game.player1.hp}/${maxHp}`;
+  player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${game.player2.hp}/${maxHp}`;
 
-  player1HpBar.style.width = `${(hp1 / maxHp) * 100}%`;
-  player2HpBar.style.width = `${(hp2 / maxHp) * 100}%`;
+  // Aggiorna barre vita
+  player1HpBar.style.width = `${(Math.max(game.player1.hp,0) / maxHp) * 100}%`;
+  player2HpBar.style.width = `${(Math.max(game.player2.hp,0) / maxHp) * 100}%`;
 
-  // MOSTRA DADI (senza handleDice interno)
-  showDice(0, game.player1.dice);
-  showDice(1, game.player2.dice);
-
+  // Aggiorna immagini
   updateCharacterImage(game.player1, 0);
   updateCharacterImage(game.player2, 1);
+}
+
+function handleDice(playerIndex, player, isOpponentStunned) {
+  if (!player.dice) return;
+  let finalDmg = player.dice;
+
+  if (isOpponentStunned) {
+    finalDmg = Math.max(0, player.dice - 1);
+    addEventMessage(`${player.nick} is stunned and deals only ${finalDmg} damage 😵‍💫`);
+    if (playerIndex === 0) stunned.p2 = false;
+    else stunned.p1 = false;
+  } else if (player.dice === 8) {
+    addEventMessage(`${player.nick} CRIT! ${player.dice} damage dealt ⚡💥`);
+    if (playerIndex === 0) stunned.p2 = true;
+    else stunned.p1 = true;
+  } else {
+    addEventMessage(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);
+  }
+
+  showDice(playerIndex, player.dice);
 }
 
 function showDice(playerIndex, value) {
@@ -126,14 +142,14 @@ function showDice(playerIndex, value) {
 }
 
 function updateCharacterImage(player, index) {
-  let hp = Math.min(player.hp, 80);
+  let hp = Math.min(Math.max(player.hp,0), 80);
   let src = `img/${player.char}`;
-  if (hp <= 0) src += '0';
-  else if (hp <= 20) src += '20';
-  else if (hp <= 40) src += '40';
-  else if (hp <= 60) src += '60';
+  if(hp <= 0) src += '0';
+  else if(hp <= 20) src += '20';
+  else if(hp <= 40) src += '40';
+  else if(hp <= 60) src += '60';
   src += '.png';
-  if (index === 0) player1CharImg.src = src;
+  if(index===0) player1CharImg.src = src;
   else player2CharImg.src = src;
 }
 
