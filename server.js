@@ -16,11 +16,10 @@ app.get("/1vs1.html", (req, res) => res.sendFile(new URL("public/1vs1.html", imp
 app.get("/tour.html", (req, res) => res.sendFile(new URL("public/tour.html", import.meta.url).pathname));
 app.get("/", (req, res) => res.send("Fight server attivo!"));
 
+// ------------------- UTILS -------------------
 const rollDice = () => Math.floor(Math.random() * 8) + 1;
 
-// === Gestione nickname globali ===
 const usedNicks = new Map(); // base -> count
-
 function assignUniqueNick(nick) {
   if (!nick || nick.trim() === "") return "Anon";
   const base = nick.trim();
@@ -45,16 +44,10 @@ function releaseNick(nick) {
   }
 }
 
-/* ===================================================
-   1VS1 MODE
-=================================================== */
+// ------------------- 1VS1 MODE -------------------
 const games = {};
 let waitingPlayer = null;
 const lastGames = {};
-
-function rollDice() {
-  return Math.floor(Math.random() * 8) + 1; // 1-8
-}
 
 async function nextTurn1vs1(game, attackerIndex) {
   const defenderIndex = attackerIndex === 0 ? 1 : 0;
@@ -65,27 +58,21 @@ async function nextTurn1vs1(game, attackerIndex) {
   let damage = realRoll;
   let logMsg = "";
 
-  // ---------- STUN ----------
   if (attacker.stunned) {
     damage = Math.max(1, damage - 1);
     attacker.stunned = false;
     logMsg = `${attacker.nick} is stunned! Rolled ${realRoll} → deals only ${damage} 😵‍💫`;
-  } 
-  // ---------- CRIT ----------
-  else if (realRoll === 8) {
+  } else if (realRoll === 8) {
     defender.stunned = true;
     logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥`;
-  } 
-  else {
+  } else {
     logMsg = `${attacker.nick} rolls ${realRoll} and deals ${damage} 💥`;
   }
 
-  // ---------- APPLICA DANNI ----------
-  defender.hp = Math.max(0, Math.min(defender.hp - damage, 80)); // HP max 80
-  attacker.hp = Math.min(attacker.hp, 80); // nel caso ci sia healing futuro
+  defender.hp = Math.max(0, Math.min(defender.hp - damage, 80));
+  attacker.hp = Math.min(attacker.hp, 80);
   attacker.dice = damage;
 
-  // ---------- INVIO DATI ----------
   for (const p of game.players) {
     const me = game.players.find(pl => pl.id === p.id);
     const opp = game.players.find(pl => pl.id !== p.id);
@@ -93,7 +80,6 @@ async function nextTurn1vs1(game, attackerIndex) {
     io.to(p.id).emit("log", logMsg);
   }
 
-  // ---------- CHECK GAME OVER ----------
   if (defender.hp === 0) {
     for (const p of game.players) {
       io.to(p.id).emit("gameOver", { winnerNick: attacker.nick, winnerChar: attacker.char });
@@ -103,43 +89,22 @@ async function nextTurn1vs1(game, attackerIndex) {
     return;
   }
 
-  // ---------- PROSSIMO TURNO ----------
   setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
 }
 
+// ------------------- SOCKET.IO CONNECTION -------------------
 io.on("connection", socket => {
+  // Online count
   io.emit("onlineCount", io.engine.clientsCount);
 
-  socket.on("disconnect", () => {
-    io.emit("onlineCount", io.engine.clientsCount);
-  });
-});
-  /* === GESTIONE NICKNAME === */
-  socket.on("setNickname", (nick) => {
+  // ------------------- NICKNAME -------------------
+  socket.on("setNickname", nick => {
     const finalNick = assignUniqueNick(nick);
     socket.nick = finalNick;
     socket.emit("nickConfirmed", finalNick);
   });
 
-  socket.on("disconnect", () => {
-    releaseNick(socket.nick);
-    io.emit("onlineCount", io.engine.clientsCount);
-
-    if (waitingPlayer && waitingPlayer.id === socket.id) waitingPlayer = null;
-
-    for (const gameId in games) {
-      const game = games[gameId];
-      const idx = game.players.findIndex(p => p.id === socket.id);
-      if (idx !== -1) {
-        const other = game.players.find(p => p.id !== socket.id);
-        io.to(other.id).emit("gameOver", { winnerNick: other.nick, winnerChar: other.char });
-        lastGames[other.id] = game;
-        delete games[gameId];
-        break;
-      }
-    }
-  });
-
+  // ------------------- 1VS1 -------------------
   socket.on("join1vs1", ({ nick, char }) => {
     socket.nick = assignUniqueNick(nick);
     socket.char = char;
@@ -171,12 +136,30 @@ io.on("connection", socket => {
     for (const p of game.players) {
       io.to(p.id).emit("chatMessage", { nick: socket.nick, text });
     }
-    
+  });
+
+  // ------------------- DISCONNECT -------------------
+  socket.on("disconnect", () => {
+    releaseNick(socket.nick);
+    io.emit("onlineCount", io.engine.clientsCount);
+
+    if (waitingPlayer && waitingPlayer.id === socket.id) waitingPlayer = null;
+
+    for (const gameId in games) {
+      const game = games[gameId];
+      const idx = game.players.findIndex(p => p.id === socket.id);
+      if (idx !== -1) {
+        const other = game.players.find(p => p.id !== socket.id);
+        io.to(other.id).emit("gameOver", { winnerNick: other.nick, winnerChar: other.char });
+        lastGames[other.id] = game;
+        delete games[gameId];
+        break;
+      }
+    }
+  });
 });
 
-/* ===================================================
-   PARALLEL TOURNAMENT MODE
-=================================================== */
+// ------------------- TOURNAMENT MODE -------------------
 const tournaments = {};
 const nsp = io.of("/tournament");
 
@@ -293,11 +276,11 @@ function startMatch(tournamentId, p1, p2, stage, matchId) {
   setTimeout(() => nextTurn(match, tournamentId, first), 1000);
 }
 
+// ------------------- TOURNAMENT NAMESPACE -------------------
 nsp.on("connection", socket => {
   let currentTournament = null;
 
-  /* === GESTIONE NICKNAME anche qui === */
-  socket.on("setNickname", (nick) => {
+  socket.on("setNickname", nick => {
     const finalNick = assignUniqueNick(nick);
     socket.nick = finalNick;
     socket.emit("nickConfirmed", finalNick);
@@ -305,7 +288,6 @@ nsp.on("connection", socket => {
 
   socket.on("joinTournament", ({ nick, char }) => {
     if (!nick || !char) return;
-
     const finalNick = assignUniqueNick(nick);
     socket.nick = finalNick;
 
@@ -359,7 +341,5 @@ nsp.on("connection", socket => {
   });
 });
 
-/* ===================================================
-   SERVER LISTEN
-=================================================== */
+// ------------------- SERVER LISTEN -------------------
 httpServer.listen(PORT, () => console.log(`Server unico attivo su http://localhost:${PORT}`));
