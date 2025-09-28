@@ -73,12 +73,15 @@ async function nextTurn1vs1(game, attackerIndex) {
   attacker.hp = Math.min(attacker.hp, 80);
   attacker.dice = damage;
 
+  // aggiorna stato per ciascun player (ognuno vede sé stesso come player1)
   for (const p of game.players) {
     const me = game.players.find(pl => pl.id === p.id);
     const opp = game.players.find(pl => pl.id !== p.id);
     io.to(p.id).emit("1vs1Update", { player1: me, player2: opp });
-    io.to(p.id).emit("log", logMsg);
   }
+
+  // manda il log una sola volta a tutta la stanza
+  io.to(game.id).emit("log", logMsg);
 
   if (defender.hp === 0) {
     for (const p of game.players) {
@@ -119,10 +122,13 @@ io.on("connection", socket => {
         { id: socket.id, nick: socket.nick, char, hp: 80, stunned: false, dice: 0 }
       ];
       games[gameId] = { id: gameId, players };
-      for (const p of players) {
-        const opp = players.find(pl => pl.id !== p.id);
-        io.to(p.id).emit("gameStart", { player1: p, player2: opp });
-      }
+
+// fai entrare entrambi i giocatori nella stanza del game
+for (const p of players) {
+  io.sockets.sockets.get(p.id)?.join(gameId);
+  const opp = players.find(pl => pl.id !== p.id);
+  io.to(p.id).emit("gameStart", { player1: p, player2: opp });
+}
       const first = Math.floor(Math.random() * 2);
       setTimeout(() => nextTurn1vs1(games[gameId], first), 1000);
       waitingPlayer = null;
