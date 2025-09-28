@@ -27,57 +27,43 @@ const lastGames = {};
 
 async function nextTurn1vs1(game, attackerIndex) {
   const defenderIndex = attackerIndex === 0 ? 1 : 0;
-  const attacker = attackerIndex === 0 ? game.player1 : game.player2;
-  const defender = defenderIndex === 0 ? game.player1 : game.player2;
+  const attacker = game.players[attackerIndex];
+  const defender = game.players[defenderIndex];
 
-  // Lancia il dado
-  const realRoll = Math.floor(Math.random() * 8) + 1;
+  const realRoll = rollDice();
   let damage = realRoll;
   let logMsg = "";
 
-  // Gestione stun
   if (attacker.stunned) {
-    damage = Math.max(0, damage - 1);
-    logMsg = `${attacker.nick} is stunned! Rolled ${realRoll} → deals only ${damage} 😵‍💫`;
+    damage = Math.max(1, damage - 1);
     attacker.stunned = false;
-  } 
-  // Gestione crit (dado 8)
-  else if (realRoll === 8) {
-    damage = attacker.dmg || realRoll;
+    logMsg = `${attacker.nick} is stunned! Rolled ${realRoll} → deals only ${damage} 😵‍💫`;
+  } else if (realRoll === 8) {
     defender.stunned = true;
     logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥`;
-  } 
-  // Danno normale
-  else {
+  } else {
     logMsg = `${attacker.nick} rolls ${realRoll} and deals ${damage} 💥`;
   }
 
-  // Aggiorna hp del difensore
   defender.hp = Math.max(0, defender.hp - damage);
   attacker.dice = damage;
 
-  // Invia aggiornamenti ai singoli client: player1 = se stesso
-  [game.player1, game.player2].forEach(p => {
-    const me = p;
-    const opp = me.id === game.player1.id ? game.player2 : game.player1;
-    io.to(me.id).emit("1vs1Update", { player1: me, player2: opp });
-    io.to(me.id).emit("log", logMsg);
-  });
+  for (const p of game.players) {
+    const me = game.players.find(pl => pl.id === p.id);
+    const opp = game.players.find(pl => pl.id !== p.id);
+    io.to(p.id).emit("1vs1Update", { player1: me, player2: opp });
+    io.to(p.id).emit("log", logMsg);
+  }
 
-  // Controllo vittoria
   if (defender.hp === 0) {
-    [game.player1, game.player2].forEach(p => {
-      const winner = attacker;
-      io.to(p.id).emit("gameOver", { winnerNick: winner.nick, winnerChar: winner.char });
-    });
-    // Salva ultimo gioco e rimuovi la partita
-    lastGames[game.player1.id] = game;
-    lastGames[game.player2.id] = game;
+    for (const p of game.players) {
+      io.to(p.id).emit("gameOver", { winnerNick: attacker.nick, winnerChar: attacker.char });
+      lastGames[p.id] = game;
+    }
     delete games[game.id];
     return;
   }
 
-  // Turno successivo dopo 3 secondi
   setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
 }
 
@@ -102,52 +88,29 @@ io.on("connection", socket => {
   });
 
   socket.on("join1vs1", ({ nick, char }) => {
-    // Salva nick e char dal client
-    socket.nick = nick || "Anon";
-    socket.char = char || "Hero";
-  
+    socket.nick = nick;
+    socket.char = char;
+
     if (!waitingPlayer) {
-      // Nessun avversario in attesa → metti questo socket in attesa
       waitingPlayer = socket;
       socket.emit("waiting", "Waiting for opponent...");
     } else {
-      // C'è già un giocatore in attesa → crea la partita
       const gameId = socket.id + "#" + waitingPlayer.id;
-  
-      // Crea i due player come oggetti separati
-      const player1 = {
-        id: waitingPlayer.id,
-        nick: waitingPlayer.nick,
-        char: waitingPlayer.char,
-        hp: 80,
-        stunned: false,
-        dice: 0
-      };
-      const player2 = {
-        id: socket.id,
-        nick: socket.nick,
-        char: socket.char,
-        hp: 80,
-        stunned: false,
-        dice: 0
-      };
-  
-      // Salva la partita
-      games[gameId] = { id: gameId, player1, player2 };
-  
-      // Invia a ciascun client i dati corretti: player1 = se stesso, player2 = avversario
-      io.to(player1.id).emit("gameStart", { player1, player2 });
-      io.to(player2.id).emit("gameStart", { player1: player2, player2: player1 });
-  
-      // Inizia il turno
-      const first = Math.floor(Math.random() * 2); // chi parte per primo
+      const players = [
+        { id: waitingPlayer.id, nick: waitingPlayer.nick, char: waitingPlayer.char, hp: 80, stunned: false, dice: 0 },
+        { id: socket.id, nick, char, hp: 80, stunned: false, dice: 0 }
+      ];
+      games[gameId] = { id: gameId, players };
+      for (const p of players) {
+        const opp = players.find(pl => pl.id !== p.id);
+        io.to(p.id).emit("gameStart", { player1: p, player2: opp });
+      }
+      const first = Math.floor(Math.random() * 2);
       setTimeout(() => nextTurn1vs1(games[gameId], first), 1000);
-  
-      // Resetta waitingPlayer
       waitingPlayer = null;
     }
   });
-  
+
   socket.on("chatMessage", text => {
     let game = Object.values(games).find(g => g.players.some(p => p.id === socket.id));
     if (!game) game = lastGames[socket.id];
@@ -284,47 +247,28 @@ nsp.on("connection", socket => {
 
   socket.on("joinTournament", ({ nick, char }) => {
     if (!nick || !char) return;
-  
-    // Normalizziamo nickname (no spazi e trim)
-    let baseNick = nick.trim();
-    let finalNick = baseNick;
-  
-    // Controllo duplicati nello stesso torneo
-    let counter = 1;
-    while (
-      Object.values(tournaments)
-        .flatMap(t => [...t.waiting, ...Object.values(t.matches).flatMap(m => m.players)])
-        .some(p => p.nick === finalNick)
-    ) {
-      counter++;
-      finalNick = `${baseNick}#${counter}`;
-    }
-  
-    socket.nick = finalNick;
-    socket.char = char;
-  
+
     let tId = Object.keys(tournaments).find(id => tournaments[id].waiting.length < 8);
     if (!tId) tId = createTournament();
-  
+
     currentTournament = tId;
     const t = tournaments[tId];
     if (t.waiting.find(p => p.id === socket.id)) return;
-  
-    const player = { id: socket.id, nick: socket.nick, char };
+
+    const player = { id: socket.id, nick, char };
     t.waiting.push(player);
     socket.join(tId);
-  
+
     broadcastWaiting(tId);
-  
+
     if (t.waiting.length === 8 && t.bracket.length === 0) {
       const first8 = t.waiting.slice(0, 8);
       nsp.to(tId).emit("waitingStart", { players: first8.map(p => p.nick), total: 8 });
       generateBracket(first8, t);
-      t.bracket
-        .filter(m => m.stage === "quarter")
-        .forEach(m => startMatch(tId, m.player1, m.player2, m.stage, m.id));
+      t.bracket.filter(m => m.stage === "quarter").forEach(m => startMatch(tId, m.player1, m.player2, m.stage, m.id));
     }
   });
+
   socket.on("chatMessage", text => {
     const tId = currentTournament;
     if (!tId) return;
