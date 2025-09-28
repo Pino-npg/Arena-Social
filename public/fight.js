@@ -1,203 +1,173 @@
-//fight.js
-// --- WEBSOCKET ---
-const protocol = location.protocol === "https:" ? "wss" : "ws";
-const ws = new WebSocket(`${protocol}://${location.host}`);
+import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
-// --- PLAYER STATO ---
-let currentPlayer = {
-  index: null,
-  mode: null,
-  character: 'Beast',
-  hp: 80,
-  bonusHP: 0,
-  bonusDamage: 0,
-  bonusInitiative: 0
-};
+const socket = io();
 
-let players = [
-  { name: "Player 1", hp: 80, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 },
-  { name: "Player 2", hp: 80, character: 'Beast', bonusHP: 0, bonusDamage: 0, bonusInitiative: 0 }
-];
+// ---------- ELEMENTI ----------
+const player1Box = document.getElementById("player1");
+const player2Box = document.getElementById("player2");
 
-// --- ELEMENTI DOM ---
-const walletBtn = document.getElementById('walletBtn');
-const demoBtn = document.getElementById('demoBtn');
-const characterSelection = document.getElementById('characterSelection');
-const logEl = document.getElementById('log');
-const onlineCounter = document.getElementById('onlineCounter');
+const player1Name = document.getElementById("player1-nick");
+const player2Name = document.getElementById("player2-nick");
 
-// Immagini grandi ai lati dei riquadri vita
-const player1Img = document.getElementById('player1-character');
-const player2Img = document.getElementById('player2-character');
+const player1HpBar = document.getElementById("player1-hp");
+const player2HpBar = document.getElementById("player2-hp");
 
-// --- AUDIO ---
-let bgMusic = new Audio();
-bgMusic.loop = true;
+const player1CharImg = document.getElementById("player1-char");
+const player2CharImg = document.getElementById("player2-char");
+
+const diceP1 = document.getElementById("dice-p1");
+const diceP2 = document.getElementById("dice-p2");
+
+const chatMessages = document.getElementById("chat-messages");
+const chatInput = document.getElementById("chat-input");
+const eventBox = document.getElementById("event-messages");
+
+// Online count
+const onlineCountDisplay = document.createElement("div");
+onlineCountDisplay.style.position = "absolute";
+onlineCountDisplay.style.top = "10px";
+onlineCountDisplay.style.left = "10px";
+onlineCountDisplay.style.color = "gold";
+onlineCountDisplay.style.fontSize = "1.2rem";
+onlineCountDisplay.style.textShadow = "1px 1px 4px black";
+document.body.appendChild(onlineCountDisplay);
+
+// ---------- MUSICA ----------
+const musicBattle = new Audio("img/9.mp3");
+musicBattle.loop = true;
+musicBattle.volume = 0.5;
+
 let winnerMusic = new Audio();
+winnerMusic.loop = false;
+winnerMusic.volume = 0.7;
 
-// --- SELEZIONE PERSONAGGI ---
-characterSelection.querySelectorAll('img').forEach(img => {
-  img.addEventListener('click', () => {
-    characterSelection.querySelectorAll('img').forEach(i => i.classList.remove('selected'));
-    img.classList.add('selected');
-    currentPlayer.character = img.dataset.name;
+function unlockAudio() {
+  if (musicBattle.paused) musicBattle.play().catch(()=>{});
+  if (winnerMusic.paused) winnerMusic.play().catch(()=>{});
+}
 
-    // Aggiorna immagine grande subito
-    if(currentPlayer.index !== null){
-      if(currentPlayer.index === 0) player1Img.src = `img/${currentPlayer.character}.png`;
-      else player2Img.src = `img/${currentPlayer.character}.png`;
+window.addEventListener("click", unlockAudio, { once: true });
+window.addEventListener("touchstart", unlockAudio, { once: true });
 
-      ws.send(JSON.stringify({
-        type:'character',
-        name:currentPlayer.character,
-        playerIndex: currentPlayer.index
-      }));
-    }
-  });
+// ---------- FULLSCREEN ----------
+const fullscreenBtn = document.getElementById("fullscreen-btn");
+const container = document.getElementById("game-container");
+fullscreenBtn.addEventListener("click", async () => {
+  if (!document.fullscreenElement) await container.requestFullscreen();
+  else await document.exitFullscreen();
 });
 
-// --- SCELTA MODALITÀ ---
-walletBtn.onclick = () => chooseMode('wallet');
-demoBtn.onclick = () => chooseMode('demo');
+// ---------- INIZIO PARTITA ----------
+const nick = localStorage.getItem("selectedNick");
+const char = localStorage.getItem("selectedChar");
+socket.emit("join1vs1", { nick, char });
 
-function chooseMode(mode){
-  currentPlayer.mode = mode;
-  walletBtn.disabled = true;
-  demoBtn.disabled = true;
+// ---------- GESTIONE STUN ----------
+let stunned = { p1: false, p2: false };
 
-  ws.send(JSON.stringify({
-    type:'start',
-    mode: currentPlayer.mode,
-    character: currentPlayer.character
-  }));
+// ---------- SOCKET EVENTS ----------
+socket.on("onlineCount", count => {
+  onlineCountDisplay.textContent = `Online: ${count}`;
+});
 
-  playBattleMusic();
+socket.on("waiting", msg => addEventMessage(msg));
+
+socket.on("gameStart", game => updateGame(game));
+socket.on("1vs1Update", game => updateGame(game));
+
+socket.on("gameOver", ({ winnerNick, winnerChar }) => {
+  addEventMessage(`🏆 ${winnerNick} has won the battle!`);
+  playWinnerMusic(winnerChar);
+  gameOverFlag = true; // partita finita
+  // ⚡ chat rimane attiva
+});
+
+// ---------- CHAT ----------
+chatInput.addEventListener("keydown", e => {
+  if(e.key === "Enter" && e.target.value.trim() !== "") {
+    // Invia sempre messaggio anche se gameOver
+    socket.emit("chatMessage", e.target.value);
+    e.target.value = "";
+  }
+});
+
+socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
+
+// ---------- FUNZIONI ----------
+function updateGame(game) {
+  player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${game.player1.hp}`;
+  player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${game.player2.hp}`;
+
+  player1HpBar.style.width = `${Math.max(game.player1.hp,0)}%`;
+  player2HpBar.style.width = `${Math.max(game.player2.hp,0)}%`;
+
+  if(game.player1.dice) handleDice(0, game);
+  if(game.player2.dice) handleDice(1, game);
+
+  updateCharacterImage(game.player1, 0);
+  updateCharacterImage(game.player2, 1);
 }
 
-// --- MUSICA ---
-function playBattleMusic(){
-  bgMusic.src = "img/4.mp3";
-  bgMusic.play().catch(()=>{});
+function handleDice(playerIndex, game) {
+  const player = playerIndex === 0 ? game.player1 : game.player2;
+  let finalDmg = player.dmg;
+  let type = "damage";
+
+  if ((playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2)) {
+    finalDmg = Math.max(0, player.dice - 1);
+    addEventMessage(`${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
+    if (playerIndex === 0) stunned.p1 = false; else stunned.p2 = false;
+  } 
+  else if (player.dice === 8) {
+    type = "crit";
+    addEventMessage(`${player.nick} CRIT! ${player.dmg} damage dealt ⚡💥`);
+    if (playerIndex === 0) stunned.p2 = true; else stunned.p1 = true;
+  } 
+  else {
+    addEventMessage(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);
+  }
+
+  showDice(playerIndex, player.dice);
 }
 
-function playWinnerMusic(winnerChar){
-  bgMusic.pause();
-  winnerMusic.src = `img/${winnerChar}.mp3`;
-  winnerMusic.play().catch(()=>{});
+function showDice(playerIndex, value){
+  const diceEl = playerIndex === 0 ? diceP1 : diceP2;
+  diceEl.src = `img/dice${value}.png`;
+  diceEl.style.width = "80px";
+  diceEl.style.height = "80px";
 }
 
-// --- WEBSOCKET MESSAGE ---
-ws.onmessage = (event) => {
-  const msg = JSON.parse(event.data);
-
-  if(msg.type === "online"){
-    onlineCounter.innerText = `Online: ${msg.count}`;
-  }
-
-  if(msg.type === "assignIndex"){
-    currentPlayer.index = msg.index;
-    console.log("🎮 Sei Player", msg.index + 1);
-  }
-
-  if(msg.type === "init"){
-    players[0].character = msg.players[0].character;
-    players[0].hp = msg.players[0].hp;
-    players[1].character = msg.players[1].character;
-    players[1].hp = msg.players[1].hp;
-    updatePlayersUI();
-  }
-
-  if (msg.type === "turn") {
-    const atkIndex = msg.attackerIndex;
-    const defIndex = msg.defenderIndex;
-  
-    // mostra il dado reale
-    showDice(atkIndex, msg.roll);
-  
-    // log e hp usano il dmg corretto
-    players[defIndex].hp = msg.defenderHP;
-    logEl.textContent += `🔴 ${msg.attacker} deals ${msg.dmg} to ${msg.defender}${msg.critical ? ' (CRIT!)' : ''}. HP left: ${msg.defenderHP}\n`;
-  
-    updateCharacterImage(players[defIndex], defIndex);
-    updatePlayersUI();
-  }
-
-  if(msg.type === "end"){
-    logEl.textContent += `🏆 Winner: ${msg.winner}!\n`;
-    playWinnerMusic(msg.winner);
-  }
-
-  if(msg.type === "character"){
-    players[msg.playerIndex].character = msg.name;
-    if(msg.playerIndex === 0) player1Img.src = `img/${msg.name}.png`;
-    else player2Img.src = `img/${msg.name}.png`;
-    updatePlayersUI();
-  }
-
-  if(msg.type === "log"){
-    logEl.textContent += msg.message + "\n";
-  }
-};
-
-// --- UPDATE UI ---
-function updatePlayersUI(){
-  const playerBoxes = document.querySelectorAll('.player');
-
-  players.forEach((p, i) => {
-    // aggiorna HP
-    playerBoxes[i].querySelector('.hp').innerText = p.hp;
-
-    // aggiorna barra HP
-    const maxHP = 30 + p.bonusHP;
-    playerBoxes[i].querySelector('.bar').style.width = (p.hp / maxHP * 80) + '%';
-
-    // aggiorna label YOU / ENEMY
-    playerBoxes[i].querySelector('.player-label').innerText = (i === currentPlayer.index) ? "YOU" : "ENEMY";
-
-    // aggiorna immagine grande
-    if(i === 0) player1Img.src = getCharacterImage(p);
-    else player2Img.src = getCharacterImage(p);
-
-    // aggiorna immagine piccola nel box
-    const smallImg = playerBoxes[i].querySelector('.player-pic');
-    if(smallImg) smallImg.src = getCharacterImage(p);
-  });
-}
-
-// --- CALCOLO IMMAGINE IN BASE A HP ---
-function getCharacterImage(player){
-  let hp = player.hp;
-  let src = `img/${player.character}`;
-
-  if(hp <= 0) src += '0';
-  else if(hp<=20) suffix='20';
-  else if(hp<=40) suffix='40';
-  else if(hp<=60) suffix='60';
-
-  src += '.png';
-  return src;
-}
-
-// --- DADI ---
-function rollDice(){ return Math.floor(Math.random()*8)+1; }
-function showDice(playerIndex,value){ document.querySelectorAll('.dice')[playerIndex].src = `img/dice${value}.png`; }
-
-// --- IMMAGINE PER HP ---
 function updateCharacterImage(player,index){
-  const src = getCharacterImage(player);
-  if(index === 0) player1Img.src = src;
-  else player2Img.src = src;
+  let hp = player.hp;
+  let src = `img/${player.char}`;
+  if(hp<=0) src+='0';
+  else if(hp<=20) src+='20';
+  else if(hp<=40) src+='40';
+  else if(hp<=60) src+='60';
+  src+='.png';
+  if(index===0) player1CharImg.src=src;
+  else player2CharImg.src=src;
 }
 
-// --- RULES TOGGLE ---
-const rulesBtn = document.getElementById("rulesBtn");
-const rulesOverlay = document.getElementById("rulesOverlay");
+function addChatMessage(text) {
+  const msg = document.createElement("div");
+  msg.textContent = text;
+  chatMessages.appendChild(msg);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
 
-rulesBtn.addEventListener("click", () => {
-  rulesOverlay.style.display = "flex";
-});
+function addEventMessage(text) {
+  const msg = document.createElement("div");
+  msg.textContent = text;
+  eventBox.appendChild(msg);
+  eventBox.scrollTop = eventBox.scrollHeight;
+}
 
-// clic ovunque sull’overlay per chiudere
-rulesOverlay.addEventListener("click", () => {
-  rulesOverlay.style.display = "none";
-});
+function playWinnerMusic(winnerChar) {
+  musicBattle.pause();
+  winnerMusic.src = `img/${winnerChar}.mp3`;
+  winnerMusic.play().catch(err => console.log("⚠️ Audio non avviato automaticamente:", err));
+}
+
+// ---------- FIX SCROLL MOBILE ----------
+document.body.style.overflowY = "auto";

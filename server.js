@@ -1,303 +1,385 @@
-// server_parallel_tournaments.js
-import express from "express";
-import { createServer } from "http";
-import { Server } from "socket.io";
-import { v4 as uuidv4 } from "uuid";
+import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
+const socket = io("/tournament");
 
-const app = express();
-const httpServer = createServer(app);
-const io = new Server(httpServer, { cors: { origin: "*" } });
+// ---------- DOM elements ----------
+const battleArea = document.getElementById("battle-area");
+const chatMessages = document.getElementById("chat-messages");
+const chatInput = document.getElementById("chat-input");
+const eventBox = document.getElementById("event-messages");
+const fullscreenBtn = document.getElementById("fullscreen-btn");
+const trophyBtn = document.getElementById("trophy-btn");
+const overlay = document.getElementById("tournament-overlay");
+const bracketContainer = document.getElementById("bracket");
+const closeOverlayBtn = document.getElementById("close-overlay");
 
-const PORT = process.env.PORT || 10000;
+// ---------- State ----------
+let matchUI = {};
+let currentStage = "waiting";
+let waitingContainer = null;
+let stunned = { p1:false, p2:false };
+let fullBracket = [];
+let matchLogs = {}; // log unici per match
 
-// ------------------- STATIC -------------------
-app.use(express.static("public"));
-app.get("/1vs1.html", (req, res) => res.sendFile(new URL("public/1vs1.html", import.meta.url).pathname));
-app.get("/tour.html", (req, res) => res.sendFile(new URL("public/tour.html", import.meta.url).pathname));
-app.get("/", (req, res) => res.send("Fight server attivo!"));
+// ---------- Music ----------
+const musicQuarter = "img/5.mp3";    
+const musicSemi    = "img/6.mp3"; 
+const musicFinal   = "img/7.mp3";
 
-const rollDice = () => Math.floor(Math.random() * 8) + 1;
+const musicBattle = new Audio(musicQuarter);
+musicBattle.loop = true;
+musicBattle.volume = 0.5;
 
-/* ===================================================
-   1VS1 MODE
-=================================================== */
-const games = {};
-let waitingPlayer = null;
-const lastGames = {};
+let winnerMusic = new Audio();
+winnerMusic.loop = false;
+winnerMusic.volume = 0.7;
 
-async function nextTurn1vs1(game, attackerIndex) {
-  const defenderIndex = attackerIndex === 0 ? 1 : 0;
-  const attacker = game.players[attackerIndex];
-  const defender = game.players[defenderIndex];
-
-  const realRoll = rollDice();
-  let damage = realRoll;
-  let logMsg = "";
-
-  if (attacker.stunned) {
-    damage = Math.max(1, damage - 1);
-    attacker.stunned = false;
-    logMsg = `${attacker.nick} is stunned! Rolled ${realRoll} → deals only ${damage} 😵‍💫`;
-  } else if (realRoll === 8) {
-    defender.stunned = true;
-    logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥`;
-  } else {
-    logMsg = `${attacker.nick} rolls ${realRoll} and deals ${damage} 💥`;
-  }
-
-  defender.hp = Math.max(0, defender.hp - damage);
-  attacker.dice = damage;
-
-  for (const p of game.players) {
-    const me = game.players.find(pl => pl.id === p.id);
-    const opp = game.players.find(pl => pl.id !== p.id);
-    io.to(p.id).emit("1vs1Update", { player1: me, player2: opp });
-    io.to(p.id).emit("log", logMsg);
-  }
-
-  if (defender.hp === 0) {
-    for (const p of game.players) {
-      io.to(p.id).emit("gameOver", { winnerNick: attacker.nick, winnerChar: attacker.char });
-      lastGames[p.id] = game;
-    }
-    delete games[game.id];
-    return;
-  }
-
-  setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
+// ---------- Audio unlock ----------
+function unlockAudio() {
+  if (musicBattle.paused) musicBattle.play().catch(()=>{});
+  if (winnerMusic.paused) winnerMusic.play().catch(()=>{});
 }
+window.addEventListener("click", unlockAudio, { once:true });
+window.addEventListener("touchstart", unlockAudio, { once:true });
 
-io.on("connection", socket => {
-  io.emit("onlineCount", io.engine.clientsCount);
-
-  socket.on("disconnect", () => {
-    io.emit("onlineCount", io.engine.clientsCount);
-    if (waitingPlayer && waitingPlayer.id === socket.id) waitingPlayer = null;
-
-    for (const gameId in games) {
-      const game = games[gameId];
-      const idx = game.players.findIndex(p => p.id === socket.id);
-      if (idx !== -1) {
-        const other = game.players.find(p => p.id !== socket.id);
-        io.to(other.id).emit("gameOver", { winnerNick: other.nick, winnerChar: other.char });
-        lastGames[other.id] = game;
-        delete games[gameId];
-        break;
-      }
-    }
-  });
-
-  socket.on("join1vs1", ({ nick, char }) => {
-    socket.nick = nick;
-    socket.char = char;
-
-    if (!waitingPlayer) {
-      waitingPlayer = socket;
-      socket.emit("waiting", "Waiting for opponent...");
-    } else {
-      const gameId = socket.id + "#" + waitingPlayer.id;
-      const players = [
-        { id: waitingPlayer.id, nick: waitingPlayer.nick, char: waitingPlayer.char, hp: 80, stunned: false, dice: 0 },
-        { id: socket.id, nick, char, hp: 80, stunned: false, dice: 0 }
-      ];
-      games[gameId] = { id: gameId, players };
-      for (const p of players) {
-        const opp = players.find(pl => pl.id !== p.id);
-        io.to(p.id).emit("gameStart", { player1: p, player2: opp });
-      }
-      const first = Math.floor(Math.random() * 2);
-      setTimeout(() => nextTurn1vs1(games[gameId], first), 1000);
-      waitingPlayer = null;
-    }
-  });
-
-  socket.on("chatMessage", text => {
-    let game = Object.values(games).find(g => g.players.some(p => p.id === socket.id));
-    if (!game) game = lastGames[socket.id];
-    if (!game) return;
-    for (const p of game.players) {
-      io.to(p.id).emit("chatMessage", { nick: socket.nick, text });
-    }
-  });
+// ---------- Fullscreen toggle ----------
+fullscreenBtn.addEventListener("click", async () => {
+  const container = document.getElementById("game-container");
+  if (!document.fullscreenElement) await container.requestFullscreen();
+  else await document.exitFullscreen();
 });
 
-/* ===================================================
-   PARALLEL TOURNAMENT MODE
-=================================================== */
-const tournaments = {};
-const nsp = io.of("/tournament");
+// ---------- Overlay toggle ----------
+trophyBtn.addEventListener("click", () => overlay.classList.remove("hidden"));
+closeOverlayBtn.addEventListener("click", () => overlay.classList.add("hidden"));
 
-function createTournament() {
-  const id = uuidv4();
-  tournaments[id] = { waiting: [], matches: {}, bracket: [] };
-  return id;
-}
-
-function broadcastWaiting(tournamentId) {
-  const t = tournaments[tournamentId];
-  if (!t) return;
-  nsp.to(tournamentId).emit("waitingCount", { count: t.waiting.length, required: 8, players: t.waiting });
-}
-
-function emitBracket(tournamentId) {
-  const t = tournaments[tournamentId];
-  if (!t) return;
-  nsp.to(tournamentId).emit("tournamentState", t.bracket);
-}
-
-function generateBracket(players8, t) {
-  t.bracket = [
-    { id: "Q1", stage: "quarter", player1: players8[0], player2: players8[1], next: "S1", winner: null },
-    { id: "Q2", stage: "quarter", player1: players8[2], player2: players8[3], next: "S1", winner: null },
-    { id: "Q3", stage: "quarter", player1: players8[4], player2: players8[5], next: "S2", winner: null },
-    { id: "Q4", stage: "quarter", player1: players8[6], player2: players8[7], next: "S2", winner: null },
-    { id: "S1", stage: "semi", player1: null, player2: null, next: "F", winner: null },
-    { id: "S2", stage: "semi", player1: null, player2: null, next: "F", winner: null },
-    { id: "F", stage: "final", player1: null, player2: null, next: null, winner: null }
-  ];
-  emitBracket(t.id);
-}
-
-function advanceWinner(tournamentId, matchId, winnerObj) {
-  const t = tournaments[tournamentId];
-  if (!t) return;
-  const brMatch = t.bracket.find(m => m.id === matchId);
-  if (!brMatch) return;
-
-  brMatch.winner = { id: winnerObj.id, nick: winnerObj.nick, char: winnerObj.char };
-
-  if (brMatch.next) {
-    const next = t.bracket.find(m => m.id === brMatch.next);
-    if (!next) return;
-    if (!next.player1) next.player1 = brMatch.winner;
-    else if (!next.player2) next.player2 = brMatch.winner;
-
-    if (next.player1 && next.player2) {
-      startMatch(tournamentId, next.player1, next.player2, next.stage, next.id);
-    }
+// ---------- Chat ----------
+chatInput.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.value.trim() !== "") {
+    socket.emit("chatMessage", e.target.value);
+    e.target.value = "";
   }
+});
+socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
 
-  // Rimuovo il match finito
-  delete t.matches[matchId];
-
-  emitBracket(tournamentId);
-
-  if (brMatch.id === "F" && brMatch.winner) {
-    nsp.to(tournamentId).emit("tournamentOver", { nick: brMatch.winner.nick, char: brMatch.winner.char });
-    setTimeout(() => resetTournament(tournamentId), 5000);
-  }
+function addChatMessage(txt) {
+  const d = document.createElement("div");
+  d.textContent = txt;
+  chatMessages.appendChild(d);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-function resetTournament(tournamentId) {
-  delete tournaments[tournamentId];
-}
-
-function nextTurn(match, tournamentId, attackerIndex) {
-  const defenderIndex = attackerIndex === 0 ? 1 : 0;
-  const attacker = match.players[attackerIndex];
-  const defender = match.players[defenderIndex];
-
-  const realRoll = rollDice();
-  let damage = realRoll;
-  let logMsg = "";
-
-  if (attacker.stunned) {
-    damage = Math.max(0, damage - 1);
-    attacker.stunned = false;
-    logMsg = `${attacker.nick} is stunned! Rolled ${realRoll} → deals only ${damage} 😵‍💫`;
-  } else if (realRoll === 8) {
-    defender.stunned = true;
-    logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥`;
+// ---------- Event messages (unici per match) ----------
+function addEventMessage(matchIdOrText, maybeText) {
+  let matchId, txt;
+  if(maybeText !== undefined){
+    matchId = matchIdOrText;
+    txt = maybeText;
   } else {
-    logMsg = `${attacker.nick} rolls ${realRoll} and deals ${damage} 💥`;
+    matchId = null;
+    txt = matchIdOrText;
   }
 
-  defender.hp = Math.max(0, defender.hp - damage);
-  attacker.dice = damage;
-
-  nsp.to(tournamentId).emit("updateMatch", { id: match.id, stage: match.stage, player1: match.players[0], player2: match.players[1] });
-  nsp.to(tournamentId).emit("log", logMsg);
-
-  if (defender.hp <= 0) {
-    const winner = attacker;
-    nsp.to(tournamentId).emit("matchOver", { winnerNick: winner.nick, winnerChar: winner.char, stage: match.stage, player1: match.players[0], player2: match.players[1] });
-    advanceWinner(tournamentId, match.id, winner);
-    return;
+  if(matchId){
+    if(!matchLogs[matchId]) matchLogs[matchId] = new Set();
+    if(matchLogs[matchId].has(txt)) return; // evita duplicati
+    matchLogs[matchId].add(txt);
   }
 
-  setTimeout(() => nextTurn(match, tournamentId, defenderIndex), 3000);
+  const d = document.createElement("div");
+  d.textContent = txt;
+  eventBox.appendChild(d);
+  eventBox.scrollTop = eventBox.scrollHeight;
 }
 
-function startMatch(tournamentId, p1, p2, stage, matchId) {
-  const t = tournaments[tournamentId];
-  if (!t || !p1 || !p2) return;
-  const players = [{ ...p1, hp: 80, stunned: false, dice: 0 }, { ...p2, hp: 80, stunned: false, dice: 0 }];
-  const match = { id: matchId, players, stage };
-  t.matches[matchId] = match;
+// ---------- Helpers ----------
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]); }
+function clearMatchesUI(){ Object.keys(matchUI).forEach(id=>{ const el=document.getElementById(`match-${id}`); if(el) el.remove(); }); matchUI={}; }
 
-  nsp.to(tournamentId).emit("startTournament", Object.values(t.matches));
-  nsp.to(tournamentId).emit("startMatch", { id: matchId, player1: players[0], player2: players[1], stage });
-
-  const first = Math.floor(Math.random() * 2);
-  setTimeout(() => nextTurn(match, tournamentId, first), 1000);
+// ---------- Character image helper ----------
+function getCharImage(char,hp=80){
+  if(!char) return "img/unknown.png";
+  let suffix = "";
+  if(hp<=0) suffix='0';
+  else if(hp<=20) suffix='20';
+  else if(hp<=40) suffix='40';
+  else if(hp<=60) suffix='60';
+  return `img/${char.replace(/\s/g,'')}${suffix}.png`;
 }
 
-nsp.on("connection", socket => {
-  let currentTournament = null;
+// ---------- Join tournament ----------
+const nick = localStorage.getItem("selectedNick");
+const char = localStorage.getItem("selectedChar");
+if (nick && char) {
+  socket.emit("joinTournament", { nick, char });
+  renderWaiting(0, 8, []);
+} else {
+  battleArea.innerHTML = "<h2>Error: Missing nickname or character. Return to home page.</h2>";
+}
 
-  socket.on("joinTournament", ({ nick, char }) => {
-    if (!nick || !char) return;
-
-    let tId = Object.keys(tournaments).find(id => tournaments[id].waiting.length < 8);
-    if (!tId) tId = createTournament();
-
-    currentTournament = tId;
-    const t = tournaments[tId];
-    if (t.waiting.find(p => p.id === socket.id)) return;
-
-    const player = { id: socket.id, nick, char };
-    t.waiting.push(player);
-    socket.join(tId);
-
-    broadcastWaiting(tId);
-
-    if (t.waiting.length === 8 && t.bracket.length === 0) {
-      const first8 = t.waiting.slice(0, 8);
-      nsp.to(tId).emit("waitingStart", { players: first8.map(p => p.nick), total: 8 });
-      generateBracket(first8, t);
-      t.bracket.filter(m => m.stage === "quarter").forEach(m => startMatch(tId, m.player1, m.player2, m.stage, m.id));
-    }
-  });
-
-  socket.on("chatMessage", text => {
-    const tId = currentTournament;
-    if (!tId) return;
-    nsp.to(tId).emit("chatMessage", { nick: socket.nick || "Anon", text });
-  });
-
-  socket.on("disconnect", () => {
-    const tId = currentTournament;
-    if (!tId) return;
-    const t = tournaments[tId];
-    if (!t) return;
-
-    t.waiting = t.waiting.filter(p => p.id !== socket.id);
-    for (const matchId in t.matches) {
-      const match = t.matches[matchId];
-      const idx = match.players.findIndex(p => p.id === socket.id);
-      if (idx !== -1) {
-        const other = match.players.find(p => p.id !== socket.id);
-        nsp.to(tId).emit("matchOver", { winnerNick: other.nick, winnerChar: other.char, stage: match.stage, player1: match.players[0], player2: match.players[1] });
-        advanceWinner(tId, match.id, other);
-        break;
-      }
-    }
-    broadcastWaiting(tId);
-    emitBracket(tId);
-  });
+// ---------- Waiting ----------
+socket.on("waitingCount", ({ count, required, players }) => {
+  if(currentStage==="waiting") renderWaiting(count, required, players);
 });
 
-/* ===================================================
-   SERVER LISTEN
-=================================================== */
-httpServer.listen(PORT, () => console.log(`Server unico attivo su http://localhost:${PORT}`));
+function renderWaiting(count, required, players) {
+  if(waitingContainer) waitingContainer.remove();
+  waitingContainer = document.createElement("div");
+  waitingContainer.className = "waiting-container";
+
+  const title = document.createElement("h2");
+  title.textContent = `Waiting for players... (${count}/${required})`;
+  waitingContainer.appendChild(title);
+
+  const ul = document.createElement("ul");
+  players.forEach(p => {
+    const li = document.createElement("li");
+    const img = document.createElement("img");
+    img.src = getCharImage(p.char);
+    img.alt = p.char ?? "unknown";
+    img.width = 32;
+    img.height = 32;
+    img.onerror = () => { img.src = "img/unknown.png"; };
+    li.appendChild(img);
+    li.appendChild(document.createTextNode(` ${p.nick} (${p.char})`));
+    ul.appendChild(li);
+  });
+
+  waitingContainer.appendChild(ul);
+  battleArea.prepend(waitingContainer);
+}
+
+// ---------- Tournament stages ----------
+function setStage(stage){
+  if(stage===currentStage) return;
+  currentStage=stage;
+
+  if(stage==="quarter") setMusic(musicQuarter);
+  else if(stage==="semi") setMusic(musicSemi);
+  else if(stage==="final") setMusic(musicFinal);
+
+  const old=battleArea.querySelector(".stage-title");
+  if(old) old.remove();
+  const title=document.createElement("h2");
+  title.className="stage-title";
+  title.textContent = stage==="quarter"?"⚔️ Quarter-finals":stage==="semi"?"🔥 Semi-finals":"👑 Final!";
+  battleArea.prepend(title);
+}
+
+function setMusic(src){
+  if(!src) return;
+  const wasPlaying = !musicBattle.paused;
+  musicBattle.src=src;
+  if(wasPlaying) musicBattle.play().catch(()=>{});
+}
+
+// ---------- Player card ----------
+function makePlayerCard(player){
+  const div=document.createElement("div");
+  div.className="player";
+
+  const label=document.createElement("div");
+  label.className="player-label";
+  label.textContent=`${player.nick} (${player.char}) HP: ${player.hp ?? 80}`;
+
+  const img=document.createElement("img");
+  img.className="char-img";
+  img.src = getCharImage(player.char, player.hp);
+  img.onerror = () => { img.src = "img/unknown.png"; };
+
+  const hpBar=document.createElement("div");
+  hpBar.className="hp-bar";
+  const hpInner=document.createElement("div");
+  hpInner.className="hp";
+  hpInner.style.width=(Math.max(0,player.hp??80)/80*100)+"%";
+  hpBar.appendChild(hpInner);
+
+  const dice=document.createElement("img");
+  dice.className="dice";
+  dice.src="img/dice1.png";
+
+  div.appendChild(label);
+  div.appendChild(img);
+  div.appendChild(hpBar);
+  div.appendChild(dice);
+
+  return { div,label,charImg:img,hp:hpInner,dice };
+}
+
+function updatePlayerUI(ref, player){
+  const hp = Math.max(0, Math.min(player.hp ?? 80, 80));
+  ref.label.textContent = `${player.nick} (${player.char}) HP: ${hp}`;
+
+  ref.hp.style.width = (hp/80*100)+"%";
+  if(hp>60) ref.hp.style.backgroundColor = "green";
+  else if(hp>40) ref.hp.style.backgroundColor = "yellowgreen";
+  else if(hp>20) ref.hp.style.backgroundColor = "orange";
+  else ref.hp.style.backgroundColor = "red";
+
+  ref.charImg.src = getCharImage(player.char, hp);
+}
+
+// ---------- Render match ----------
+function renderMatchCard(match){
+  if(!match?.id) return;
+  if(matchUI[match.id]) return;
+
+  const container=document.createElement("div");
+  container.className="match-container";
+  container.id=`match-${match.id}`;
+  container.dataset.stage = match.stage;
+
+  const stageLabel=document.createElement("h3");
+  stageLabel.textContent=`${match.stage.toUpperCase()} - ${match.id}`;
+  container.appendChild(stageLabel);
+
+  const p1 = makePlayerCard(match.player1 || { nick:"??", char:"??", hp:80 });
+  const p2 = makePlayerCard(match.player2 || { nick:"??", char:"??", hp:80 });
+
+  container.appendChild(p1.div);
+  container.appendChild(p2.div);
+  battleArea.appendChild(container);
+
+  matchUI[match.id] = { p1, p2 };
+}
+
+// ---------- Damage handling ----------
+function handleDamage(match){
+  if(!match?.id) return;
+  if(!matchUI[match.id]) renderMatchCard(match);
+
+  const refs = matchUI[match.id];
+
+  ["player1","player2"].forEach((key,i)=>{
+    const player = match[key];
+    const ref = i===0 ? refs.p1 : refs.p2;
+    if(!player) return;
+
+    const dmg = player.dmg ?? 0;
+    const diceDisplay = player.dice ?? 1;
+
+    let msg="";
+    if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
+      msg = `${player.nick} is stunned! Rolled ${diceDisplay} → deals ${dmg} 😵‍💫`;
+      if(i===0) stunned.p1=false; else stunned.p2=false;
+    } 
+    else if(diceDisplay === 8){
+      msg = `${player.nick} CRIT! Rolled 8 → ${dmg} damage ⚡💥`;
+      if(i===0) stunned.p2=true; else stunned.p1=true;
+    } 
+    else {
+      msg = `${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`;
+    }
+
+    addEventMessage(match.id, msg);
+    updatePlayerUI(ref, player);
+    ref.dice.src = `img/dice${diceDisplay}.png`;
+  });
+}
+
+// ---------- Winner ----------
+function showWinnerChar(char){
+  if(!char) return;
+  const winnerImg = document.createElement("img");
+  winnerImg.src = `img/${char}.webp`;
+  winnerImg.onerror = () => { winnerImg.src = `img/${char}.png`; };
+  winnerImg.style.position = "fixed";
+  winnerImg.style.top = "0";
+  winnerImg.style.left = "0";
+  winnerImg.style.width = "100%";
+  winnerImg.style.height = "100%";
+  winnerImg.style.objectFit = "contain";
+  winnerImg.style.zIndex = "9999";
+  winnerImg.style.backgroundColor = "black";
+  document.body.appendChild(winnerImg);
+  winnerImg.addEventListener("click", () => winnerImg.remove());
+}
+
+function playWinnerMusic(winnerChar){
+  if(!winnerChar) return;
+  musicBattle.pause();
+  winnerMusic.src = `img/${winnerChar}.mp3`;
+  winnerMusic.currentTime = 0;
+  winnerMusic.play().catch(()=>{});
+}
+
+// ---------- Socket events ----------
+socket.on("startTournament", matches => {
+  if(waitingContainer) { waitingContainer.remove(); waitingContainer=null; }
+  clearMatchesUI();
+  currentStage = matches[0]?.stage || "quarter";
+  setStage(currentStage);
+  fullBracket = [];
+  matchLogs = {}; // reset log
+  matches.forEach(m => {
+    renderMatchCard(m);
+    fullBracket.push(m);
+  });
+  renderBracket(fullBracket);
+});
+
+socket.on("startMatch", match => {
+  if(match.stage) setStage(match.stage);
+  handleDamage(match);
+
+  const idx = fullBracket.findIndex(m => m.id === match.id);
+  if(idx>=0) fullBracket[idx] = match; 
+  else fullBracket.push(match);
+
+  renderBracket(fullBracket);
+});
+
+socket.on("updateMatch", match => handleDamage(match));
+
+socket.on("matchOver", ({ winnerNick, winnerChar, stage, matchId }) => {
+  addEventMessage(null, `🏆 ${winnerNick ?? "??"} won the match (${stage})!`);
+  if(stage==="final") playWinnerMusic(winnerChar);
+
+  if(matchId){
+    const el = document.getElementById(`match-${matchId}`);
+    if(el) el.remove();
+    delete matchUI[matchId];
+    if(matchLogs[matchId]) delete matchLogs[matchId];
+  }
+
+  const idx = fullBracket.findIndex(m => m.id===matchId);
+  if(idx>=0) fullBracket[idx].winner = { nick:winnerNick, char:winnerChar };
+  renderBracket(fullBracket);
+});
+
+socket.on("tournamentOver", ({ nick, char }) => {
+  addEventMessage(null, `🎉 ${nick ?? "??"} won the tournament!`);
+  showWinnerChar(char);
+  playWinnerMusic(char);
+  setTimeout(()=> battleArea.innerHTML = "<h2>Waiting for new tournament...</h2>", 2500);
+});
+
+socket.on("log", msg => addEventMessage(null, msg));
+socket.on("tournamentState", bracket => {
+  fullBracket = bracket;
+  renderBracket(fullBracket);
+});
+
+// ---------- Bracket rendering ----------
+function renderBracket(bracket){
+  bracketContainer.innerHTML = "";
+  const table = document.createElement("table");
+  table.style.width="100%";
+  table.style.borderCollapse="collapse";
+
+  const head = document.createElement("tr");
+  head.innerHTML="<th>Player 1</th><th>Player 2</th><th>Winner</th><th>Stage</th>";
+  table.appendChild(head);
+
+  bracket.forEach(m=>{
+    const row = document.createElement("tr");
+    row.innerHTML = `<td>${m.player1?.nick||"??"}</td>
+                     <td>${m.player2?.nick||"??"}</td>
+                     <td>${m.winner?.nick||"??"}</td>
+                     <td>${m.stage}</td>`;
+    table.appendChild(row);
+  });
+
+  bracketContainer.appendChild(table);
+}
+
+document.body.style.overflowY="auto";
