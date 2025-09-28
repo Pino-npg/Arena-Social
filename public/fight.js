@@ -56,7 +56,10 @@ fullscreenBtn.addEventListener("click", async () => {
 // ---------- INIZIO PARTITA ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
-socket.emit("join1vs1", { nick, char });
+// chiede al server di entrare in una room privata di match
+socket.emit("join1vs1", { nick, char }, roomId => {
+  socket.roomId = roomId; // salvo la stanza del match
+});
 
 // ---------- GESTIONE STUN ----------
 let stunned = { p1: false, p2: false };
@@ -66,23 +69,36 @@ socket.on("onlineCount", count => onlineCountDisplay.textContent = `Online: ${co
 
 socket.on("waiting", msg => addEventMessage(msg));
 
-socket.on("gameStart", game => updateGame(game));
-socket.on("1vs1Update", game => updateGame(game));
+// la partita parte solo se è la mia room
+socket.on("gameStart", (roomId, game) => {
+  socket.roomId = roomId;  // salva la stanza
+  updateGame(game);
+});
 
-socket.on("gameOver", ({ winnerNick, winnerChar }) => {
-  addEventMessage(`🏆 ${winnerNick} has won the battle!`);
-  playWinnerMusic(winnerChar);
+socket.on("1vs1Update", (roomId, game) => {
+  if (roomId === socket.roomId) updateGame(game);
+});
+
+socket.on("gameOver", (roomId, { winnerNick, winnerChar }) => {
+  if (roomId === socket.roomId) {
+    addEventMessage(`🏆 ${winnerNick} has won the battle!`);
+    playWinnerMusic(winnerChar);
+  }
 });
 
 // ---------- CHAT ----------
 chatInput.addEventListener("keydown", e => {
-  if(e.key === "Enter" && e.target.value.trim() !== "") {
-    socket.emit("chatMessage", e.target.value);
+  if(e.key === "Enter" && e.target.value.trim() !== "" && socket.roomId) {
+    socket.emit("chatMessage", { roomId: socket.roomId, text: e.target.value });
     e.target.value = "";
   }
 });
 
-socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
+socket.on("chatMessage", data => {
+  if (data.roomId === socket.roomId) { // filtro solo i messaggi della mia room
+    addChatMessage(`${data.nick}: ${data.text}`);
+  }
+});
 
 // ---------- FUNZIONI ----------
 function updateGame(game) {

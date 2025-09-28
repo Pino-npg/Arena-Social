@@ -77,15 +77,15 @@ async function nextTurn1vs1(game, attackerIndex) {
   for (const p of game.players) {
     const me = game.players.find(pl => pl.id === p.id);
     const opp = game.players.find(pl => pl.id !== p.id);
-    io.to(p.id).emit("1vs1Update", { player1: me, player2: opp });
+    io.to(p.id).emit("1vs1Update", game.id, { player1: me, player2: opp }); // <-- aggiungi game.id
   }
-
-  // manda il log una sola volta a tutta la stanza
+  
+  // log globale per la stanza
   io.to(game.id).emit("log", logMsg);
-
+  
   if (defender.hp === 0) {
     for (const p of game.players) {
-      io.to(p.id).emit("gameOver", { winnerNick: attacker.nick, winnerChar: attacker.char });
+      io.to(p.id).emit("gameOver", game.id, { winnerNick: attacker.nick, winnerChar: attacker.char });
       lastGames[p.id] = game;
     }
     delete games[game.id];
@@ -111,7 +111,7 @@ io.on("connection", socket => {
   socket.on("join1vs1", ({ nick, char }) => {
     socket.nick = assignUniqueNick(nick);
     socket.char = char;
-
+  
     if (!waitingPlayer) {
       waitingPlayer = socket;
       socket.emit("waiting", "Waiting for opponent...");
@@ -122,13 +122,14 @@ io.on("connection", socket => {
         { id: socket.id, nick: socket.nick, char, hp: 80, stunned: false, dice: 0 }
       ];
       games[gameId] = { id: gameId, players };
-
-// fai entrare entrambi i giocatori nella stanza del game
-for (const p of players) {
-  io.sockets.sockets.get(p.id)?.join(gameId);
-  const opp = players.find(pl => pl.id !== p.id);
-  io.to(p.id).emit("gameStart", { player1: p, player2: opp });
-}
+  
+      // inserimento in stanza
+      for (const p of players) {
+        io.sockets.sockets.get(p.id)?.join(gameId);
+        const opp = players.find(pl => pl.id !== p.id);
+        io.to(p.id).emit("gameStart", gameId, { player1: p, player2: opp });  // <-- passa gameId
+      }
+  
       const first = Math.floor(Math.random() * 2);
       setTimeout(() => nextTurn1vs1(games[gameId], first), 1000);
       waitingPlayer = null;
@@ -156,7 +157,7 @@ for (const p of players) {
       const idx = game.players.findIndex(p => p.id === socket.id);
       if (idx !== -1) {
         const other = game.players.find(p => p.id !== socket.id);
-        io.to(other.id).emit("gameOver", { winnerNick: other.nick, winnerChar: other.char });
+        io.to(other.id).emit("gameOver", gameId, { winnerNick: other.nick, winnerChar: other.char });  // aggiungi gameId
         lastGames[other.id] = game;
         delete games[gameId];
         break;
