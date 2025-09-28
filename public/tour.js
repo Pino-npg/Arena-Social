@@ -2,6 +2,10 @@ import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
 const socket = io("/tournament");
 
+// ---------- RESET LOCALSTORAGE ----------
+localStorage.removeItem("selectedNick");
+localStorage.removeItem("selectedChar");
+
 // ---------- DOM ----------
 const battleArea = document.getElementById("battle-area");
 const chatMessages = document.getElementById("chat-messages");
