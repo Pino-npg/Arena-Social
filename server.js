@@ -54,10 +54,12 @@ async function nextTurn1vs1(game, attackerIndex) {
   const attacker = game.players[attackerIndex];
   const defender = game.players[defenderIndex];
 
+  // Tiro del dado
   const realRoll = rollDice();
   let damage = realRoll;
   let logMsg = "";
 
+  // Gestione stun e critico
   if (attacker.stunned) {
     damage = Math.max(1, damage - 1);
     attacker.stunned = false;
@@ -69,20 +71,22 @@ async function nextTurn1vs1(game, attackerIndex) {
     logMsg = `${attacker.nick} rolls ${realRoll} and deals ${damage} 💥`;
   }
 
+  // Aggiornamento HP
   defender.hp = Math.max(0, Math.min(defender.hp - damage, 80));
   attacker.hp = Math.min(attacker.hp, 80);
   attacker.dice = damage;
 
-  // aggiorna stato per ciascun player (ognuno vede sé stesso come player1)
+  // Aggiorna stato per ciascun player
   for (const p of game.players) {
     const me = game.players.find(pl => pl.id === p.id);
     const opp = game.players.find(pl => pl.id !== p.id);
-    io.to(p.id).emit("1vs1Update", game.id, { player1: me, player2: opp }); // <-- aggiungi game.id
+    io.to(p.id).emit("1vs1Update", game.id, { player1: me, player2: opp });
   }
-  
-  // log globale per la stanza
+
+  // Invia log **una sola volta** alla stanza
   io.to(game.id).emit("log", logMsg);
-  
+
+  // Controlla vittoria
   if (defender.hp === 0) {
     for (const p of game.players) {
       io.to(p.id).emit("gameOver", game.id, { winnerNick: attacker.nick, winnerChar: attacker.char });
@@ -92,6 +96,7 @@ async function nextTurn1vs1(game, attackerIndex) {
     return;
   }
 
+  // Passa il turno
   setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
 }
 
