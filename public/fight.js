@@ -86,15 +86,16 @@ socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
 
 // ---------- FUNZIONI ----------
 function updateGame(game) {
-  // Limite HP massimo 80
-  const hp1 = Math.min(game.player1.hp, 80);
-  const hp2 = Math.min(game.player2.hp, 80);
+  const maxHp = 80; // HP massimo
+  const hp1 = Math.min(game.player1.hp, maxHp);
+  const hp2 = Math.min(game.player2.hp, maxHp);
 
-  player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${hp1}/80`;
-  player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${hp2}/80`;
+  player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${hp1}/${maxHp}`;
+  player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${hp2}/${maxHp}`;
 
-  player1HpBar.style.width = `${hp1}%`;
-  player2HpBar.style.width = `${hp2}%`;
+  // Corretto: barra al 100% quando hp = 80
+  player1HpBar.style.width = `${(hp1 / maxHp) * 100}%`;
+  player2HpBar.style.width = `${(hp2 / maxHp) * 100}%`;
 
   if(game.player1.dice) handleDice(0, game);
   if(game.player2.dice) handleDice(1, game);

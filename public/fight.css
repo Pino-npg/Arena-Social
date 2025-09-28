@@ -30,6 +30,14 @@ header {
   margin-bottom: 10px;
 }
 
+#topLeftUI {
+  position: absolute;
+  top: 10px;
+  left: 10px;  /* SINISTRA */
+  display: flex;
+  gap: 10px;
+}
+
 .arena-title {
   font-size: 3rem;
   color: white;
