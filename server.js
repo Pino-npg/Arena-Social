@@ -18,6 +18,33 @@ app.get("/", (req, res) => res.send("Fight server attivo!"));
 
 const rollDice = () => Math.floor(Math.random() * 8) + 1;
 
+// === Gestione nickname globali ===
+const usedNicks = new Map(); // base -> count
+
+function assignUniqueNick(nick) {
+  if (!nick || nick.trim() === "") return "Anon";
+  const base = nick.trim();
+  let finalNick = base;
+  if (usedNicks.has(base)) {
+    const count = usedNicks.get(base) + 1;
+    usedNicks.set(base, count);
+    finalNick = `${base}#${count}`;
+  } else {
+    usedNicks.set(base, 1);
+  }
+  return finalNick;
+}
+
+function releaseNick(nick) {
+  if (!nick) return;
+  const base = nick.split("#")[0];
+  if (usedNicks.has(base)) {
+    let count = usedNicks.get(base) - 1;
+    if (count <= 0) usedNicks.delete(base);
+    else usedNicks.set(base, count);
+  }
+}
+
 /* ===================================================
    1VS1 MODE
 =================================================== */
@@ -72,16 +99,15 @@ io.on("connection", socket => {
 
   /* === GESTIONE NICKNAME === */
   socket.on("setNickname", (nick) => {
-    if (!nick || nick.trim() === "") {
-      socket.nick = "Anon";
-    } else {
-      socket.nick = nick.trim();
-    }
-    socket.emit("nickConfirmed", socket.nick);
+    const finalNick = assignUniqueNick(nick);
+    socket.nick = finalNick;
+    socket.emit("nickConfirmed", finalNick);
   });
 
   socket.on("disconnect", () => {
+    releaseNick(socket.nick);
     io.emit("onlineCount", io.engine.clientsCount);
+
     if (waitingPlayer && waitingPlayer.id === socket.id) waitingPlayer = null;
 
     for (const gameId in games) {
@@ -98,7 +124,7 @@ io.on("connection", socket => {
   });
 
   socket.on("join1vs1", ({ nick, char }) => {
-    socket.nick = nick;
+    socket.nick = assignUniqueNick(nick);
     socket.char = char;
 
     if (!waitingPlayer) {
@@ -108,7 +134,7 @@ io.on("connection", socket => {
       const gameId = socket.id + "#" + waitingPlayer.id;
       const players = [
         { id: waitingPlayer.id, nick: waitingPlayer.nick, char: waitingPlayer.char, hp: 80, stunned: false, dice: 0 },
-        { id: socket.id, nick, char, hp: 80, stunned: false, dice: 0 }
+        { id: socket.id, nick: socket.nick, char, hp: 80, stunned: false, dice: 0 }
       ];
       games[gameId] = { id: gameId, players };
       for (const p of players) {
@@ -139,7 +165,7 @@ const nsp = io.of("/tournament");
 
 function createTournament() {
   const id = uuidv4();
-  tournaments[id] = { waiting: [], matches: {}, bracket: [] };
+  tournaments[id] = { id, waiting: [], matches: {}, bracket: [] };
   return id;
 }
 
@@ -255,16 +281,16 @@ nsp.on("connection", socket => {
 
   /* === GESTIONE NICKNAME anche qui === */
   socket.on("setNickname", (nick) => {
-    if (!nick || nick.trim() === "") {
-      socket.nick = "Anon";
-    } else {
-      socket.nick = nick.trim();
-    }
-    socket.emit("nickConfirmed", socket.nick);
+    const finalNick = assignUniqueNick(nick);
+    socket.nick = finalNick;
+    socket.emit("nickConfirmed", finalNick);
   });
 
   socket.on("joinTournament", ({ nick, char }) => {
     if (!nick || !char) return;
+
+    const finalNick = assignUniqueNick(nick);
+    socket.nick = finalNick;
 
     let tId = Object.keys(tournaments).find(id => tournaments[id].waiting.length < 8);
     if (!tId) tId = createTournament();
@@ -273,7 +299,7 @@ nsp.on("connection", socket => {
     const t = tournaments[tId];
     if (t.waiting.find(p => p.id === socket.id)) return;
 
-    const player = { id: socket.id, nick, char };
+    const player = { id: socket.id, nick: finalNick, char };
     t.waiting.push(player);
     socket.join(tId);
 
@@ -294,6 +320,7 @@ nsp.on("connection", socket => {
   });
 
   socket.on("disconnect", () => {
+    releaseNick(socket.nick);
     const tId = currentTournament;
     if (!tId) return;
     const t = tournaments[tId];
