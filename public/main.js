@@ -1,9 +1,8 @@
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
 // ---------- SOCKET.IO ----------
-const socket = io();
+const socket = io(); // stesso server principale
 const onlineCounter = document.getElementById("online");
-
 socket.on("onlineCount", (count) => {
   onlineCounter.textContent = `Online: ${count}`;
 });
@@ -12,26 +11,20 @@ socket.on("onlineCount", (count) => {
 const nicknameInput = document.getElementById("nickname");
 const confirmBtn = document.getElementById("confirm-nick");
 let nickConfirmed = false;
-let confirmedNick = null;
 
 confirmBtn.addEventListener("click", () => {
   const nick = nicknameInput.value.trim();
   if (!nick) return;
 
-  socket.emit("setNickname", nick); // invia al server per conferma
-});
-
-// Il server conferma il nick
-socket.on("nickConfirmed", finalNick => {
-  confirmedNick = finalNick;
   nickConfirmed = true;
-
-  localStorage.setItem("selectedNick", finalNick);
-
-  nicknameInput.value = finalNick;
-  nicknameInput.disabled = true;
   confirmBtn.disabled = true;
+  nicknameInput.disabled = true;
 
+  socket.emit("setNickname", nick);
+  // niente alert così non interrompe fullscreen
+});
+socket.on("nickConfirmed", finalNick => {
+  localStorage.setItem("selectedNick", finalNick);
   console.log("✅ Nick confermato dal server:", finalNick);
 });
 
@@ -41,8 +34,7 @@ let selectedChar = null;
 
 chars.forEach(c => {
   c.addEventListener("click", () => {
-    if (!nickConfirmed) return; // deve confermare nick prima
-
+    if (!nickConfirmed) return;
     chars.forEach(el => el.classList.remove("selected"));
     c.classList.add("selected");
     selectedChar = c.dataset.char;
@@ -56,20 +48,21 @@ chars.forEach(c => {
 document.getElementById("mode-1vs1").addEventListener("click", () => {
   if (!selectedChar || !nickConfirmed) return;
 
-  // Salva in localStorage i dati confermati dal server
-  localStorage.setItem("selectedNick", confirmedNick);
+  // usa il nick confermato dal server
+  // localStorage.setItem("selectedNick", nicknameInput.value.trim());
   localStorage.setItem("selectedChar", selectedChar);
 
-  // Vai alla pagina 1vs1
   window.location.href = "/1vs1.html";
 });
 
 document.getElementById("mode-tournament").addEventListener("click", () => {
   if (!selectedChar || !nickConfirmed) return;
 
-  localStorage.setItem("selectedNick", confirmedNick);
+  // salva dati per tour.js
+  // localStorage.setItem("selectedNick", nicknameInput.value.trim());
   localStorage.setItem("selectedChar", selectedChar);
 
+  // apri la pagina torneo
   window.location.href = "/tour.html";
 });
 
@@ -86,6 +79,7 @@ const music = new Audio("img/8.mp3");
 music.loop = true;
 music.volume = 0.5;
 
+// partenza musica al primo click sul container
 const container = document.getElementById("game-container");
 container.addEventListener("click", () => {
   music.play().catch(() => {});
