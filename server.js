@@ -1,4 +1,4 @@
-// server_parallel_tournaments.js
+// server.js
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -69,6 +69,16 @@ async function nextTurn1vs1(game, attackerIndex) {
 
 io.on("connection", socket => {
   io.emit("onlineCount", io.engine.clientsCount);
+
+  /* === GESTIONE NICKNAME === */
+  socket.on("setNickname", (nick) => {
+    if (!nick || nick.trim() === "") {
+      socket.nick = "Anon";
+    } else {
+      socket.nick = nick.trim();
+    }
+    socket.emit("nickConfirmed", socket.nick);
+  });
 
   socket.on("disconnect", () => {
     io.emit("onlineCount", io.engine.clientsCount);
@@ -177,9 +187,7 @@ function advanceWinner(tournamentId, matchId, winnerObj) {
     }
   }
 
-  // Rimuovo il match finito
   delete t.matches[matchId];
-
   emitBracket(tournamentId);
 
   if (brMatch.id === "F" && brMatch.winner) {
@@ -244,6 +252,16 @@ function startMatch(tournamentId, p1, p2, stage, matchId) {
 
 nsp.on("connection", socket => {
   let currentTournament = null;
+
+  /* === GESTIONE NICKNAME anche qui === */
+  socket.on("setNickname", (nick) => {
+    if (!nick || nick.trim() === "") {
+      socket.nick = "Anon";
+    } else {
+      socket.nick = nick.trim();
+    }
+    socket.emit("nickConfirmed", socket.nick);
+  });
 
   socket.on("joinTournament", ({ nick, char }) => {
     if (!nick || !char) return;
