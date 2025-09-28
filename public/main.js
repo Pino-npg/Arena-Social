@@ -23,6 +23,10 @@ confirmBtn.addEventListener("click", () => {
   socket.emit("setNickname", nick);
   // niente alert così non interrompe fullscreen
 });
+socket.on("nickConfirmed", finalNick => {
+  localStorage.setItem("selectedNick", finalNick);
+  console.log("✅ Nick confermato dal server:", finalNick);
+});
 
 // ---------- PERSONAGGI ----------
 const chars = document.querySelectorAll(".char");
@@ -44,7 +48,8 @@ chars.forEach(c => {
 document.getElementById("mode-1vs1").addEventListener("click", () => {
   if (!selectedChar || !nickConfirmed) return;
 
-  localStorage.setItem("selectedNick", nicknameInput.value.trim());
+  // usa il nick confermato dal server
+  // localStorage.setItem("selectedNick", nicknameInput.value.trim());
   localStorage.setItem("selectedChar", selectedChar);
 
   window.location.href = "/1vs1.html";
@@ -54,7 +59,7 @@ document.getElementById("mode-tournament").addEventListener("click", () => {
   if (!selectedChar || !nickConfirmed) return;
 
   // salva dati per tour.js
-  localStorage.setItem("selectedNick", nicknameInput.value.trim());
+  // localStorage.setItem("selectedNick", nicknameInput.value.trim());
   localStorage.setItem("selectedChar", selectedChar);
 
   // apri la pagina torneo
