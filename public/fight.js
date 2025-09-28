@@ -52,8 +52,8 @@ fullscreenBtn.addEventListener("click", async () => {
 });
 
 // ---------- INIZIO PARTITA ----------
-const nick = localStorage.getItem("selectedNick");
-const char = localStorage.getItem("selectedChar");
+const nick = localStorage.getItem("selectedNick") || "Anon";
+const char = localStorage.getItem("selectedChar") || "Hero";
 socket.emit("join1vs1", { nick, char });
 
 // ---------- STUN ----------
@@ -84,27 +84,31 @@ socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
 
 // ---------- FUNZIONI ----------
 function updateGame(game) {
-  player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${game.player1.hp}`;
-  player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${game.player2.hp}`;
-  player1HpBar.style.width = `${Math.max(game.player1.hp, 0)}%`;
-  player2HpBar.style.width = `${Math.max(game.player2.hp, 0)}%`;
+  // Identifica chi è player1 (me) e player2 (avversario)
+  const me = (game.player1.id === socket.id) ? game.player1 : game.player2;
+  const opp = (game.player1.id === socket.id) ? game.player2 : game.player1;
 
-  if (game.player1.dice) handleDice(0, game);
-  if (game.player2.dice) handleDice(1, game);
+  player1Name.textContent = `${me.nick} (${me.char}) HP: ${me.hp}`;
+  player2Name.textContent = `${opp.nick} (${opp.char}) HP: ${opp.hp}`;
 
-  updateCharacterImage(game.player1, 0);
-  updateCharacterImage(game.player2, 1);
+  player1HpBar.style.width = `${Math.max(me.hp, 0)}%`;
+  player2HpBar.style.width = `${Math.max(opp.hp, 0)}%`;
+
+  updateCharacterImage(me, 0);
+  updateCharacterImage(opp, 1);
+
+  if (me.dice) handleDice(0, me, opp);
+  if (opp.dice) handleDice(1, opp, me);
 }
 
-function handleDice(playerIndex, game) {
-  const player = playerIndex === 0 ? game.player1 : game.player2;
-  let finalDmg = player.dmg;
+function handleDice(playerIndex, player, opponent) {
+  let finalDmg = player.dmg || player.dice;
   if ((playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2)) {
     finalDmg = Math.max(0, player.dice - 1);
     addEventMessage(`${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
     if (playerIndex === 0) stunned.p1 = false; else stunned.p2 = false;
   } else if (player.dice === 8) {
-    addEventMessage(`${player.nick} CRIT! ${player.dmg} damage dealt ⚡💥`);
+    addEventMessage(`${player.nick} CRIT! ${finalDmg} damage dealt ⚡💥`);
     if (playerIndex === 0) stunned.p2 = true; else stunned.p1 = true;
   } else {
     addEventMessage(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);

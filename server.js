@@ -88,9 +88,10 @@ io.on("connection", socket => {
   });
 
   socket.on("join1vs1", ({ nick, char }) => {
-    socket.nick = nick;
-    socket.char = char;
-
+    // Salva nick e char dal client
+    socket.nick = nick || "Anon";
+    socket.char = char || "Hero";
+  
     if (!waitingPlayer) {
       waitingPlayer = socket;
       socket.emit("waiting", "Waiting for opponent...");
@@ -98,19 +99,21 @@ io.on("connection", socket => {
       const gameId = socket.id + "#" + waitingPlayer.id;
       const players = [
         { id: waitingPlayer.id, nick: waitingPlayer.nick, char: waitingPlayer.char, hp: 80, stunned: false, dice: 0 },
-        { id: socket.id, nick, char, hp: 80, stunned: false, dice: 0 }
+        { id: socket.id, nick: socket.nick, char: socket.char, hp: 80, stunned: false, dice: 0 }
       ];
       games[gameId] = { id: gameId, players };
+  
       for (const p of players) {
         const opp = players.find(pl => pl.id !== p.id);
-        io.to(p.id).emit("gameStart", { player1: p, player2: opp });
+        io.to(p.id).emit("gameStart", { players });
       }
+  
       const first = Math.floor(Math.random() * 2);
       setTimeout(() => nextTurn1vs1(games[gameId], first), 1000);
       waitingPlayer = null;
     }
   });
-
+  
   socket.on("chatMessage", text => {
     let game = Object.values(games).find(g => g.players.some(p => p.id === socket.id));
     if (!game) game = lastGames[socket.id];
