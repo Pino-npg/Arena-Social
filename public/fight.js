@@ -22,15 +22,27 @@ const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
 const eventBox = document.getElementById("event-messages");
 
-// Online count
-const onlineCountDisplay = document.createElement("div");
-onlineCountDisplay.style.position = "absolute";
-onlineCountDisplay.style.top = "10px";
-onlineCountDisplay.style.left = "10px";
-onlineCountDisplay.style.color = "gold";
-onlineCountDisplay.style.fontSize = "1.2rem";
-onlineCountDisplay.style.textShadow = "1px 1px 4px black";
-document.body.appendChild(onlineCountDisplay);
+// ---------- ONLINE & HOME ----------
+const onlineContainer = document.createElement("div");
+onlineContainer.style.position = "absolute";
+onlineContainer.style.top = "10px";
+onlineContainer.style.left = "10px";
+onlineContainer.style.color = "gold";
+onlineContainer.style.fontSize = "1.2rem";
+onlineContainer.style.textShadow = "1px 1px 4px black";
+
+const homeBtn = document.createElement("button");
+homeBtn.textContent = "Home";
+homeBtn.style.position = "absolute";
+homeBtn.style.top = "10px";
+homeBtn.style.left = "120px";
+homeBtn.style.fontSize = "1rem";
+homeBtn.style.padding = "4px 8px";
+homeBtn.style.cursor = "pointer";
+homeBtn.addEventListener("click", () => window.location.href = "https://fight-game-server.onrender.com/");
+
+document.body.appendChild(onlineContainer);
+document.body.appendChild(homeBtn);
 
 // ---------- MUSICA ----------
 const musicBattle = new Audio("img/9.mp3");
@@ -38,14 +50,13 @@ musicBattle.loop = true;
 musicBattle.volume = 0.5;
 
 let winnerMusic = new Audio();
-winnerMusic.loop = false;
+winnerMusic.loop = true; // loop vincitore
 winnerMusic.volume = 0.7;
 
 function unlockAudio() {
   if (musicBattle.paused) musicBattle.play().catch(()=>{});
   if (winnerMusic.paused) winnerMusic.play().catch(()=>{});
 }
-
 window.addEventListener("click", unlockAudio, { once: true });
 window.addEventListener("touchstart", unlockAudio, { once: true });
 
@@ -66,9 +77,7 @@ socket.emit("join1vs1", { nick, char });
 let stunned = { p1: false, p2: false };
 
 // ---------- SOCKET EVENTS ----------
-socket.on("onlineCount", count => {
-  onlineCountDisplay.textContent = `Online: ${count}`;
-});
+socket.on("onlineCount", count => onlineContainer.textContent = `Online: ${count}`);
 
 socket.on("waiting", msg => addEventMessage(msg));
 
@@ -78,14 +87,11 @@ socket.on("1vs1Update", game => updateGame(game));
 socket.on("gameOver", ({ winnerNick, winnerChar }) => {
   addEventMessage(`🏆 ${winnerNick} has won the battle!`);
   playWinnerMusic(winnerChar);
-  gameOverFlag = true; // partita finita
-  // ⚡ chat rimane attiva
 });
 
 // ---------- CHAT ----------
 chatInput.addEventListener("keydown", e => {
   if(e.key === "Enter" && e.target.value.trim() !== "") {
-    // Invia sempre messaggio anche se gameOver
     socket.emit("chatMessage", e.target.value);
     e.target.value = "";
   }
@@ -95,8 +101,8 @@ socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
 
 // ---------- FUNZIONI ----------
 function updateGame(game) {
-  player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${game.player1.hp}`;
-  player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${game.player2.hp}`;
+  player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${game.player1.hp}/80`;
+  player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${game.player2.hp}/80`;
 
   player1HpBar.style.width = `${Math.max(game.player1.hp,0)}%`;
   player2HpBar.style.width = `${Math.max(game.player2.hp,0)}%`;
@@ -110,18 +116,19 @@ function updateGame(game) {
 
 function handleDice(playerIndex, game) {
   const player = playerIndex === 0 ? game.player1 : game.player2;
-  let finalDmg = player.dmg;
-  let type = "damage";
+  const oppStunned = playerIndex === 0 ? stunned.p2 : stunned.p1;
+  let finalDmg = player.dice;
 
-  if ((playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2)) {
+  if (oppStunned) {
     finalDmg = Math.max(0, player.dice - 1);
     addEventMessage(`${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
-    if (playerIndex === 0) stunned.p1 = false; else stunned.p2 = false;
+    if (playerIndex === 0) stunned.p2 = false;
+    else stunned.p1 = false;
   } 
   else if (player.dice === 8) {
-    type = "crit";
-    addEventMessage(`${player.nick} CRIT! ${player.dmg} damage dealt ⚡💥`);
-    if (playerIndex === 0) stunned.p2 = true; else stunned.p1 = true;
+    addEventMessage(`${player.nick} CRIT! ${player.dice} damage dealt ⚡💥`);
+    if (playerIndex === 0) stunned.p2 = true;
+    else stunned.p1 = true;
   } 
   else {
     addEventMessage(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);
