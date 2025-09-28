@@ -2,8 +2,6 @@ import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
 const socket = io("/tournament");
 
-
-
 // ---------- DOM ----------
 const battleArea = document.getElementById("battle-area");
 const chatMessages = document.getElementById("chat-messages");
@@ -93,7 +91,6 @@ function getCharImage(char,hp=100){
 // ---------- JOIN TOURNAMENT ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
-
 if(!nick || !char){
   alert("Nickname o personaggio mancanti. Torna alla home.");
   window.location.href = "/";
@@ -101,6 +98,7 @@ if(!nick || !char){
   console.log("✅ Tournament joining with:", nick, char);
   socket.emit("joinTournament",{ nick,char });
 }
+
 // ---------- WAITING ----------
 socket.on("waitingCount", ({ count, required, players }) => {
   if(currentStage==="waiting") renderWaiting(count, required, players);
@@ -155,7 +153,7 @@ function setMusic(src){
   if(wasPlaying) musicBattle.play().catch(()=>{});
 }
 
-// ---------- MATCHES ----------
+// ---------- MATCH UI ----------
 function makePlayerCard(player){
   const div=document.createElement("div");
   div.className="player";

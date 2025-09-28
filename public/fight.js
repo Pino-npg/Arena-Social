@@ -41,11 +41,11 @@ let winnerMusic = new Audio();
 winnerMusic.loop = false;
 winnerMusic.volume = 0.7;
 
+// ---------- AUDIO UNLOCK ----------
 function unlockAudio() {
   if (musicBattle.paused) musicBattle.play().catch(()=>{});
   if (winnerMusic.paused) winnerMusic.play().catch(()=>{});
 }
-
 window.addEventListener("click", unlockAudio, { once: true });
 window.addEventListener("touchstart", unlockAudio, { once: true });
 
@@ -62,7 +62,6 @@ const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
 
 if(!nick || !char){
-  // mostri errore o ritorni alla home
   alert("Nickname o personaggio non selezionati. Torna alla home.");
   window.location.href = "/";
 } else {
@@ -70,7 +69,7 @@ if(!nick || !char){
   socket.emit("join1vs1", { nick, char });
 }
 
-// ---------- GESTIONE STUN ----------
+// ---------- STUN ----------
 let stunned = { p1: false, p2: false };
 
 // ---------- SOCKET EVENTS ----------
@@ -86,14 +85,12 @@ socket.on("1vs1Update", game => updateGame(game));
 socket.on("gameOver", ({ winnerNick, winnerChar }) => {
   addEventMessage(`🏆 ${winnerNick} has won the battle!`);
   playWinnerMusic(winnerChar);
-  gameOverFlag = true; // partita finita
-  // ⚡ chat rimane attiva
+  gameOverFlag = true;
 });
 
 // ---------- CHAT ----------
 chatInput.addEventListener("keydown", e => {
   if(e.key === "Enter" && e.target.value.trim() !== "") {
-    // Invia sempre messaggio anche se gameOver
     socket.emit("chatMessage", e.target.value);
     e.target.value = "";
   }
@@ -177,5 +174,4 @@ function playWinnerMusic(winnerChar) {
   winnerMusic.play().catch(err => console.log("⚠️ Audio non avviato automaticamente:", err));
 }
 
-// ---------- FIX SCROLL MOBILE ----------
 document.body.style.overflowY = "auto";
