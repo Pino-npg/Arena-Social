@@ -52,6 +52,10 @@ const games = {};
 let waitingPlayer = null;
 const lastGames = {};
 
+function rollDice() {
+  return Math.floor(Math.random() * 8) + 1; // 1-8
+}
+
 async function nextTurn1vs1(game, attackerIndex) {
   const defenderIndex = attackerIndex === 0 ? 1 : 0;
   const attacker = game.players[attackerIndex];
@@ -61,20 +65,27 @@ async function nextTurn1vs1(game, attackerIndex) {
   let damage = realRoll;
   let logMsg = "";
 
+  // ---------- STUN ----------
   if (attacker.stunned) {
     damage = Math.max(1, damage - 1);
     attacker.stunned = false;
     logMsg = `${attacker.nick} is stunned! Rolled ${realRoll} → deals only ${damage} 😵‍💫`;
-  } else if (realRoll === 8) {
+  } 
+  // ---------- CRIT ----------
+  else if (realRoll === 8) {
     defender.stunned = true;
     logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥`;
-  } else {
+  } 
+  else {
     logMsg = `${attacker.nick} rolls ${realRoll} and deals ${damage} 💥`;
   }
 
-  defender.hp = Math.max(0, defender.hp - damage);
+  // ---------- APPLICA DANNI ----------
+  defender.hp = Math.max(0, Math.min(defender.hp - damage, 80)); // HP max 80
+  attacker.hp = Math.min(attacker.hp, 80); // nel caso ci sia healing futuro
   attacker.dice = damage;
 
+  // ---------- INVIO DATI ----------
   for (const p of game.players) {
     const me = game.players.find(pl => pl.id === p.id);
     const opp = game.players.find(pl => pl.id !== p.id);
@@ -82,6 +93,7 @@ async function nextTurn1vs1(game, attackerIndex) {
     io.to(p.id).emit("log", logMsg);
   }
 
+  // ---------- CHECK GAME OVER ----------
   if (defender.hp === 0) {
     for (const p of game.players) {
       io.to(p.id).emit("gameOver", { winnerNick: attacker.nick, winnerChar: attacker.char });
@@ -91,12 +103,17 @@ async function nextTurn1vs1(game, attackerIndex) {
     return;
   }
 
+  // ---------- PROSSIMO TURNO ----------
   setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
 }
 
 io.on("connection", socket => {
   io.emit("onlineCount", io.engine.clientsCount);
 
+  socket.on("disconnect", () => {
+    io.emit("onlineCount", io.engine.clientsCount);
+  });
+});
   /* === GESTIONE NICKNAME === */
   socket.on("setNickname", (nick) => {
     const finalNick = assignUniqueNick(nick);
@@ -154,7 +171,7 @@ io.on("connection", socket => {
     for (const p of game.players) {
       io.to(p.id).emit("chatMessage", { nick: socket.nick, text });
     }
-  });
+    
 });
 
 /* ===================================================

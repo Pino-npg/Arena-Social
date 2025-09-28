@@ -23,26 +23,11 @@ const chatInput = document.getElementById("chat-input");
 const eventBox = document.getElementById("event-messages");
 
 // ---------- ONLINE & HOME ----------
-const onlineContainer = document.createElement("div");
-onlineContainer.style.position = "absolute";
-onlineContainer.style.top = "10px";
-onlineContainer.style.left = "10px";
-onlineContainer.style.color = "gold";
-onlineContainer.style.fontSize = "1.2rem";
-onlineContainer.style.textShadow = "1px 1px 4px black";
-
-const homeBtn = document.createElement("button");
-homeBtn.textContent = "Home";
-homeBtn.style.position = "absolute";
-homeBtn.style.top = "10px";
-homeBtn.style.left = "120px";
-homeBtn.style.fontSize = "1rem";
-homeBtn.style.padding = "4px 8px";
-homeBtn.style.cursor = "pointer";
-homeBtn.addEventListener("click", () => window.location.href = "https://fight-game-server.onrender.com/");
-
-document.body.appendChild(onlineContainer);
-document.body.appendChild(homeBtn);
+const onlineCountDisplay = document.getElementById("onlineCount");
+const homeBtn = document.getElementById("homeBtn");
+homeBtn.addEventListener("click", () => {
+  window.location.href = "https://fight-game-server.onrender.com/";
+});
 
 // ---------- MUSICA ----------
 const musicBattle = new Audio("img/9.mp3");
@@ -77,7 +62,7 @@ socket.emit("join1vs1", { nick, char });
 let stunned = { p1: false, p2: false };
 
 // ---------- SOCKET EVENTS ----------
-socket.on("onlineCount", count => onlineContainer.textContent = `Online: ${count}`);
+socket.on("onlineCount", count => onlineCountDisplay.textContent = `Online: ${count}`);
 
 socket.on("waiting", msg => addEventMessage(msg));
 
@@ -101,11 +86,15 @@ socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
 
 // ---------- FUNZIONI ----------
 function updateGame(game) {
-  player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${game.player1.hp}/80`;
-  player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${game.player2.hp}/80`;
+  // Limite HP massimo 80
+  const hp1 = Math.min(game.player1.hp, 80);
+  const hp2 = Math.min(game.player2.hp, 80);
 
-  player1HpBar.style.width = `${Math.max(game.player1.hp,0)}%`;
-  player2HpBar.style.width = `${Math.max(game.player2.hp,0)}%`;
+  player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${hp1}/80`;
+  player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${hp2}/80`;
+
+  player1HpBar.style.width = `${hp1}%`;
+  player2HpBar.style.width = `${hp2}%`;
 
   if(game.player1.dice) handleDice(0, game);
   if(game.player2.dice) handleDice(1, game);
@@ -145,7 +134,7 @@ function showDice(playerIndex, value){
 }
 
 function updateCharacterImage(player,index){
-  let hp = player.hp;
+  let hp = Math.min(player.hp, 80);
   let src = `img/${player.char}`;
   if(hp<=0) src+='0';
   else if(hp<=20) src+='20';
