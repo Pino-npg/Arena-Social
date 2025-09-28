@@ -35,7 +35,7 @@ musicBattle.loop = true;
 musicBattle.volume = 0.5;
 
 let winnerMusic = new Audio();
-winnerMusic.loop = true; // loop vincitore
+winnerMusic.loop = true; 
 winnerMusic.volume = 0.7;
 
 function unlockAudio() {
@@ -56,9 +56,8 @@ fullscreenBtn.addEventListener("click", async () => {
 // ---------- INIZIO PARTITA ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
-// chiede al server di entrare in una room privata di match
 socket.emit("join1vs1", { nick, char }, roomId => {
-  socket.roomId = roomId; // salvo la stanza del match
+  socket.roomId = roomId;
 });
 
 // ---------- GESTIONE STUN ----------
@@ -66,12 +65,10 @@ let stunned = { p1: false, p2: false };
 
 // ---------- SOCKET EVENTS ----------
 socket.on("onlineCount", count => onlineCountDisplay.textContent = `Online: ${count}`);
-
 socket.on("waiting", msg => addEventMessage(msg));
 
-// la partita parte solo se è la mia room
 socket.on("gameStart", (roomId, game) => {
-  socket.roomId = roomId;  // salva la stanza
+  socket.roomId = roomId;
   updateGame(game);
 });
 
@@ -95,28 +92,25 @@ chatInput.addEventListener("keydown", e => {
 });
 
 socket.on("chatMessage", data => {
-  if (data.roomId === socket.roomId) { // filtro solo i messaggi della mia room
+  if (data.roomId === socket.roomId) {
     addChatMessage(`${data.nick}: ${data.text}`);
   }
 });
 
 // ---------- FUNZIONI ----------
 function updateGame(game) {
-  const maxHp = 80; // HP massimo
+  const maxHp = 80;
   const hp1 = Math.min(game.player1.hp, maxHp);
   const hp2 = Math.min(game.player2.hp, maxHp);
 
   player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${hp1}/${maxHp}`;
   player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${hp2}/${maxHp}`;
 
-  // Corretto: barra al 100% quando hp = 80
   player1HpBar.style.width = `${(hp1 / maxHp) * 100}%`;
   player2HpBar.style.width = `${(hp2 / maxHp) * 100}%`;
 
-  // client.js
-// rimuovi la parte inside updateGame:
-if(game.player1.dice) handleDice(0, game);
-if(game.player2.dice) handleDice(1, game);
+  if(game.player1.dice) handleDice(0, game);
+  if(game.player2.dice) handleDice(1, game);
 
   updateCharacterImage(game.player1, 0);
   updateCharacterImage(game.player2, 1);
@@ -164,18 +158,24 @@ function updateCharacterImage(player,index){
   else player2CharImg.src=src;
 }
 
+// ---------- DOPPI EVENTI ----------
+const lastEventMessages = [];
+function addEventMessage(text) {
+  if (lastEventMessages[lastEventMessages.length - 1] === text) return;
+  lastEventMessages.push(text);
+  if (lastEventMessages.length > 5) lastEventMessages.shift();
+
+  const msg = document.createElement("div");
+  msg.textContent = text;
+  eventBox.appendChild(msg);
+  eventBox.scrollTop = eventBox.scrollHeight;
+}
+
 function addChatMessage(text) {
   const msg = document.createElement("div");
   msg.textContent = text;
   chatMessages.appendChild(msg);
   chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-function addEventMessage(text) {
-  const msg = document.createElement("div");
-  msg.textContent = text;
-  eventBox.appendChild(msg);
-  eventBox.scrollTop = eventBox.scrollHeight;
 }
 
 function playWinnerMusic(winnerChar) {
