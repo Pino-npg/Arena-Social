@@ -56,9 +56,13 @@ fullscreenBtn.addEventListener("click", async () => {
 // ---------- INIZIO PARTITA ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
+
 socket.emit("join1vs1", { nick, char }, roomId => {
   socket.roomId = roomId;
 });
+
+// ---------- GESTIONE STUN ----------
+let stunned = { p1: false, p2: false };
 
 // ---------- SOCKET EVENTS ----------
 socket.on("onlineCount", count => onlineCountDisplay.textContent = `Online: ${count}`);
@@ -73,7 +77,7 @@ socket.on("1vs1Update", (roomId, game) => {
   if (roomId === socket.roomId) updateGame(game);
 });
 
-socket.on("log", msg => addEventMessage(msg)); // log dal server
+socket.on("log", msg => addEventMessage(msg));
 
 socket.on("gameOver", (roomId, { winnerNick, winnerChar }) => {
   if (roomId === socket.roomId) {
@@ -84,7 +88,7 @@ socket.on("gameOver", (roomId, { winnerNick, winnerChar }) => {
 
 // ---------- CHAT ----------
 chatInput.addEventListener("keydown", e => {
-  if(e.key === "Enter" && e.target.value.trim() !== "" && socket.roomId) {
+  if (e.key === "Enter" && e.target.value.trim() !== "" && socket.roomId) {
     socket.emit("chatMessage", { roomId: socket.roomId, text: e.target.value });
     e.target.value = "";
   }
@@ -106,6 +110,7 @@ function updateGame(game) {
   player1HpBar.style.width = `${(hp1 / maxHp) * 100}%`;
   player2HpBar.style.width = `${(hp2 / maxHp) * 100}%`;
 
+  // MOSTRA DADI (senza handleDice interno)
   showDice(0, game.player1.dice);
   showDice(1, game.player2.dice);
 
@@ -113,23 +118,23 @@ function updateGame(game) {
   updateCharacterImage(game.player2, 1);
 }
 
-function showDice(playerIndex, value){
+function showDice(playerIndex, value) {
   const diceEl = playerIndex === 0 ? diceP1 : diceP2;
   diceEl.src = `img/dice${value}.png`;
   diceEl.style.width = "80px";
   diceEl.style.height = "80px";
 }
 
-function updateCharacterImage(player,index){
+function updateCharacterImage(player, index) {
   let hp = Math.min(player.hp, 80);
   let src = `img/${player.char}`;
-  if(hp<=0) src+='0';
-  else if(hp<=20) src+='20';
-  else if(hp<=40) src+='40';
-  else if(hp<=60) src+='60';
-  src+='.png';
-  if(index===0) player1CharImg.src=src;
-  else player2CharImg.src=src;
+  if (hp <= 0) src += '0';
+  else if (hp <= 20) src += '20';
+  else if (hp <= 40) src += '40';
+  else if (hp <= 60) src += '60';
+  src += '.png';
+  if (index === 0) player1CharImg.src = src;
+  else player2CharImg.src = src;
 }
 
 function addChatMessage(text) {
