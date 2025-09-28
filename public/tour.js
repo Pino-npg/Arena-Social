@@ -2,9 +2,7 @@ import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
 const socket = io("/tournament");
 
-// ---------- RESET LOCALSTORAGE ----------
-localStorage.removeItem("selectedNick");
-localStorage.removeItem("selectedChar");
+
 
 // ---------- DOM ----------
 const battleArea = document.getElementById("battle-area");
@@ -95,11 +93,14 @@ function getCharImage(char,hp=100){
 // ---------- JOIN TOURNAMENT ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
-if(nick && char){
-  socket.emit("joinTournament",{ nick,char });
-  renderWaiting(0,8,[]);
-} else battleArea.innerHTML="<h2>Error: Missing nickname or character. Return to home page.</h2>";
 
+if(!nick || !char){
+  alert("Nickname o personaggio mancanti. Torna alla home.");
+  window.location.href = "/";
+} else {
+  console.log("✅ Tournament joining with:", nick, char);
+  socket.emit("joinTournament",{ nick,char });
+}
 // ---------- WAITING ----------
 socket.on("waitingCount", ({ count, required, players }) => {
   if(currentStage==="waiting") renderWaiting(count, required, players);

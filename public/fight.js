@@ -1,9 +1,7 @@
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
 const socket = io();
-// ---------- RESET LOCALSTORAGE ----------
-localStorage.removeItem("selectedNick");
-localStorage.removeItem("selectedChar");
+
 // ---------- ELEMENTI ----------
 const player1Box = document.getElementById("player1");
 const player2Box = document.getElementById("player2");
@@ -62,7 +60,15 @@ fullscreenBtn.addEventListener("click", async () => {
 // ---------- INIZIO PARTITA ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
-socket.emit("join1vs1", { nick, char });
+
+if(!nick || !char){
+  // mostri errore o ritorni alla home
+  alert("Nickname o personaggio non selezionati. Torna alla home.");
+  window.location.href = "/";
+} else {
+  console.log("✅ 1vs1 joining with:", nick, char);
+  socket.emit("join1vs1", { nick, char });
+}
 
 // ---------- GESTIONE STUN ----------
 let stunned = { p1: false, p2: false };
