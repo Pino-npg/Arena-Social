@@ -247,28 +247,47 @@ nsp.on("connection", socket => {
 
   socket.on("joinTournament", ({ nick, char }) => {
     if (!nick || !char) return;
-
+  
+    // Normalizziamo nickname (no spazi e trim)
+    let baseNick = nick.trim();
+    let finalNick = baseNick;
+  
+    // Controllo duplicati nello stesso torneo
+    let counter = 1;
+    while (
+      Object.values(tournaments)
+        .flatMap(t => [...t.waiting, ...Object.values(t.matches).flatMap(m => m.players)])
+        .some(p => p.nick === finalNick)
+    ) {
+      counter++;
+      finalNick = `${baseNick}#${counter}`;
+    }
+  
+    socket.nick = finalNick;
+    socket.char = char;
+  
     let tId = Object.keys(tournaments).find(id => tournaments[id].waiting.length < 8);
     if (!tId) tId = createTournament();
-
+  
     currentTournament = tId;
     const t = tournaments[tId];
     if (t.waiting.find(p => p.id === socket.id)) return;
-
-    const player = { id: socket.id, nick, char };
+  
+    const player = { id: socket.id, nick: socket.nick, char };
     t.waiting.push(player);
     socket.join(tId);
-
+  
     broadcastWaiting(tId);
-
+  
     if (t.waiting.length === 8 && t.bracket.length === 0) {
       const first8 = t.waiting.slice(0, 8);
       nsp.to(tId).emit("waitingStart", { players: first8.map(p => p.nick), total: 8 });
       generateBracket(first8, t);
-      t.bracket.filter(m => m.stage === "quarter").forEach(m => startMatch(tId, m.player1, m.player2, m.stage, m.id));
+      t.bracket
+        .filter(m => m.stage === "quarter")
+        .forEach(m => startMatch(tId, m.player1, m.player2, m.stage, m.id));
     }
   });
-
   socket.on("chatMessage", text => {
     const tId = currentTournament;
     if (!tId) return;

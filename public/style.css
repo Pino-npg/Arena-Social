@@ -51,6 +51,23 @@ body.fight #game-container {
 }
 #rules-btn:hover { transform: scale(1.2); color: gold; }
 
+#pino-btn {
+  position: absolute;
+  top: 20px;
+  left: 70px; /* accanto a Rules */
+  padding: 5px 10px;
+  background: crimson;
+  color: white;
+  border-radius: 5px;
+  font-size: 1rem;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.2s;
+}
+#pino-btn:hover {
+  background: darkred;
+  transform: scale(1.1);
+}
+
 #online-box, #fullscreen-btn {
   position: absolute;
   top: 20px;
