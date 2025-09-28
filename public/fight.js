@@ -119,15 +119,20 @@ function updateGame(game) {
 
 function handleDice(playerIndex, game) {
   const player = playerIndex === 0 ? game.player1 : game.player2;
-  const oppStunned = playerIndex === 0 ? stunned.p2 : stunned.p1;
+  const opponentIndex = playerIndex === 0 ? 1 : 0;
+  const opponent = opponentIndex === 0 ? game.player1 : game.player2;
+
   let finalDmg = player.dice;
 
-  if (oppStunned) {
+  // Se il player è stunnato → danno ridotto di 1
+  const isPlayerStunned = (playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2);
+  if (isPlayerStunned) {
     finalDmg = Math.max(0, player.dice - 1);
     addEventMessageSingle(player.nick, `${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
-    if (playerIndex === 0) stunned.p2 = false;
-    else stunned.p1 = false;
+    if (playerIndex === 0) stunned.p1 = false;
+    else stunned.p2 = false;
   } 
+  // Se il player fa CRIT → stunna l’avversario
   else if (player.dice === 8) {
     addEventMessageSingle(player.nick, `${player.nick} CRIT! ${player.dice} damage dealt ⚡💥`);
     if (playerIndex === 0) stunned.p2 = true;
@@ -139,6 +144,7 @@ function handleDice(playerIndex, game) {
 
   showDice(playerIndex, player.dice);
 }
+
 
 function showDice(playerIndex, value){
   const diceEl = playerIndex === 0 ? diceP1 : diceP2;
@@ -189,7 +195,10 @@ function addChatMessage(text) {
 
 // ---------- AUDIO VINCITORE ----------
 function playWinnerMusic(winnerChar) {
+  // stoppa musica battaglia
   musicBattle.pause();
+  musicBattle.currentTime = 0;
+
   winnerMusic.src = `img/${winnerChar}.mp3`;
   winnerMusic.play().catch(err => console.log("⚠️ Audio non avviato automaticamente:", err));
 }
