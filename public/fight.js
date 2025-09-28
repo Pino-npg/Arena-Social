@@ -123,17 +123,17 @@ function handleDice(playerIndex, game) {
 
   if (oppStunned) {
     finalDmg = Math.max(0, player.dice - 1);
-    addEventMessage(`${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
+    addEventMessage(player.nick, `${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
     if (playerIndex === 0) stunned.p2 = false;
     else stunned.p1 = false;
   } 
   else if (player.dice === 8) {
-    addEventMessage(`${player.nick} CRIT! ${player.dice} damage dealt ⚡💥`);
+    addEventMessage(player.nick, `${player.nick} CRIT! ${player.dice} damage dealt ⚡💥`);
     if (playerIndex === 0) stunned.p2 = true;
     else stunned.p1 = true;
   } 
   else {
-    addEventMessage(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);
+    addEventMessage(player.nick, `${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);
   }
 
   showDice(playerIndex, player.dice);
@@ -158,12 +158,11 @@ function updateCharacterImage(player,index){
   else player2CharImg.src=src;
 }
 
-// ---------- DOPPI EVENTI ----------
-const lastEventMessages = [];
-function addEventMessage(text) {
-  if (lastEventMessages[lastEventMessages.length - 1] === text) return;
-  lastEventMessages.push(text);
-  if (lastEventMessages.length > 5) lastEventMessages.shift();
+// ---------- DOPPI EVENTI PER SINGOLO GIOCATORE ----------
+const lastEventMessagesPerPlayer = {};
+function addEventMessage(playerNick, text) {
+  if (lastEventMessagesPerPlayer[playerNick] === text) return;
+  lastEventMessagesPerPlayer[playerNick] = text;
 
   const msg = document.createElement("div");
   msg.textContent = text;
