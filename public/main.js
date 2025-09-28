@@ -1,7 +1,7 @@
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
 // ---------- SOCKET.IO ----------
-const socket = io(); // connessione al server
+const socket = io(); // stesso server principale
 const onlineCounter = document.getElementById("online");
 socket.on("onlineCount", (count) => {
   onlineCounter.textContent = `Online: ${count}`;
@@ -12,7 +12,6 @@ const nicknameInput = document.getElementById("nickname");
 const confirmBtn = document.getElementById("confirm-nick");
 let nickConfirmed = false;
 
-// Invio del nickname al server
 confirmBtn.addEventListener("click", () => {
   const nick = nicknameInput.value.trim();
   if (!nick) return;
@@ -21,11 +20,9 @@ confirmBtn.addEventListener("click", () => {
   confirmBtn.disabled = true;
   nicknameInput.disabled = true;
 
-  // invia al server per conferma
   socket.emit("setNickname", nick);
+  // niente alert così non interrompe fullscreen
 });
-
-// Il server risponde con il nickname definitivo
 socket.on("nickConfirmed", finalNick => {
   localStorage.setItem("selectedNick", finalNick);
   console.log("✅ Nick confermato dal server:", finalNick);
@@ -37,14 +34,11 @@ let selectedChar = null;
 
 chars.forEach(c => {
   c.addEventListener("click", () => {
-    if (!nickConfirmed) return; // non permettere selezione prima del nick
-
-    // evidenzia la selezione
+    if (!nickConfirmed) return;
     chars.forEach(el => el.classList.remove("selected"));
     c.classList.add("selected");
     selectedChar = c.dataset.char;
 
-    // abilita i pulsanti modalità solo se nick e char sono confermati
     document.getElementById("mode-1vs1").disabled = false;
     document.getElementById("mode-tournament").disabled = false;
   });
@@ -54,17 +48,21 @@ chars.forEach(c => {
 document.getElementById("mode-1vs1").addEventListener("click", () => {
   if (!selectedChar || !nickConfirmed) return;
 
-  // salva nickname e char confermati
+  // usa il nick confermato dal server
+  // localStorage.setItem("selectedNick", nicknameInput.value.trim());
   localStorage.setItem("selectedChar", selectedChar);
 
-  // passa alla pagina 1vs1
   window.location.href = "/1vs1.html";
 });
 
 document.getElementById("mode-tournament").addEventListener("click", () => {
   if (!selectedChar || !nickConfirmed) return;
 
+  // salva dati per tour.js
+  // localStorage.setItem("selectedNick", nicknameInput.value.trim());
   localStorage.setItem("selectedChar", selectedChar);
+
+  // apri la pagina torneo
   window.location.href = "/tour.html";
 });
 
@@ -89,6 +87,7 @@ container.addEventListener("click", () => {
 
 // ---------- FULLSCREEN ----------
 const fullscreenBtn = document.getElementById("fullscreen-btn");
+
 fullscreenBtn.addEventListener("click", async () => {
   if (!document.fullscreenElement) {
     try {
