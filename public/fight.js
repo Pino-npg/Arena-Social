@@ -52,9 +52,17 @@ fullscreenBtn.addEventListener("click", async () => {
 });
 
 // ---------- INIZIO PARTITA ----------
-const nick = localStorage.getItem("selectedNick") || "Anon";
-const char = localStorage.getItem("selectedChar") || "Hero";
-socket.emit("join1vs1", { nick, char });
+// Usa nickname e char confermati dal server
+const nick = localStorage.getItem("selectedNick");
+const char = localStorage.getItem("selectedChar");
+
+// Controlla che esistano altrimenti mostra errore
+if (!nick || !char) {
+  alert("❌ Nickname o personaggio non selezionato!");
+  window.location.href = "/"; // torna alla schermata principale
+} else {
+  socket.emit("join1vs1", { nick, char });
+}
 
 // ---------- STUN ----------
 let stunned = { p1: false, p2: false };
@@ -103,6 +111,7 @@ function updateGame(game) {
 
 function handleDice(playerIndex, player, opponent) {
   let finalDmg = player.dmg || player.dice;
+
   if ((playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2)) {
     finalDmg = Math.max(0, player.dice - 1);
     addEventMessage(`${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
@@ -113,6 +122,7 @@ function handleDice(playerIndex, player, opponent) {
   } else {
     addEventMessage(`${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);
   }
+
   showDice(playerIndex, player.dice);
 }
 
@@ -131,6 +141,7 @@ function updateCharacterImage(player, index) {
   else if (hp <= 40) src += '40';
   else if (hp <= 60) src += '60';
   src += '.png';
+
   if (index === 0) player1CharImg.src = src;
   else player2CharImg.src = src;
 }
