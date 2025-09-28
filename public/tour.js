@@ -12,6 +12,18 @@ const overlay = document.getElementById("tournament-overlay");
 const bracketContainer = document.getElementById("bracket");
 const closeOverlayBtn = document.getElementById("close-overlay");
 
+document.addEventListener("DOMContentLoaded", () => {
+  const onlineCountEl = document.getElementById("online-count");
+  const homeBtn = document.getElementById("home-btn");
+
+  socket.on("onlineCount", count => {
+    onlineCountEl.textContent = `Online: ${count}`;
+  });
+
+  homeBtn.addEventListener("click", () => {
+    window.location.href = "https://fight-game-server.onrender.com/";
+  });
+});
 // ---------- State ----------
 let matchUI = {};
 let currentStage = "waiting";
@@ -211,6 +223,8 @@ function renderMatchCard(match){
 }
 
 // ---------- Damage handling (crit / stun / dice) ----------
+const lastEventMessagesPerPlayer = {}; // evita doppi messaggi per player
+
 function handleDamage(match){
   if(!match?.id || !matchUI[match.id]) return;
   const refs = matchUI[match.id];
@@ -220,25 +234,41 @@ function handleDamage(match){
     const ref = i===0 ? refs.p1 : refs.p2;
     if(!player) return;
 
-    let dmg = player.dmg ?? 0;
-    const diceDisplay = player.dice ?? 1;
+    let dmg = player.dice ?? 0;          // danno calcolato
+    const diceDisplay = player.dice ?? 1; // valore reale dado
 
+    // gestione stun
     if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
-      dmg = Math.max(0,dmg-1);
-      addEventMessage(`${player.nick} is stunned! Deals only ${dmg} damage 😵‍💫`);
+      const finalDmg = Math.max(0, dmg - 1);
+      addEventMessageSingle(player.nick, `${player.nick} is stunned! Rolled ${diceDisplay} → deals only ${finalDmg} 😵‍💫`);
+      dmg = finalDmg;
       if(i===0) stunned.p1=false; else stunned.p2=false;
-    } else if(player.dice === 8){
-      addEventMessage(`${player.nick} CRIT! ${dmg} damage ⚡💥`);
+    } 
+    // gestione crit
+    else if(player.dice === 8){
+      addEventMessageSingle(player.nick, `${player.nick} CRIT! Rolled ${diceDisplay} → deals ${dmg} ⚡💥`);
       if(i===0) stunned.p2=true; else stunned.p1=true;
-    } else {
-      addEventMessage(`${player.nick} rolls ${diceDisplay} and deals ${dmg} damage 💥`);
+    } 
+    // danno normale
+    else {
+      addEventMessageSingle(player.nick, `${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`);
     }
 
-    ref.label.textContent=`${player.nick} (${player.char}) HP: ${player.hp}`;
-    ref.hp.style.width=Math.max(0,player.hp)+"%";
+    // aggiorna UI
+    ref.label.textContent=`${player.nick} (${player.char}) HP: ${player.hp ?? 0}`;
+    ref.hp.style.width=Math.max(0,player.hp ?? 0)+"%";
     ref.charImg.src = getCharImage(player.char, player.hp);
     ref.dice.src = `img/dice${diceDisplay}.png`;
   });
+}
+// funzione per evitare doppi messaggi per player
+function addEventMessageSingle(playerNick, text){
+  if(lastEventMessagesPerPlayer[playerNick] === text) return;
+  lastEventMessagesPerPlayer[playerNick] = text;
+  const d = document.createElement("div");
+  d.textContent = text;
+  eventBox.appendChild(d);
+  eventBox.scrollTop = eventBox.scrollHeight;
 }
 
 socket.on("updateMatch", match => handleDamage(match));

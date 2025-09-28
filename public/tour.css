@@ -10,20 +10,45 @@ html, body, #game-container {
 
 /* -------- HEADER -------- */
 header {
-  width:100%; display:flex; justify-content:center; align-items:center; margin-bottom:10px; position:relative;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 0 20px;
 }
-.arena-title { 
-  font-size:3rem; 
-  color:white; 
-  text-shadow:2px 2px 8px black; 
+
+#header-left, #header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
-#fullscreen-btn, #trophy-btn {
-  font-size:2rem; cursor:pointer; background:transparent; border:none; color:white; position:absolute; top:20px;
+
+#online-count {
+  font-size: 1.2rem;
+  color: white;
+  text-shadow: 1px 1px 4px black;
+}
+
+#home-btn, #trophy-btn, #fullscreen-btn {
+  font-size: 1.5rem;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: white;
   transition: color 0.3s;
 }
-#fullscreen-btn { right:20px; } 
-#trophy-btn { right:70px; }
-#fullscreen-btn:hover, #trophy-btn:hover { color:gold; }
+#home-btn:hover, #trophy-btn:hover, #fullscreen-btn:hover {
+  color: gold;
+}
+
+.arena-title {
+  font-size: 3rem;
+  color: white;
+  text-shadow: 2px 2px 8px black;
+  text-align: center;
+}
+
 
 /* -------- MAIN AREA -------- */
 #main-area { 
