@@ -16,6 +16,7 @@ const closeOverlayBtn = document.getElementById("close-overlay");
 let matchUI = {};
 let currentStage = "waiting";
 let waitingContainer = null;
+let stunned = { p1:false, p2:false }; // gestisce stun
 
 // ---------- Music ----------
 const musicQuarter = "img/5.mp3";    
@@ -93,6 +94,7 @@ const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
 if (nick && char) {
   socket.emit("joinTournament", { nick, char });
+  renderWaiting(0, 8, []); // forzare waiting iniziale
 } else {
   battleArea.innerHTML = "<h2>Error: Missing nickname or character. Return to home page.</h2>";
 }
@@ -115,7 +117,6 @@ function renderWaiting(count, required, players) {
   const ul = document.createElement("ul");
   players.forEach(p => {
     const li = document.createElement("li");
-
     const img = document.createElement("img");
     img.src = getCharImage(p.char);
     img.alt = p.char ?? "unknown";
@@ -123,10 +124,7 @@ function renderWaiting(count, required, players) {
     img.height = 32;
     img.onerror = () => { img.src = "img/unknown.png"; };
     li.appendChild(img);
-
-    const text = document.createTextNode(` ${p.nick} (${p.char})`);
-    li.appendChild(text);
-
+    li.appendChild(document.createTextNode(` ${p.nick} (${p.char})`));
     ul.appendChild(li);
   });
 
@@ -212,23 +210,38 @@ function renderMatchCard(match){
   matchUI[match.id] = { p1, p2 };
 }
 
-function updateMatchUI(match){
-  if(!match || !match.id) return;
-  if(!matchUI[match.id]) renderMatchCard(match);
-  const refs=matchUI[match.id];
-  if(!refs) return;
+// ---------- Damage handling (crit / stun / dice) ----------
+function handleDamage(match){
+  if(!match?.id || !matchUI[match.id]) return;
+  const refs = matchUI[match.id];
 
-  refs.p1.label.textContent=`${match.player1.nick} (${match.player1.char}) HP: ${match.player1.hp}`;
-  refs.p1.hp.style.width=Math.max(0,match.player1.hp)+"%";
-  refs.p1.charImg.src = getCharImage(match.player1.char, match.player1.hp);
+  ["player1","player2"].forEach((key,i)=>{
+    const player = match[key];
+    const ref = i===0 ? refs.p1 : refs.p2;
+    if(!player) return;
 
-  refs.p2.label.textContent=`${match.player2.nick} (${match.player2.char}) HP: ${match.player2.hp}`;
-  refs.p2.hp.style.width=Math.max(0,match.player2.hp)+"%";
-  refs.p2.charImg.src = getCharImage(match.player2.char, match.player2.hp);
+    let dmg = player.dmg ?? 0;
+    const diceDisplay = player.dice ?? 1;
 
-  if(match.player1?.dice) refs.p1.dice.src=`img/dice${match.player1.dice}.png`;
-  if(match.player2?.dice) refs.p2.dice.src=`img/dice${match.player2.dice}.png`;
+    if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
+      dmg = Math.max(0,dmg-1);
+      addEventMessage(`${player.nick} is stunned! Deals only ${dmg} damage 😵‍💫`);
+      if(i===0) stunned.p1=false; else stunned.p2=false;
+    } else if(player.dice === 8){
+      addEventMessage(`${player.nick} CRIT! ${dmg} damage ⚡💥`);
+      if(i===0) stunned.p2=true; else stunned.p1=true;
+    } else {
+      addEventMessage(`${player.nick} rolls ${diceDisplay} and deals ${dmg} damage 💥`);
+    }
+
+    ref.label.textContent=`${player.nick} (${player.char}) HP: ${player.hp}`;
+    ref.hp.style.width=Math.max(0,player.hp)+"%";
+    ref.charImg.src = getCharImage(player.char, player.hp);
+    ref.dice.src = `img/dice${diceDisplay}.png`;
+  });
 }
+
+socket.on("updateMatch", match => handleDamage(match));
 
 // ---------- Winner ----------
 function showWinnerChar(char){
@@ -270,7 +283,6 @@ socket.on("startMatch", match => {
   renderMatchCard(match);
 });
 
-socket.on("updateMatch", match => updateMatchUI(match));
 socket.on("matchOver", ({ winnerNick, winnerChar, stage }) => {
   addEventMessage(`🏆 ${winnerNick ?? "??"} won the match (${stage})!`);
   if(stage==="final") playWinnerMusic(winnerChar);
