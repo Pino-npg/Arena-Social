@@ -65,7 +65,7 @@ let stunned = { p1: false, p2: false };
 
 // ---------- SOCKET EVENTS ----------
 socket.on("onlineCount", count => onlineCountDisplay.textContent = `Online: ${count}`);
-socket.on("waiting", msg => addEventMessage(msg));
+socket.on("waiting", msg => addEventMessageSingle("system", msg));
 
 socket.on("gameStart", (roomId, game) => {
   socket.roomId = roomId;
@@ -78,7 +78,8 @@ socket.on("1vs1Update", (roomId, game) => {
 
 socket.on("gameOver", (roomId, { winnerNick, winnerChar }) => {
   if (roomId === socket.roomId) {
-    addEventMessage(`🏆 ${winnerNick} has won the battle!`);
+    // Forza sempre il messaggio del vincitore
+    addEventMessageWinner(`🏆 ${winnerNick} has won the battle!`);
     playWinnerMusic(winnerChar);
   }
 });
@@ -123,17 +124,17 @@ function handleDice(playerIndex, game) {
 
   if (oppStunned) {
     finalDmg = Math.max(0, player.dice - 1);
-    addEventMessage(player.nick, `${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
+    addEventMessageSingle(player.nick, `${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
     if (playerIndex === 0) stunned.p2 = false;
     else stunned.p1 = false;
   } 
   else if (player.dice === 8) {
-    addEventMessage(player.nick, `${player.nick} CRIT! ${player.dice} damage dealt ⚡💥`);
+    addEventMessageSingle(player.nick, `${player.nick} CRIT! ${player.dice} damage dealt ⚡💥`);
     if (playerIndex === 0) stunned.p2 = true;
     else stunned.p1 = true;
   } 
   else {
-    addEventMessage(player.nick, `${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);
+    addEventMessageSingle(player.nick, `${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);
   }
 
   showDice(playerIndex, player.dice);
@@ -160,7 +161,7 @@ function updateCharacterImage(player,index){
 
 // ---------- DOPPI EVENTI PER SINGOLO GIOCATORE ----------
 const lastEventMessagesPerPlayer = {};
-function addEventMessage(playerNick, text) {
+function addEventMessageSingle(playerNick, text) {
   if (lastEventMessagesPerPlayer[playerNick] === text) return;
   lastEventMessagesPerPlayer[playerNick] = text;
 
@@ -170,6 +171,15 @@ function addEventMessage(playerNick, text) {
   eventBox.scrollTop = eventBox.scrollHeight;
 }
 
+// ---------- MESSAGGIO VINCITORE (FORZATO) ----------
+function addEventMessageWinner(text) {
+  const msg = document.createElement("div");
+  msg.textContent = text;
+  eventBox.appendChild(msg);
+  eventBox.scrollTop = eventBox.scrollHeight;
+}
+
+// ---------- CHAT ----------
 function addChatMessage(text) {
   const msg = document.createElement("div");
   msg.textContent = text;
@@ -177,6 +187,7 @@ function addChatMessage(text) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+// ---------- AUDIO VINCITORE ----------
 function playWinnerMusic(winnerChar) {
   musicBattle.pause();
   winnerMusic.src = `img/${winnerChar}.mp3`;
