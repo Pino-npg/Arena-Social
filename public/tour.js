@@ -320,8 +320,14 @@ socket.on("startMatch", match => {
 
 socket.on("matchOver", ({ winnerNick, winnerChar, stage, matchId }) => {
   addEventMessage(`🏆 ${winnerNick ?? "??"} won the match (${stage})!`);
-  if(matchId) removeMatchBox(matchId);
   if(stage==="final") playWinnerMusic(winnerChar);
+
+  // rimuovi il box del match terminato
+  if(matchId && matchUI[matchId]){
+    const el = document.getElementById(`match-${matchId}`);
+    if(el) el.remove();
+    delete matchUI[matchId];
+  }
 });
 
 socket.on("tournamentOver", ({ nick, char }) => {
