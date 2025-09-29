@@ -177,9 +177,14 @@ function setStage(stage){
 }
 function setMusic(src){
   if(!src) return;
-  const wasPlaying = !musicBattle.paused;
-  musicBattle.src = src;
-  if(wasPlaying) musicBattle.play().catch(()=>{});
+
+  musicBattle.pause();    // ferma musica corrente
+  musicBattle.src = src;  // cambia file
+  musicBattle.load();     // forza reload
+  musicBattle.volume = 0.5;
+  musicBattle.loop = true;
+
+  musicBattle.play().catch(()=>{});
 }
 
 // ---------- Matches ----------
