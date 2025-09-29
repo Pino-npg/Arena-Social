@@ -7,60 +7,12 @@ const socket = io("/tournament");
 let battleArea, chatMessages, chatInput, eventBox;
 let fullscreenBtn, trophyBtn, overlay, bracketContainer, closeOverlayBtn;
 
-document.addEventListener("DOMContentLoaded", () => {
-  battleArea       = document.getElementById("battle-area");
-  chatMessages     = document.getElementById("chat-messages");
-  chatInput        = document.getElementById("chat-input");
-  eventBox         = document.getElementById("event-messages");
-  fullscreenBtn    = document.getElementById("fullscreen-btn");
-  trophyBtn        = document.getElementById("tournament-overlay-btn") || document.getElementById("trophy-btn");
-  overlay          = document.getElementById("tournament-overlay");
-  bracketContainer = document.getElementById("bracket");
-  closeOverlayBtn  = document.getElementById("close-overlay");
-
-  const onlineCountEl = document.getElementById("online-count");
-  const homeBtn = document.getElementById("home-btn");
-
-  // Online count
-  socket.on("onlineCount", count => {
-    if(onlineCountEl) onlineCountEl.textContent = `Online: ${count}`;
-  });
-
-  // Pulsante home
-  if(homeBtn) homeBtn.addEventListener("click", () => {
-    window.location.href = "https://fight-game-server.onrender.com/";
-  });
-
-  // Fullscreen toggle
-  if(fullscreenBtn){
-    fullscreenBtn.addEventListener("click", async () => {
-      const container = document.getElementById("game-container");
-      if (!document.fullscreenElement) await container.requestFullscreen();
-      else await document.exitFullscreen();
-    });
-  }
-
-  // Overlay toggle
-  if(trophyBtn && overlay) trophyBtn.addEventListener("click", () => overlay.classList.remove("hidden"));
-  if(closeOverlayBtn && overlay) closeOverlayBtn.addEventListener("click", () => overlay.classList.add("hidden"));
-
-  // Chat
-  if(chatInput){
-    chatInput.addEventListener("keydown", e => {
-      if(e.key === "Enter" && e.target.value.trim() !== ""){
-        socket.emit("chatMessage", { nick, text: e.target.value });
-        e.target.value = "";
-      }
-    });
-  }
-});
-
 // ---------- State ----------
 let matchUI = {};
 let currentStage = "waiting";
 let waitingContainer = null;
-let stunned = { p1:false, p2:false };
-let renderedMatchesByStage = { quarter:new Set(), semi:new Set(), final:new Set() };
+let stunned = { p1: false, p2: false };
+let renderedMatchesByStage = { quarter: new Set(), semi: new Set(), final: new Set() };
 const lastEventMessagesPerPlayer = {};
 
 // ---------- Music ----------
@@ -72,28 +24,49 @@ const musicBattle = new Audio();
 musicBattle.loop = true;
 musicBattle.volume = 0.5;
 
-let winnerMusic = new Audio();
+const winnerMusic = new Audio();
 winnerMusic.loop = false;
 winnerMusic.volume = 0.7;
 
 // ---------- Audio unlock ----------
 function unlockAudio() {
-  if(musicBattle.paused) musicBattle.play().catch(()=>{});
+  if (musicBattle.paused) musicBattle.play().catch(() => {});
+  if (winnerMusic.paused) winnerMusic.play().catch(() => {});
 }
-window.addEventListener("click", unlockAudio, { once:true });
-window.addEventListener("touchstart", unlockAudio, { once:true });
+window.addEventListener("click", unlockAudio, { once: true });
+window.addEventListener("touchstart", unlockAudio, { once: true });
 
 // ---------- Helpers ----------
-function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]); }
-function getCharImage(char,hp=100){
-  if(!char) return "img/unknown.png";
-  let suffix="";
-  if(hp<=0) suffix='0';
-  else if(hp<=20) suffix='20';
-  else if(hp<=40) suffix='40';
-  else if(hp<=60) suffix='60';
+function escapeHtml(s) { 
+  return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]); 
+}
+function getCharImage(char, hp = 100) {
+  if (!char) return "img/unknown.png";
+  let suffix = "";
+  if (hp <= 0) suffix = '0';
+  else if (hp <= 20) suffix = '20';
+  else if (hp <= 40) suffix = '40';
+  else if (hp <= 60) suffix = '60';
   return `img/${char.replace(/\s/g,'')}${suffix}.png`;
 }
+
+// ---------- DOMContentLoaded ----------
+document.addEventListener("DOMContentLoaded", () => {
+  document.body.style.overflowY = "auto";
+
+  // Elementi DOM
+  battleArea       = document.getElementById("battle-area");
+  chatMessages     = document.getElementById("chat-messages");
+  chatInput        = document.getElementById("chat-input");
+  eventBox         = document.getElementById("event-messages");
+  fullscreenBtn    = document.getElementById("fullscreen-btn");
+  trophyBtn        = document.getElementById("tournament-overlay-btn") || document.getElementById("trophy-btn");
+  overlay          = document.getElementById("tournament-overlay");
+  bracketContainer = document.getElementById("bracket");
+  closeOverlayBtn  = document.getElementById("close-overlay");
+
+  // … resto del codice DOMContentLoaded …
+});
 
 // ---------- Join tournament ----------
 const nick = localStorage.getItem("selectedNick");
@@ -177,15 +150,13 @@ function setStage(stage){
 
 function setMusic(src){
   if(!src) return;
-  const wasPlaying = !musicBattle.paused;
   musicBattle.pause();
   musicBattle.src = src;
   musicBattle.load();
   musicBattle.volume = 0.5;
   musicBattle.loop = true;
-  if(wasPlaying) musicBattle.play().catch(()=>{});
+  musicBattle.play().catch(()=>{});
 }
-
 // ---------- Matches ----------
 function makePlayerCard(player){
   const div = document.createElement("div");
@@ -311,5 +282,3 @@ function playWinnerMusic(winnerChar){
   winnerMusic.currentTime=0;
   winnerMusic.play().catch(()=>{});
 }
-
-document.body.style.overflowY="auto";
