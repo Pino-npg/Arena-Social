@@ -153,81 +153,17 @@ header {
   .dice { width:50px; height:50px; }
 }
 
-.match-container {
-  display: flex;
-  flex-direction: row;       /* orizzontale di default */
-  flex-wrap: wrap;           /* permette al container di adattarsi a schermi piccoli */
-  justify-content: flex-start;
-  gap: 10px;
-  margin-bottom: 20px;
-  border: 1px solid #888;
-  padding: 8px;
-  border-radius: 6px;
-  background-color: #111;
-  color: #fff;
-}
-
-.match-container h3 {
-  width: 100%;              /* titolo stage sopra i player */
-  text-align: center;
-  margin-bottom: 8px;
-}
-
-.player {
-  display: flex;
-  flex-direction: column;   /* player internamente verticale */
-  align-items: center;
-  min-width: 120px;         /* forza larghezza minima per ogni player */
-}
-
-.player-label {
-  font-size: 14px;
-  margin-bottom: 4px;
-  text-align: center;
-}
-
-.hp-bar {
-  width: 100%;
-  height: 6px;
-  background-color: #333;
-  margin-bottom: 4px;
-  border-radius: 3px;
-}
-
-.hp {
-  height: 100%;
-  background-color: #0f0;
-  border-radius: 3px;
-}
-
-.char-img {
-  width: 64px;
-  height: 64px;
-  object-fit: contain;
-  margin-bottom: 4px;
-}
-
-.dice {
-  width: 40px;
-  height: 40px;
-}
-
-@media (max-width: 480px) {
+/* MOBILE LANDSCAPE LARGHI */
+@media (min-width:414px) and (max-width:768px) and (orientation: landscape){
   .match-container {
-    flex-direction: row; /* rimane orizzontale */
-    justify-content: space-between; /* distanzia i player */
+    flex-wrap: wrap;
+    justify-content: space-evenly;
   }
-  .player {
-    width: 48%;          /* ciascun player prende circa metà schermo */
-    flex-direction: column; /* player interno verticale */
-    align-items: center;
+  .player { 
+    flex: 1 1 40%; 
+    max-width:40%; 
+    min-width:140px; 
   }
-  .char-img {
-    width: 48px;
-    height: 48px;
-  }
-  .dice {
-    width: 32px;
-    height: 32px;
-  }
+  .player img.char-img { width:140px; }
+  .player-label { font-size:1.2rem; }
 }
