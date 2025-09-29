@@ -48,7 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if(chatInput){
     chatInput.addEventListener("keydown", e => {
       if(e.key === "Enter" && e.target.value.trim() !== ""){
-        socket.emit("chatMessage", e.target.value);
+        socket.emit("chatMessage", { nick, text: e.target.value });
         e.target.value = "";
       }
     });
@@ -79,7 +79,6 @@ winnerMusic.volume = 0.7;
 // ---------- Audio unlock ----------
 function unlockAudio() {
   if(musicBattle.paused) musicBattle.play().catch(()=>{});
-  if(winnerMusic.paused) winnerMusic.play().catch(()=>{});
 }
 window.addEventListener("click", unlockAudio, { once:true });
 window.addEventListener("touchstart", unlockAudio, { once:true });
@@ -144,7 +143,6 @@ function setStage(stage){
 
   // --- Rimuovi vecchi match ---
   if(stage==="semi"){
-    // elimina i quarti
     renderedMatchesByStage.quarter.forEach(id=>{
       const el=document.getElementById(`match-${id}`);
       if(el) el.remove();
@@ -152,7 +150,6 @@ function setStage(stage){
     });
     renderedMatchesByStage.quarter.clear();
   } else if(stage==="final"){
-    // elimina le semifinali
     renderedMatchesByStage.semi.forEach(id=>{
       const el=document.getElementById(`match-${id}`);
       if(el) el.remove();
@@ -232,13 +229,12 @@ function renderMatchCard(match){
 
   const stageLabel = document.createElement("h3");
 
-// Usa Q-S-F al posto di quarter/semi/final
-let stageShort = match.stage === "quarter" ? "Q" :
-                 match.stage === "semi"    ? "S" :
-                 "F";
-
-stageLabel.textContent = `${stageShort} - ${match.id}`;
-container.appendChild(stageLabel);
+  // Solo Q / S / F
+  let stageShort = match.stage === "quarter" ? "Q" :
+                   match.stage === "semi"    ? "S" :
+                   "F";
+  stageLabel.textContent = stageShort;
+  container.appendChild(stageLabel);
 
   const p1 = makePlayerCard(match.player1??{nick:"??",char:"unknown",hp:0});
   const p2 = makePlayerCard(match.player2??{nick:"??",char:"unknown",hp:0});
@@ -249,10 +245,6 @@ container.appendChild(stageLabel);
 
   matchUI[match.id]={ p1, p2 };
   renderedMatchesByStage[match.stage]?.add(match.id);
-}
-
-function updateMatchUI(match){
-  handleDamage(match);
 }
 
 // ---------- Damage handling ----------
@@ -286,18 +278,17 @@ function handleDamage(match){
   });
 }
 
-function addEventMessage(txt){
-  const d = document.createElement("div");
-  d.textContent = txt;
-  eventBox.appendChild(d);
-  eventBox.scrollTop = eventBox.scrollHeight;
-}
+// ---------- Chat events ----------
+socket.on("chatMessage", data => {
+  if(chatMessages) {
+    const div = document.createElement("div");
+    div.textContent = `${data.nick}: ${data.text}`;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+});
 
-function addEventMessageSingle(playerNick, text){
-  if(lastEventMessagesPerPlayer[playerNick] === text) return;
-  lastEventMessagesPerPlayer[playerNick] = text;
-  addEventMessage(text);
-}
+socket.on("log", msg => addEventMessage(msg));
 
 // ---------- Winner ----------
 function showWinnerChar(char){
@@ -319,82 +310,6 @@ function playWinnerMusic(winnerChar){
   winnerMusic.src=`img/${winnerChar}.mp3`;
   winnerMusic.currentTime=0;
   winnerMusic.play().catch(()=>{});
-}
-
-// ---------- Socket events ----------
-socket.on("startTournament", matches => {
-  if(waitingContainer){ waitingContainer.remove(); waitingContainer=null; }
-  Object.keys(matchUI).forEach(id=>{
-    const el=document.getElementById(`match-${id}`);
-    if(el) el.remove();
-  });
-  matchUI={};
-  renderedMatchesByStage={ quarter:new Set(), semi:new Set(), final:new Set() };
-  currentStage = matches[0]?.stage || "quarter";
-  setStage(currentStage);
-  matches.forEach(m=>renderMatchCard(m));
-});
-
-socket.on("startMatch", match => {
-  if(match.stage) setStage(match.stage);
-  renderMatchCard(match);
-});
-
-socket.on("updateMatch", match => {
-  renderMatchCard(match);
-  handleDamage(match);
-});
-
-socket.on("matchOver", ({ winnerNick, winnerChar, stage, matchId }) => {
-  addEventMessage(`🏆 ${winnerNick ?? "??"} won the match (${stage})!`);
-  if(stage==="final") playWinnerMusic(winnerChar);
-  if(matchId && matchUI[matchId]){
-    const el=document.getElementById(`match-${matchId}`);
-    if(el) el.remove();
-    delete matchUI[matchId];
-  }
-});
-
-socket.on("tournamentOver", ({ nick, char }) => {
-  addEventMessage(`🎉 ${nick ?? "??"} won the tournament!`);
-  showWinnerChar(char);
-  playWinnerMusic(char);
-  setTimeout(()=> battleArea.innerHTML="<h2>Waiting for new tournament...</h2>", 2500);
-});
-
-socket.on("chatMessage", data => addEventMessage(`${data.nick}: ${data.text}`));
-socket.on("log", msg => addEventMessage(msg));
-socket.on("tournamentState", bracket => renderBracket(bracket));
-
-function renderBracket(bracket){
-  bracketContainer.innerHTML="";
-  if(currentStage==="final"){
-    const table=document.createElement("table");
-    table.style.width="100%"; table.style.borderCollapse="collapse";
-    const head=document.createElement("tr");
-    head.innerHTML="<th>Player 1</th><th>Player 2</th><th>Winner</th><th>Stage</th>";
-    table.appendChild(head);
-    bracket.forEach(m=>{
-      const row=document.createElement("tr");
-      row.innerHTML=`<td>${m.player1?.nick||"??"}</td>
-                     <td>${m.player2?.nick||"??"}</td>
-                     <td>${m.winner?.nick||"??"}</td>
-                     <td>${m.stage}</td>`;
-      table.appendChild(row);
-    });
-    bracketContainer.appendChild(table);
-  } else {
-    bracket.forEach(m=>{
-      const div=document.createElement("div");
-      div.className="bracket-row";
-      const p1=m.player1?.nick??"??";
-      const p2=m.player2?.nick??"??";
-      const winner=m.winner?` - Winner: ${escapeHtml(m.winner.nick)}`:"";
-      div.textContent=`${p1} vs ${p2} (${m.stage})${winner}`;
-      if(m.winner) div.style.color="#FFD700";
-      bracketContainer.appendChild(div);
-    });
-  }
 }
 
 document.body.style.overflowY="auto";
