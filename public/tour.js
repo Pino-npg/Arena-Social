@@ -122,7 +122,7 @@ if (nick && char) {
 
 // ---------- Waiting ----------
 socket.on("waitingCount", ({ count, required, players }) => {
-  if(currentStage==="waiting") renderWaiting(count, required, players);
+  if(currentStage === "waiting") renderWaiting(count, required, players);
 });
 
 function renderWaiting(count, required, players) {
@@ -153,61 +153,66 @@ function renderWaiting(count, required, players) {
   battleArea.prepend(waitingContainer);
 }
 
-// ---------- Tournament stages ----------
+// ---------- Stage counters ----------
 function setStage(stage){
-  if(stage===currentStage) return;
-  currentStage=stage;
+  if(stage === currentStage) return;
+  currentStage = stage;
 
-  if(stage==="quarter") setMusic(musicQuarter);
-  else if(stage==="semi") setMusic(musicSemi);
-  else if(stage==="final") setMusic(musicFinal);
+  // reset contatore fase
+  resetStageCounters();
 
-  const old=battleArea.querySelector(".stage-title");
+  if(stage === "quarter") setMusic(musicQuarter);
+  else if(stage === "semi") setMusic(musicSemi);
+  else if(stage === "final") setMusic(musicFinal);
+
+  const old = battleArea.querySelector(".stage-title");
   if(old) old.remove();
-  const title=document.createElement("h2");
-  title.className="stage-title";
-  title.textContent = stage==="quarter"?"⚔️ Quarter-finals":stage==="semi"?"🔥 Semi-finals":"👑 Final!";
+
+  const title = document.createElement("h2");
+  title.className = "stage-title";
+  title.textContent = stage==="quarter" ? "⚔️ Quarter-finals" :
+                      stage==="semi"    ? "🔥 Semi-finals" :
+                      "👑 Final!";
   battleArea.prepend(title);
 }
-
 function setMusic(src){
   if(!src) return;
   const wasPlaying = !musicBattle.paused;
-  musicBattle.src=src;
+  musicBattle.src = src;
   if(wasPlaying) musicBattle.play().catch(()=>{});
 }
 
 // ---------- Matches ----------
 function makePlayerCard(player){
-  const div=document.createElement("div");
-  div.className="player";
+  const div = document.createElement("div");
+  div.className = "player";
 
-  const label=document.createElement("div");
-  label.className="player-label";
-  label.textContent=`${player.nick} (${player.char}) HP: ${player.hp ?? 0}`;
+  const label = document.createElement("div");
+  label.className = "player-label";
+  label.textContent = `${player.nick} (${player.char}) HP: ${player.hp ?? 0}`;
 
-  const img=document.createElement("img");
-  img.className="char-img";
+  const img = document.createElement("img");
+  img.className = "char-img";
   img.src = getCharImage(player.char, player.hp);
   img.onerror = () => { img.src = "img/unknown.png"; };
 
-  const hpBar=document.createElement("div");
-  hpBar.className="hp-bar";
-  const hp=document.createElement("div");
-  hp.className="hp";
-  hp.style.width=Math.max(0,player.hp??0)+"%";
+  const hpBar = document.createElement("div");
+  hpBar.className = "hp-bar";
+  const hp = document.createElement("div");
+  hp.className = "hp";
+  hp.style.width = Math.max(0, player.hp ?? 0) + "%";
   hpBar.appendChild(hp);
 
-  const dice=document.createElement("img");
-  dice.className="dice";
-  dice.src="img/dice1.png";
+  const dice = document.createElement("img");
+  dice.className = "dice";
+  dice.src = "img/dice1.png";
 
   div.appendChild(label);
   div.appendChild(img);
   div.appendChild(hpBar);
   div.appendChild(dice);
 
-  return { div,label,charImg:img,hp,dice };
+  return { div, label, charImg: img, hp, dice };
 }
 
 // ---------- Render match card ----------
@@ -224,14 +229,23 @@ function renderMatchCard(match){
   container.className = "match-container";
   container.id = `match-${match.id}`;
 
-  // contatore fase
-  stageCounters[match.stage] = (stageCounters[match.stage] || 0) + 1;
-  let shortLabel = match.stage==="quarter" ? `Q${stageCounters.quarter}` :
-                   match.stage==="semi"    ? `S${stageCounters.semi}` :
-                   match.stage==="final"   ? `F` : match.stage.toUpperCase();
+  // contatore fase corretto
+  let shortLabel = "";
+  if(match.stage === "quarter"){
+    stageCounters.quarter++;
+    shortLabel = `Q${stageCounters.quarter}`;
+  } else if(match.stage === "semi"){
+    stageCounters.semi++;
+    shortLabel = `S${stageCounters.semi}`;
+  } else if(match.stage === "final"){
+    stageCounters.final++;
+    shortLabel = `F`;
+  } else {
+    shortLabel = match.stage.toUpperCase();
+  }
 
   const stageLabel = document.createElement("h3");
-  stageLabel.textContent = `${shortLabel}`;
+  stageLabel.textContent = shortLabel;
   container.appendChild(stageLabel);
 
   const p1 = makePlayerCard(match.player1 ?? { nick:"??", char:"unknown", hp:0 });
@@ -245,8 +259,8 @@ function renderMatchCard(match){
   renderedMatchesByStage[match.stage]?.add(match.id);
 
   // pulizia fase precedente
-  if(match.stage==="semi" && renderedMatchesByStage.semi.size===2) clearStage("quarter");
-  if(match.stage==="final") clearStage("semi");
+  if(match.stage === "semi" && renderedMatchesByStage.semi.size === 2) clearStage("quarter");
+  if(match.stage === "final") clearStage("semi");
 }
 
 function clearStage(stage){
@@ -308,7 +322,7 @@ function showWinnerChar(char){
   if(!char) return;
   const winnerImg = document.createElement("img");
   winnerImg.src = `img/${char}.webp`;
-  winnerImg.onerror = () => { winnerImg.src = "img/${char}.png"; };
+  winnerImg.onerror = () => { winnerImg.src = `img/${char}.png`; };
   winnerImg.style.position = "fixed";
   winnerImg.style.top = "0";
   winnerImg.style.left = "0";
@@ -331,8 +345,9 @@ function playWinnerMusic(winnerChar){
 
 // ---------- Socket events ----------
 socket.on("startTournament", matches => {
-  if(waitingContainer) { waitingContainer.remove(); waitingContainer=null; }
+  if(waitingContainer) { waitingContainer.remove(); waitingContainer = null; }
   clearMatchesUI();
+  resetStageCounters(); // <-- reset contatori ad ogni torneo
   currentStage = matches[0]?.stage || "quarter";
   setStage(currentStage);
   matches.forEach(m => renderMatchCard(m));
@@ -401,4 +416,4 @@ function renderBracket(bracket){
   }
 }
 
-document.body.style.overflowY="auto";
+document.body.style.overflowY = "auto";
