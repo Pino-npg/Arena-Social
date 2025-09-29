@@ -311,10 +311,10 @@ function startMatch(tournamentId, p1, p2, stage, matchId) {
 
 // ------------------- TOURNAMENT NAMESPACE -------------------
 nsp.on("connection", socket => {
-  let currentTournament = null;
-
-  // aggiorna subito il numero di online nella namespace
+  // invia subito il numero di client connessi nella namespace tournament
   nsp.emit("onlineCount", nsp.sockets.size);
+
+  let currentTournament = null;
 
   socket.on("setNickname", nick => {
     const finalNick = assignUniqueNick(nick);
@@ -344,9 +344,7 @@ nsp.on("connection", socket => {
       const first8 = t.waiting.slice(0, 8);
       nsp.to(tId).emit("waitingStart", { players: first8.map(p => p.nick), total: 8 });
       generateBracket(first8, t);
-      t.bracket
-        .filter(m => m.stage === "quarter")
-        .forEach(m => startMatch(tId, m.player1, m.player2, m.stage, m.id));
+      t.bracket.filter(m => m.stage === "quarter").forEach(m => startMatch(tId, m.player1, m.player2, m.stage, m.id));
     }
   });
 
@@ -358,36 +356,29 @@ nsp.on("connection", socket => {
 
   socket.on("disconnect", () => {
     releaseNick(socket.nick);
-
-    // aggiorna online count dopo la disconnessione
-    nsp.emit("onlineCount", nsp.sockets.size);
-
     const tId = currentTournament;
     if (!tId) return;
     const t = tournaments[tId];
     if (!t) return;
 
     t.waiting = t.waiting.filter(p => p.id !== socket.id);
-
     for (const matchId in t.matches) {
       const match = t.matches[matchId];
       const idx = match.players.findIndex(p => p.id === socket.id);
       if (idx !== -1) {
         const other = match.players.find(p => p.id !== socket.id);
-        nsp.to(tId).emit("matchOver", {
-          winnerNick: other.nick,
-          winnerChar: other.char,
-          stage: match.stage,
-          player1: match.players[0],
-          player2: match.players[1]
-        });
+        nsp.to(tId).emit("matchOver", { winnerNick: other.nick, winnerChar: other.char, stage: match.stage, player1: match.players[0], player2: match.players[1] });
         advanceWinner(tId, match.id, other);
         break;
       }
     }
-
     broadcastWaiting(tId);
     emitBracket(tId);
+
+    // aggiorna il numero di client connessi dopo il disconnect
+    nsp.emit("onlineCount", nsp.sockets.size);
   });
 });
 
+// ------------------- SERVER LISTEN -------------------
+httpServer.listen(PORT, () => console.log(`Server unico attivo su http://localhost:${PORT}`));
