@@ -24,11 +24,12 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.href = "https://fight-game-server.onrender.com/";
   });
 });
+
 // ---------- State ----------
 let matchUI = {};
 let currentStage = "waiting";
 let waitingContainer = null;
-let stunned = { p1:false, p2:false }; // gestisce stun
+let stunned = { p1:false, p2:false };
 
 // ---------- Music ----------
 const musicQuarter = "img/5.mp3";    
@@ -88,7 +89,13 @@ function addEventMessage(txt) {
 // ---------- Helpers ----------
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]); }
 function createFragment(html){ const t=document.createElement("template"); t.innerHTML=html.trim(); return t.content.firstChild; }
-function clearMatchesUI(){ Object.keys(matchUI).forEach(id=>{ const el=document.getElementById(`match-${id}`); if(el) el.remove(); }); matchUI={}; }
+function clearMatchesUI(){
+  Object.keys(matchUI).forEach(id=>{
+    const el=document.getElementById(`match-${id}`);
+    if(el) el.remove();
+  });
+  matchUI={};
+}
 
 // ---------- Character image helper ----------
 function getCharImage(char,hp=100){
@@ -106,7 +113,7 @@ const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
 if (nick && char) {
   socket.emit("joinTournament", { nick, char });
-  renderWaiting(0, 8, []); // forzare waiting iniziale
+  renderWaiting(0, 8, []);
 } else {
   battleArea.innerHTML = "<h2>Error: Missing nickname or character. Return to home page.</h2>";
 }
@@ -201,9 +208,11 @@ function makePlayerCard(player){
   return { div,label,charImg:img,hp,dice };
 }
 
+// ---------- renderMatchCard aggiornato ----------
 function renderMatchCard(match){
   if(!match?.id) return;
   if(matchUI[match.id]) { updateMatchUI(match); return; }
+
   const container=document.createElement("div");
   container.className="match-container";
   container.id=`match-${match.id}`;
@@ -221,33 +230,22 @@ function renderMatchCard(match){
 
   matchUI[match.id] = { p1, p2 };
 }
-// ---------- PULIZIA MATCH TERMINATI ----------
+
+// ---------- removeFinishedMatchBoxes aggiornato ----------
 function removeFinishedMatchBoxes() {
-  const containers = document.querySelectorAll(".match-container");
-  containers.forEach(container => {
-    const players = container.querySelectorAll(".player-label");
-    // se tutti i player hanno HP 0, rimuovo il container
-    const allDead = Array.from(players).every(pl => pl.textContent.includes("HP: 0"));
-    if(allDead) container.remove();
+  Object.keys(matchUI).forEach(id => {
+    const refs = matchUI[id];
+    const hpVals = [refs.p1.hp.style.width, refs.p2.hp.style.width];
+    if(hpVals.every(w => w === "0%")) {
+      const el = document.getElementById(`match-${id}`);
+      if(el) el.remove();
+      delete matchUI[id];
+    }
   });
 }
 
-// esempio: chiamala prima di renderizzare un nuovo match o all'inizio di un nuovo torneo
-socket.on("startTournament", matches => {
-  if(waitingContainer) { waitingContainer.remove(); waitingContainer=null; }
-  removeFinishedMatchBoxes(); // pulisco vecchi match
-  currentStage = matches[0]?.stage || "quarter";
-  setStage(currentStage);
-  matches.forEach(m => renderMatchCard(m));
-});
-
-socket.on("startMatch", match => {
-  removeFinishedMatchBoxes(); // pulisco eventuali match già conclusi
-  if(match.stage) setStage(match.stage);
-  renderMatchCard(match);
-});
-// ---------- Damage handling (crit / stun / dice) ----------
-const lastEventMessagesPerPlayer = {}; // evita doppi messaggi per singolo player
+// ---------- Damage handling ----------
+const lastEventMessagesPerPlayer = {};
 
 function handleDamage(match){
   if(!match?.id || !matchUI[match.id]) return;
@@ -261,7 +259,6 @@ function handleDamage(match){
     const diceDisplay = (player.roll ?? player.dice ?? 1);
     const dmg = (player.dmg ?? player.dice ?? 0);
 
-    // Genera il messaggio
     let msg = "";
     if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
       msg = `${player.nick} is stunned! Rolled ${diceDisplay} → deals only ${dmg} 😵‍💫`;
@@ -276,7 +273,6 @@ function handleDamage(match){
 
     addEventMessageSingle(player.nick, msg);
 
-    // aggiorna UI
     const hpVal = Math.max(0, player.hp ?? 0);
     const hpPercent = Math.round((hpVal / 80) * 100);
     ref.label.textContent = `${player.nick} (${player.char}) HP: ${hpVal}`;
@@ -286,7 +282,6 @@ function handleDamage(match){
   });
 }
 
-// funzione per evitare doppi messaggi per singolo giocatore
 function addEventMessageSingle(playerNick, text){
   if(lastEventMessagesPerPlayer[playerNick] === text) return;
   lastEventMessagesPerPlayer[playerNick] = text;
@@ -296,15 +291,10 @@ function addEventMessageSingle(playerNick, text){
   eventBox.appendChild(d);
   eventBox.scrollTop = eventBox.scrollHeight;
 
-  // pulizia automatica dei vecchi messaggi per non crescere indefinitamente
   if(Object.keys(lastEventMessagesPerPlayer).length > 1000){
     for(const key in lastEventMessagesPerPlayer) delete lastEventMessagesPerPlayer[key];
   }
 }
-
-// ---------- Socket events ----------
-socket.on("updateMatch", match => handleDamage(match));
-socket.on("log", msg => addEventMessageUnique(msg));
 
 // ---------- Winner ----------
 function showWinnerChar(char){
