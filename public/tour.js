@@ -142,6 +142,26 @@ function setStage(stage){
   if(stage===currentStage) return;
   currentStage = stage;
 
+  // --- Rimuovi vecchi match ---
+  if(stage==="semi"){
+    // elimina i quarti
+    renderedMatchesByStage.quarter.forEach(id=>{
+      const el=document.getElementById(`match-${id}`);
+      if(el) el.remove();
+      delete matchUI[id];
+    });
+    renderedMatchesByStage.quarter.clear();
+  } else if(stage==="final"){
+    // elimina le semifinali
+    renderedMatchesByStage.semi.forEach(id=>{
+      const el=document.getElementById(`match-${id}`);
+      if(el) el.remove();
+      delete matchUI[id];
+    });
+    renderedMatchesByStage.semi.clear();
+  }
+
+  // --- Titolo ---
   const old = battleArea.querySelector(".stage-title");
   if(old) old.remove();
 
@@ -152,28 +172,10 @@ function setStage(stage){
                       "👑 Final!";
   battleArea.prepend(title);
 
+  // --- Musica ---
   if(stage==="quarter") setMusic(musicQuarter);
   else if(stage==="semi") setMusic(musicSemi);
   else if(stage==="final") setMusic(musicFinal);
-}
-
-// Nascondi le fasi precedenti
-if(stage==="semi"){
-  // elimina i quarti
-  renderedMatchesByStage.quarter.forEach(id=>{
-    const el=document.getElementById(`match-${id}`);
-    if(el) el.remove();
-    delete matchUI[id];
-  });
-  renderedMatchesByStage.quarter.clear();
-} else if(stage==="final"){
-  // elimina le semifinali
-  renderedMatchesByStage.semi.forEach(id=>{
-    const el=document.getElementById(`match-${id}`);
-    if(el) el.remove();
-    delete matchUI[id];
-  });
-  renderedMatchesByStage.semi.clear();
 }
 
 function setMusic(src){
