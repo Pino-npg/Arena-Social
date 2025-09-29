@@ -157,6 +157,25 @@ function setStage(stage){
   else if(stage==="final") setMusic(musicFinal);
 }
 
+// Nascondi le fasi precedenti
+if(stage==="semi"){
+  // elimina i quarti
+  renderedMatchesByStage.quarter.forEach(id=>{
+    const el=document.getElementById(`match-${id}`);
+    if(el) el.remove();
+    delete matchUI[id];
+  });
+  renderedMatchesByStage.quarter.clear();
+} else if(stage==="final"){
+  // elimina le semifinali
+  renderedMatchesByStage.semi.forEach(id=>{
+    const el=document.getElementById(`match-${id}`);
+    if(el) el.remove();
+    delete matchUI[id];
+  });
+  renderedMatchesByStage.semi.clear();
+}
+
 function setMusic(src){
   if(!src) return;
   const wasPlaying = !musicBattle.paused;
@@ -210,8 +229,14 @@ function renderMatchCard(match){
   container.id=`match-${match.id}`;
 
   const stageLabel = document.createElement("h3");
-  stageLabel.textContent=`${match.stage.toUpperCase()} - ${match.id}`;
-  container.appendChild(stageLabel);
+
+// Usa Q-S-F al posto di quarter/semi/final
+let stageShort = match.stage === "quarter" ? "Q" :
+                 match.stage === "semi"    ? "S" :
+                 "F";
+
+stageLabel.textContent = `${stageShort} - ${match.id}`;
+container.appendChild(stageLabel);
 
   const p1 = makePlayerCard(match.player1??{nick:"??",char:"unknown",hp:0});
   const p2 = makePlayerCard(match.player2??{nick:"??",char:"unknown",hp:0});
