@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
 let matchUI = {};
 let currentStage = "waiting";
 let waitingContainer = null;
-let stunned = { p1:false, p2:false };
+let stunned = { p1:false, p2:false }; // gestisce stun
 
 // ---------- Music ----------
 const musicQuarter = "img/5.mp3";    
@@ -89,13 +89,7 @@ function addEventMessage(txt) {
 // ---------- Helpers ----------
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]); }
 function createFragment(html){ const t=document.createElement("template"); t.innerHTML=html.trim(); return t.content.firstChild; }
-function clearMatchesUI(){
-  Object.keys(matchUI).forEach(id=>{
-    const el=document.getElementById(`match-${id}`);
-    if(el) el.remove();
-  });
-  matchUI={};
-}
+function clearMatchesUI(){ Object.keys(matchUI).forEach(id=>{ const el=document.getElementById(`match-${id}`); if(el) el.remove(); }); matchUI={}; }
 
 // ---------- Character image helper ----------
 function getCharImage(char,hp=100){
@@ -113,7 +107,7 @@ const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
 if (nick && char) {
   socket.emit("joinTournament", { nick, char });
-  renderWaiting(0, 8, []);
+  renderWaiting(0, 8, []); // forzare waiting iniziale
 } else {
   battleArea.innerHTML = "<h2>Error: Missing nickname or character. Return to home page.</h2>";
 }
@@ -208,94 +202,53 @@ function makePlayerCard(player){
   return { div,label,charImg:img,hp,dice };
 }
 
-// ---------- renderMatchCard aggiornato ----------
 function renderMatchCard(match){
   if(!match?.id) return;
+  if(matchUI[match.id]) return;
+  const container=document.createElement("div");
+  container.className="match-container";
+  container.id=`match-${match.id}`;
 
-  let refs = matchUI[match.id];
+  const stageLabel=document.createElement("h3");
+  stageLabel.textContent=`${match.stage.toUpperCase()} - ${match.id}`;
+  container.appendChild(stageLabel);
 
-  if(!refs){
-    // crea il container solo se non esiste
-    const container = document.createElement("div");
-    container.className="match-container";
-    container.id=`match-${match.id}`;
+  const p1 = makePlayerCard(match.player1 || { nick:"??", char:"??", hp:0 });
+  const p2 = makePlayerCard(match.player2 || { nick:"??", char:"??", hp:0 });
 
-    const stageLabel=document.createElement("h3");
-    stageLabel.textContent=`${match.stage?.toUpperCase() || "??"} - ${match.id}`;
-    container.appendChild(stageLabel);
+  container.appendChild(p1.div);
+  container.appendChild(p2.div);
+  battleArea.appendChild(container);
 
-    const p1 = makePlayerCard(match.player1 || { nick:"??", char:"??", hp:0 });
-    const p2 = makePlayerCard(match.player2 || { nick:"??", char:"??", hp:0 });
-
-    container.appendChild(p1.div);
-    container.appendChild(p2.div);
-    battleArea.appendChild(container);
-
-    refs = { p1, p2 };
-    matchUI[match.id] = refs;
-  }
-
-  // aggiorna subito i dati reali se arrivano
-  ["player1","player2"].forEach((key,i)=>{
-    const player = match[key];
-    if(!player) return;
-    const ref = i===0 ? refs.p1 : refs.p2;
-    const hpVal = Math.max(0, player.hp ?? 0);
-    const hpPercent = Math.round((hpVal / 80) * 100);
-    ref.label.textContent = `${player.nick} (${player.char}) HP: ${hpVal}`;
-    ref.hp.style.width = hpPercent + "%";
-    ref.charImg.src = getCharImage(player.char, player.hp);
-  });
-}
-
-// ---------- removeFinishedMatchBoxes aggiornato ----------
-function removeFinishedMatchBoxes() {
-  Object.keys(matchUI).forEach(id => {
-    const refs = matchUI[id];
-    const hpVals = [
-      parseInt(refs.p1.label.textContent.match(/HP: (\d+)/)?.[1] ?? 0),
-      parseInt(refs.p2.label.textContent.match(/HP: (\d+)/)?.[1] ?? 0)
-    ];
-
-    if(hpVals.every(v => v <= 0)){
-      const el = document.getElementById(`match-${id}`);
-      if(el) el.remove();
-      delete matchUI[id];
-    }
-  });
+  matchUI[match.id] = { p1, p2 };
 }
 
 // ---------- Damage handling ----------
+const lastEventMessagesPerPlayer = {}; // evita doppi messaggi per player
+
 function handleDamage(match){
-  if(!match?.id) return;
-
-  // se il box non esiste ancora lo creo
-  if(!matchUI[match.id]) renderMatchCard(match);
-
+  if(!match?.id || !matchUI[match.id]) return;
   const refs = matchUI[match.id];
 
   ["player1","player2"].forEach((key,i)=>{
     const player = match[key];
-    if(!player) return;
     const ref = i===0 ? refs.p1 : refs.p2;
+    if(!player) return;
 
-    const diceDisplay = player.roll ?? player.dice ?? 1;
-    const dmg = player.dmg ?? player.dice ?? 0;
+    const diceDisplay = (player.roll ?? player.dice ?? 1);
+    let dmg = (player.dmg ?? player.dice ?? 0);
 
-    let msg="";
     if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
-      msg = `${player.nick} is stunned! Rolled ${diceDisplay} → deals only ${dmg} 😵‍💫`;
+      addEventMessageSingle(player.nick, `${player.nick} is stunned! Rolled ${diceDisplay} → deals only ${dmg} 😵‍💫`);
       if(i===0) stunned.p1=false; else stunned.p2=false;
     }
-    else if(diceDisplay===8){
-      msg = `${player.nick} CRIT! Rolled ${diceDisplay} → deals ${dmg} ⚡💥`;
-    } else {
-      msg = `${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`;
+    else if((player.roll === 8) || (player.dice === 8)){
+      addEventMessageSingle(player.nick, `${player.nick} CRIT! Rolled ${diceDisplay} → deals ${dmg} ⚡💥`);
+    }
+    else {
+      addEventMessageSingle(player.nick, `${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`);
     }
 
-    addEventMessageSingle(player.nick, msg);
-
-    // aggiorna UI
     const hpVal = Math.max(0, player.hp ?? 0);
     const hpPercent = Math.round((hpVal / 80) * 100);
     ref.label.textContent = `${player.nick} (${player.char}) HP: ${hpVal}`;
@@ -303,28 +256,18 @@ function handleDamage(match){
     ref.charImg.src = getCharImage(player.char, player.hp);
     ref.dice.src = `img/dice${diceDisplay}.png`;
   });
-
-  // subito dopo ogni danno ripulisce i match chiusi
-  removeFinishedMatchBoxes();
 }
 
-// ---------- removeFinishedMatchBoxes ----------
-function removeFinishedMatchBoxes() {
-  Object.keys(matchUI).forEach(id => {
-    const el = document.getElementById(`match-${id}`);
-    if(!el) return;
-
-    // prendo i label per vedere se entrambi sono a 0 HP
-    const refs = matchUI[id];
-    const hp1 = parseInt(refs.p1.label.textContent.split("HP:")[1] ?? "0", 10);
-    const hp2 = parseInt(refs.p2.label.textContent.split("HP:")[1] ?? "0", 10);
-
-    if(hp1<=0 && hp2<=0){
-      el.remove();
-      delete matchUI[id];
-    }
-  });
+function addEventMessageSingle(playerNick, text){
+  if(lastEventMessagesPerPlayer[playerNick] === text) return;
+  lastEventMessagesPerPlayer[playerNick] = text;
+  const d = document.createElement("div");
+  d.textContent = text;
+  eventBox.appendChild(d);
+  eventBox.scrollTop = eventBox.scrollHeight;
 }
+
+socket.on("updateMatch", match => handleDamage(match));
 
 // ---------- Winner ----------
 function showWinnerChar(char){
@@ -352,6 +295,15 @@ function playWinnerMusic(winnerChar){
   winnerMusic.play().catch(()=>{});
 }
 
+// ---------- Utility ----------
+function removeMatchBox(matchId){
+  const el = document.getElementById(`match-${matchId}`);
+  if(el){
+    el.remove();
+    delete matchUI[matchId];
+  }
+}
+
 // ---------- Socket events ----------
 socket.on("startTournament", matches => {
   if(waitingContainer) { waitingContainer.remove(); waitingContainer=null; }
@@ -366,8 +318,9 @@ socket.on("startMatch", match => {
   renderMatchCard(match);
 });
 
-socket.on("matchOver", ({ winnerNick, winnerChar, stage }) => {
+socket.on("matchOver", ({ winnerNick, winnerChar, stage, matchId }) => {
   addEventMessage(`🏆 ${winnerNick ?? "??"} won the match (${stage})!`);
+  if(matchId) removeMatchBox(matchId);
   if(stage==="final") playWinnerMusic(winnerChar);
 });
 
