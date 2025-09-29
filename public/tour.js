@@ -29,7 +29,8 @@ document.addEventListener("DOMContentLoaded", () => {
 let matchUI = {};
 let currentStage = "waiting";
 let waitingContainer = null;
-let stunned = { p1:false, p2:false }; // gestisce stun
+let stunned = { p1:false, p2:false };
+let stageCounters = { quarter:0, semi:0, final:0 }; // contatori etichette
 
 // Tiene traccia dei match renderizzati per fase
 let renderedMatchesByStage = {
@@ -114,7 +115,7 @@ const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
 if (nick && char) {
   socket.emit("joinTournament", { nick, char });
-  renderWaiting(0, 8, []); // forzare waiting iniziale
+  renderWaiting(0, 8, []); 
 } else {
   battleArea.innerHTML = "<h2>Error: Missing nickname or character. Return to home page.</h2>";
 }
@@ -209,25 +210,32 @@ function makePlayerCard(player){
   return { div,label,charImg:img,hp,dice };
 }
 
-// Funzione aggiornata per renderizzare match con rimozione automatica dei box della fase precedente
+// ---------- Render match card ----------
 function renderMatchCard(match){
   if(!match?.id) return;
-  if(matchUI[match.id]) return;
 
-  const container=document.createElement("div");
-  container.className="match-container";
-  container.id=`match-${match.id}`;
+  // aggiorna se già renderizzato
+  if(matchUI[match.id]){
+    handleDamage(match);
+    return;
+  }
 
-  // Etichette compatte Q1, Q2, S1, F
-  let shortLabel = match.stage==="quarter" ? `Q${match.id}` :
-                   match.stage==="semi"    ? `S${match.id}` :
+  const container = document.createElement("div");
+  container.className = "match-container";
+  container.id = `match-${match.id}`;
+
+  // contatore fase
+  stageCounters[match.stage] = (stageCounters[match.stage] || 0) + 1;
+  let shortLabel = match.stage==="quarter" ? `Q${stageCounters.quarter}` :
+                   match.stage==="semi"    ? `S${stageCounters.semi}` :
                    match.stage==="final"   ? `F` : match.stage.toUpperCase();
-  const stageLabel=document.createElement("h3");
+
+  const stageLabel = document.createElement("h3");
   stageLabel.textContent = `${shortLabel}`;
   container.appendChild(stageLabel);
 
-  const p1 = makePlayerCard(match.player1 || { nick:"??", char:"??", hp:0 });
-  const p2 = makePlayerCard(match.player2 || { nick:"??", char:"??", hp:0 });
+  const p1 = makePlayerCard(match.player1 ?? { nick:"??", char:"unknown", hp:0 });
+  const p2 = makePlayerCard(match.player2 ?? { nick:"??", char:"unknown", hp:0 });
 
   container.appendChild(p1.div);
   container.appendChild(p2.div);
@@ -236,16 +244,9 @@ function renderMatchCard(match){
   matchUI[match.id] = { p1, p2 };
   renderedMatchesByStage[match.stage]?.add(match.id);
 
-  // --- pulizia fase precedente ---
-  if(match.stage==="semi"){
-    // semifinale pronta: rimuovi quarti solo se entrambe le semifinali sono renderizzate
-    if(renderedMatchesByStage.semi.size === 2){
-      clearStage("quarter");
-    }
-  } else if(match.stage==="final"){
-    // finale pronta: rimuovi semifinali
-    clearStage("semi");
-  }
+  // pulizia fase precedente
+  if(match.stage==="semi" && renderedMatchesByStage.semi.size===2) clearStage("quarter");
+  if(match.stage==="final") clearStage("semi");
 }
 
 function clearStage(stage){
@@ -307,7 +308,7 @@ function showWinnerChar(char){
   if(!char) return;
   const winnerImg = document.createElement("img");
   winnerImg.src = `img/${char}.webp`;
-  winnerImg.onerror = () => { winnerImg.src = `img/${char}.png`; };
+  winnerImg.onerror = () => { winnerImg.src = "img/${char}.png"; };
   winnerImg.style.position = "fixed";
   winnerImg.style.top = "0";
   winnerImg.style.left = "0";
@@ -340,6 +341,11 @@ socket.on("startTournament", matches => {
 socket.on("startMatch", match => {
   if(match.stage) setStage(match.stage);
   renderMatchCard(match);
+});
+
+socket.on("updateMatch", match => {
+  renderMatchCard(match); // aggiorna o crea
+  handleDamage(match);
 });
 
 socket.on("matchOver", ({ winnerNick, winnerChar, stage, matchId }) => {
