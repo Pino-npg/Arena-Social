@@ -30,7 +30,6 @@ let matchUI = {};
 let currentStage = "waiting";
 let waitingContainer = null;
 let stunned = { p1:false, p2:false };
-let stageCounters = { quarter:0, semi:0, final:0 }; // contatori etichette
 
 // Tiene traccia dei match renderizzati per fase
 let renderedMatchesByStage = {
@@ -44,13 +43,23 @@ const musicQuarter = "img/5.mp3";
 const musicSemi    = "img/6.mp3"; 
 const musicFinal   = "img/7.mp3";
 
-const musicBattle = new Audio(musicQuarter);
+const musicBattle = new Audio();
 musicBattle.loop = true;
 musicBattle.volume = 0.5;
 
 let winnerMusic = new Audio();
 winnerMusic.loop = false;
 winnerMusic.volume = 0.7;
+
+// ---------- Stage counters ----------
+let stageCounters = { quarter: 0, semi: 0, final: 0 };
+
+function resetStageCounters(stage) {
+  // reset solo il contatore della fase corrente
+  if(stage === "quarter") stageCounters.quarter = 0;
+  if(stage === "semi")    stageCounters.semi = 0;
+  if(stage === "final")   stageCounters.final = 0;
+}
 
 // ---------- Audio unlock ----------
 function unlockAudio() {
@@ -60,6 +69,41 @@ function unlockAudio() {
 window.addEventListener("click", unlockAudio, { once:true });
 window.addEventListener("touchstart", unlockAudio, { once:true });
 
+// ---------- Stage management ----------
+function setStage(stage){
+  if(stage === currentStage) return;
+  currentStage = stage;
+
+  // reset contatore solo della fase corrente
+  resetStageCounters(stage);
+
+  // cambia musica
+  if(stage === "quarter") setMusic(musicQuarter);
+  else if(stage === "semi") setMusic(musicSemi);
+  else if(stage === "final") setMusic(musicFinal);
+
+  const old = battleArea.querySelector(".stage-title");
+  if(old) old.remove();
+
+  const title = document.createElement("h2");
+  title.className = "stage-title";
+  title.textContent = stage==="quarter" ? "⚔️ Quarter-finals" :
+                      stage==="semi"    ? "🔥 Semi-finals" :
+                      "👑 Final!";
+  battleArea.prepend(title);
+}
+
+function setMusic(src){
+  if(!src) return;
+
+  // ferma musica corrente, cambia file, forza reload e play
+  musicBattle.pause();
+  musicBattle.src = src;
+  musicBattle.load();
+  musicBattle.volume = 0.5;
+  musicBattle.loop = true;
+  musicBattle.play().catch(()=>{});
+}
 // ---------- Fullscreen toggle ----------
 fullscreenBtn.addEventListener("click", async () => {
   const container = document.getElementById("game-container");
