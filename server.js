@@ -141,14 +141,16 @@ io.on("connection", socket => {
     }
   });
 
-  socket.on("chatMessage", text => {
-    let game = Object.values(games).find(g => g.players.some(p => p.id === socket.id));
-    if (!game) game = lastGames[socket.id];
+  socket.on("chatMessage", data => {
+    const { roomId, text } = data;
+    let game = Object.values(games).find(g => g.id === roomId);
+    if (!game) game = lastGames[roomId];
     if (!game) return;
+
     for (const p of game.players) {
-      io.to(p.id).emit("chatMessage", { nick: socket.nick, text });
+      io.to(p.id).emit("chatMessage", { nick: socket.nick, text, roomId });
     }
-  });
+});
 
   // ------------------- DISCONNECT -------------------
   socket.on("disconnect", () => {

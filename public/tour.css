@@ -97,7 +97,13 @@ header {
   display:none;
   max-width:90%;
   height:auto;
-  margin:10px auto;
+  margin:20px auto;
+  position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  z-index:2000;
+  pointer-events:none;
 }
 
 /* -------- OVERLAY / BRACKET -------- */
@@ -147,9 +153,17 @@ header {
   .dice { width:50px; height:50px; }
 }
 
-/* -------- MOBILE LANDSCAPE LARGHI -------- */
+/* MOBILE LANDSCAPE LARGHI */
 @media (min-width:414px) and (max-width:768px) and (orientation: landscape){
-  .player { flex: 1 1 40%; max-width:42%; }
+  .match-container {
+    flex-wrap: nowrap;
+    justify-content: space-around;
+  }
+  .player { 
+    flex: 1 1 45%; 
+    max-width:45%; 
+    min-width:140px; 
+  }
   .player img.char-img { width:140px; }
   .player-label { font-size:1.2rem; }
 }
