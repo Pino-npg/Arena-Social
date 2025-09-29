@@ -214,12 +214,13 @@ header {
 
 @media (max-width: 480px) {
   .match-container {
-    flex-direction: column; /* verticale su schermi molto stretti */
+    flex-direction: row; /* rimane orizzontale */
+    justify-content: space-between; /* distanzia i player */
   }
   .player {
-    width: 100%;
-    flex-direction: row;    /* player interno diventa orizzontale */
-    justify-content: space-between;
+    width: 48%;          /* ciascun player prende circa metà schermo */
+    flex-direction: column; /* player interno verticale */
+    align-items: center;
   }
   .char-img {
     width: 48px;
