@@ -223,7 +223,7 @@ function renderMatchCard(match){
 }
 
 // ---------- Damage handling (crit / stun / dice) ----------
-const lastEventMessagesPerPlayer = {}; // evita doppi messaggi per player
+const lastEventMessages = new Set(); // evita doppi messaggi globali
 
 function handleDamage(match){
   if(!match?.id || !matchUI[match.id]) return;
@@ -234,27 +234,25 @@ function handleDamage(match){
     const ref = i===0 ? refs.p1 : refs.p2;
     if(!player) return;
 
-    // server ora invia: player.roll (valore reale del dado) e player.dmg (danno applicato)
-    const diceDisplay = (player.roll ?? player.dice ?? 1); // fallback compatibile
-    let dmg = (player.dmg ?? player.dice ?? 0);
+    const diceDisplay = (player.roll ?? player.dice ?? 1);
+    const dmg = (player.dmg ?? player.dice ?? 0);
 
-    // gestione stun: se il player è stunned lato client (stato locale), il danno viene già calcolato sul server.
-    // Tuttavia manteniamo la notifica coerente: mostra roll reale e il danno effettivo usato.
+    // Genera il messaggio
+    let msg = "";
     if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
-      // il server ha già applicato -1 al danno; qui mostriamo comunque che era stunned
-      addEventMessageSingle(player.nick, `${player.nick} is stunned! Rolled ${diceDisplay} → deals only ${dmg} 😵‍💫`);
+      msg = `${player.nick} is stunned! Rolled ${diceDisplay} → deals only ${dmg} 😵‍💫`;
       if(i===0) stunned.p1=false; else stunned.p2=false;
     }
-    else if((player.roll === 8) || (player.dice === 8)){
-      addEventMessageSingle(player.nick, `${player.nick} CRIT! Rolled ${diceDisplay} → deals ${dmg} ⚡💥`);
-      // il server imposta stunned al defender, ma lato client non dobbiamo impostare stun qui:
-      // lo stato stun viene gestito localmente solo per mostrare messaggi duplicati; il server è sorgente di verità.
+    else if(diceDisplay === 8){
+      msg = `${player.nick} CRIT! Rolled ${diceDisplay} → deals ${dmg} ⚡💥`;
     }
-    else {
-      addEventMessageSingle(player.nick, `${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`);
+    else{
+      msg = `${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`;
     }
 
-    // aggiorna UI: trasformiamo HP (0..80) in percentuale
+    addEventMessageUnique(msg);
+
+    // aggiorna UI
     const hpVal = Math.max(0, player.hp ?? 0);
     const hpPercent = Math.round((hpVal / 80) * 100);
     ref.label.textContent = `${player.nick} (${player.char}) HP: ${hpVal}`;
@@ -263,17 +261,24 @@ function handleDamage(match){
     ref.dice.src = `img/dice${diceDisplay}.png`;
   });
 }
-// funzione per evitare doppi messaggi per player
-function addEventMessageSingle(playerNick, text){
-  if(lastEventMessagesPerPlayer[playerNick] === text) return;
-  lastEventMessagesPerPlayer[playerNick] = text;
+
+// funzione per evitare doppi messaggi globali
+function addEventMessageUnique(text){
+  if(lastEventMessages.has(text)) return;
+  lastEventMessages.add(text);
+
   const d = document.createElement("div");
   d.textContent = text;
   eventBox.appendChild(d);
   eventBox.scrollTop = eventBox.scrollHeight;
+
+  // pulizia automatica dei vecchi messaggi per non crescere indefinitamente
+  if(lastEventMessages.size > 1000) lastEventMessages.clear();
 }
 
+// ---------- Socket events ----------
 socket.on("updateMatch", match => handleDamage(match));
+socket.on("log", msg => addEventMessageUnique(msg));
 
 // ---------- Winner ----------
 function showWinnerChar(char){

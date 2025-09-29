@@ -156,12 +156,12 @@ header {
 /* MOBILE LANDSCAPE LARGHI */
 @media (min-width:414px) and (max-width:768px) and (orientation: landscape){
   .match-container {
-    flex-wrap: nowrap;
-    justify-content: space-around;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
   }
   .player { 
-    flex: 1 1 45%; 
-    max-width:45%; 
+    flex: 1 1 40%; 
+    max-width:40%; 
     min-width:140px; 
   }
   .player img.char-img { width:140px; }
