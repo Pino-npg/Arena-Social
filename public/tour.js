@@ -238,7 +238,7 @@ function renderMatchCard(match){
   let shortLabel = "";
   if(match.stage === "quarter"){
     stageCounters.quarter++;
-    shortLabel = `Q${stageCounters.quarter}`;
+    shortLabel = `Q`;
   } else if(match.stage === "semi"){
     stageCounters.semi++;
     shortLabel = `S${stageCounters.semi}`;
