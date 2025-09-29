@@ -30,7 +30,7 @@ header {
   text-shadow: 1px 1px 4px black;
 }
 
-#home-btn, #trophy-btn, #fullscreen-btn {
+#home-btn, #trophy-btn {
   font-size: 1.5rem;
   cursor: pointer;
   background: transparent;
@@ -38,7 +38,7 @@ header {
   color: white;
   transition: color 0.3s;
 }
-#home-btn:hover, #trophy-btn:hover, #fullscreen-btn:hover {
+#home-btn:hover, #trophy-btn:hover {
   color: gold;
 }
 
@@ -48,7 +48,6 @@ header {
   text-shadow: 2px 2px 8px black;
   text-align: center;
 }
-
 
 /* -------- MAIN AREA -------- */
 #main-area { 
@@ -93,6 +92,14 @@ header {
 }
 .dice { width:60px; height:60px; margin:10px auto; }
 
+/* -------- WINNER IMAGE -------- */
+#winnerImage {
+  display:none;
+  max-width:90%;
+  height:auto;
+  margin:10px auto;
+}
+
 /* -------- OVERLAY / BRACKET -------- */
 #tournament-overlay { 
   position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); 
@@ -130,12 +137,19 @@ header {
   }
 
   .player {
-    flex: 1 1 45%;    /* prende circa metà schermo */
-    min-width: 130px; /* evita che si stringano troppo */
+    flex: 1 1 45%;    /* metà schermo */
+    min-width: 140px; /* evita troppo stretto */
     max-width: 48%;
   }
 
-  .player img.char-img { width:120px; }
-  .player-label { font-size:1rem; }
-  .dice { width:45px; height:45px; }
+  .player img.char-img { width:130px; }
+  .player-label { font-size:1.1rem; }
+  .dice { width:50px; height:50px; }
+}
+
+/* -------- MOBILE LANDSCAPE LARGHI -------- */
+@media (min-width:414px) and (max-width:768px) and (orientation: landscape){
+  .player { flex: 1 1 40%; max-width:42%; }
+  .player img.char-img { width:140px; }
+  .player-label { font-size:1.2rem; }
 }
