@@ -241,7 +241,7 @@ function renderMatchCard(match){
     shortLabel = `Q`;
   } else if(match.stage === "semi"){
     stageCounters.semi++;
-    shortLabel = `S${stageCounters.semi}`;
+    shortLabel = `S`;
   } else if(match.stage === "final"){
     stageCounters.final++;
     shortLabel = `F`;
