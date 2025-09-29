@@ -221,9 +221,33 @@ function renderMatchCard(match){
 
   matchUI[match.id] = { p1, p2 };
 }
+// ---------- PULIZIA MATCH TERMINATI ----------
+function removeFinishedMatchBoxes() {
+  const containers = document.querySelectorAll(".match-container");
+  containers.forEach(container => {
+    const players = container.querySelectorAll(".player-label");
+    // se tutti i player hanno HP 0, rimuovo il container
+    const allDead = Array.from(players).every(pl => pl.textContent.includes("HP: 0"));
+    if(allDead) container.remove();
+  });
+}
 
+// esempio: chiamala prima di renderizzare un nuovo match o all'inizio di un nuovo torneo
+socket.on("startTournament", matches => {
+  if(waitingContainer) { waitingContainer.remove(); waitingContainer=null; }
+  removeFinishedMatchBoxes(); // pulisco vecchi match
+  currentStage = matches[0]?.stage || "quarter";
+  setStage(currentStage);
+  matches.forEach(m => renderMatchCard(m));
+});
+
+socket.on("startMatch", match => {
+  removeFinishedMatchBoxes(); // pulisco eventuali match già conclusi
+  if(match.stage) setStage(match.stage);
+  renderMatchCard(match);
+});
 // ---------- Damage handling (crit / stun / dice) ----------
-const lastEventMessages = new Set(); // evita doppi messaggi globali
+const lastEventMessagesPerPlayer = {}; // evita doppi messaggi per singolo player
 
 function handleDamage(match){
   if(!match?.id || !matchUI[match.id]) return;
@@ -250,7 +274,7 @@ function handleDamage(match){
       msg = `${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`;
     }
 
-    addEventMessageUnique(msg);
+    addEventMessageSingle(player.nick, msg);
 
     // aggiorna UI
     const hpVal = Math.max(0, player.hp ?? 0);
@@ -262,10 +286,10 @@ function handleDamage(match){
   });
 }
 
-// funzione per evitare doppi messaggi globali
-function addEventMessageUnique(text){
-  if(lastEventMessages.has(text)) return;
-  lastEventMessages.add(text);
+// funzione per evitare doppi messaggi per singolo giocatore
+function addEventMessageSingle(playerNick, text){
+  if(lastEventMessagesPerPlayer[playerNick] === text) return;
+  lastEventMessagesPerPlayer[playerNick] = text;
 
   const d = document.createElement("div");
   d.textContent = text;
@@ -273,7 +297,9 @@ function addEventMessageUnique(text){
   eventBox.scrollTop = eventBox.scrollHeight;
 
   // pulizia automatica dei vecchi messaggi per non crescere indefinitamente
-  if(lastEventMessages.size > 1000) lastEventMessages.clear();
+  if(Object.keys(lastEventMessagesPerPlayer).length > 1000){
+    for(const key in lastEventMessagesPerPlayer) delete lastEventMessagesPerPlayer[key];
+  }
 }
 
 // ---------- Socket events ----------
