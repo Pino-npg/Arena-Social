@@ -238,6 +238,7 @@ function resetTournament(tournamentId) {
   delete tournaments[tournamentId];
 }
 
+// ---------- Turni di battaglia ----------
 function nextTurn(match, tournamentId, attackerIndex) {
   const defenderIndex = attackerIndex === 0 ? 1 : 0;
   const attacker = match.players[attackerIndex];
@@ -248,10 +249,12 @@ function nextTurn(match, tournamentId, attackerIndex) {
   let logMsg = "";
 
   if (attacker.stunned) {
+    // penalità al danno inflitto
     damage = Math.max(0, damage - 1);
     attacker.stunned = false;
     logMsg = `${attacker.nick} is stunned! Rolled ${realRoll} → deals only ${damage} 😵‍💫`;
   } else if (realRoll === 8) {
+    // critico
     defender.stunned = true;
     logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥`;
   } else {
@@ -259,14 +262,28 @@ function nextTurn(match, tournamentId, attackerIndex) {
   }
 
   defender.hp = Math.max(0, defender.hp - damage);
-  attacker.dice = damage;
 
-  nsp.to(tournamentId).emit("updateMatch", { id: match.id, stage: match.stage, player1: match.players[0], player2: match.players[1] });
+  attacker.roll = realRoll; // valore reale
+  attacker.dmg = damage;    // danno applicato
+
+  nsp.to(tournamentId).emit("updateMatch", {
+    id: match.id,
+    stage: match.stage,
+    player1: match.players[0],
+    player2: match.players[1]
+  });
+
   nsp.to(tournamentId).emit("log", logMsg);
 
   if (defender.hp <= 0) {
     const winner = attacker;
-    nsp.to(tournamentId).emit("matchOver", { winnerNick: winner.nick, winnerChar: winner.char, stage: match.stage, player1: match.players[0], player2: match.players[1] });
+    nsp.to(tournamentId).emit("matchOver", {
+      winnerNick: winner.nick,
+      winnerChar: winner.char,
+      stage: match.stage,
+      player1: match.players[0],
+      player2: match.players[1]
+    });
     advanceWinner(tournamentId, match.id, winner);
     return;
   }
@@ -277,7 +294,11 @@ function nextTurn(match, tournamentId, attackerIndex) {
 function startMatch(tournamentId, p1, p2, stage, matchId) {
   const t = tournaments[tournamentId];
   if (!t || !p1 || !p2) return;
-  const players = [{ ...p1, hp: 80, stunned: false, dice: 0 }, { ...p2, hp: 80, stunned: false, dice: 0 }];
+
+  const players = [
+    { ...p1, hp: 80, stunned: false, roll: 0, dmg: 0 },
+    { ...p2, hp: 80, stunned: false, roll: 0, dmg: 0 }
+  ];
   const match = { id: matchId, players, stage };
   t.matches[matchId] = match;
 
@@ -291,6 +312,9 @@ function startMatch(tournamentId, p1, p2, stage, matchId) {
 // ------------------- TOURNAMENT NAMESPACE -------------------
 nsp.on("connection", socket => {
   let currentTournament = null;
+
+  // aggiorna subito il numero di online nella namespace
+  nsp.emit("onlineCount", nsp.sockets.size);
 
   socket.on("setNickname", nick => {
     const finalNick = assignUniqueNick(nick);
@@ -320,7 +344,9 @@ nsp.on("connection", socket => {
       const first8 = t.waiting.slice(0, 8);
       nsp.to(tId).emit("waitingStart", { players: first8.map(p => p.nick), total: 8 });
       generateBracket(first8, t);
-      t.bracket.filter(m => m.stage === "quarter").forEach(m => startMatch(tId, m.player1, m.player2, m.stage, m.id));
+      t.bracket
+        .filter(m => m.stage === "quarter")
+        .forEach(m => startMatch(tId, m.player1, m.player2, m.stage, m.id));
     }
   });
 
@@ -332,26 +358,36 @@ nsp.on("connection", socket => {
 
   socket.on("disconnect", () => {
     releaseNick(socket.nick);
+
+    // aggiorna online count dopo la disconnessione
+    nsp.emit("onlineCount", nsp.sockets.size);
+
     const tId = currentTournament;
     if (!tId) return;
     const t = tournaments[tId];
     if (!t) return;
 
     t.waiting = t.waiting.filter(p => p.id !== socket.id);
+
     for (const matchId in t.matches) {
       const match = t.matches[matchId];
       const idx = match.players.findIndex(p => p.id === socket.id);
       if (idx !== -1) {
         const other = match.players.find(p => p.id !== socket.id);
-        nsp.to(tId).emit("matchOver", { winnerNick: other.nick, winnerChar: other.char, stage: match.stage, player1: match.players[0], player2: match.players[1] });
+        nsp.to(tId).emit("matchOver", {
+          winnerNick: other.nick,
+          winnerChar: other.char,
+          stage: match.stage,
+          player1: match.players[0],
+          player2: match.players[1]
+        });
         advanceWinner(tId, match.id, other);
         break;
       }
     }
+
     broadcastWaiting(tId);
     emitBracket(tId);
   });
 });
 
-// ------------------- SERVER LISTEN -------------------
-httpServer.listen(PORT, () => console.log(`Server unico attivo su http://localhost:${PORT}`));

@@ -122,8 +122,20 @@ header {
 @media (max-width:768px){
   #bottom-area { flex-direction:column; }
   .side-box { max-width:100%; max-height:8em; }
-  .player { width:90%; }
-  .player img.char-img { width:140px; }
-  .player-label { font-size:1.2rem; }
-  .dice { width:50px; height:50px; }
+
+  .match-container {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .player {
+    flex: 1 1 45%;    /* prende circa metà schermo */
+    min-width: 130px; /* evita che si stringano troppo */
+    max-width: 48%;
+  }
+
+  .player img.char-img { width:120px; }
+  .player-label { font-size:1rem; }
+  .dice { width:45px; height:45px; }
 }

@@ -234,29 +234,31 @@ function handleDamage(match){
     const ref = i===0 ? refs.p1 : refs.p2;
     if(!player) return;
 
-    let dmg = player.dice ?? 0;          // danno calcolato
-    const diceDisplay = player.dice ?? 1; // valore reale dado
+    // server ora invia: player.roll (valore reale del dado) e player.dmg (danno applicato)
+    const diceDisplay = (player.roll ?? player.dice ?? 1); // fallback compatibile
+    let dmg = (player.dmg ?? player.dice ?? 0);
 
-    // gestione stun
+    // gestione stun: se il player è stunned lato client (stato locale), il danno viene già calcolato sul server.
+    // Tuttavia manteniamo la notifica coerente: mostra roll reale e il danno effettivo usato.
     if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
-      const finalDmg = Math.max(0, dmg - 1);
-      addEventMessageSingle(player.nick, `${player.nick} is stunned! Rolled ${diceDisplay} → deals only ${finalDmg} 😵‍💫`);
-      dmg = finalDmg;
+      // il server ha già applicato -1 al danno; qui mostriamo comunque che era stunned
+      addEventMessageSingle(player.nick, `${player.nick} is stunned! Rolled ${diceDisplay} → deals only ${dmg} 😵‍💫`);
       if(i===0) stunned.p1=false; else stunned.p2=false;
-    } 
-    // gestione crit
-    else if(player.dice === 8){
+    }
+    else if((player.roll === 8) || (player.dice === 8)){
       addEventMessageSingle(player.nick, `${player.nick} CRIT! Rolled ${diceDisplay} → deals ${dmg} ⚡💥`);
-      if(i===0) stunned.p2=true; else stunned.p1=true;
-    } 
-    // danno normale
+      // il server imposta stunned al defender, ma lato client non dobbiamo impostare stun qui:
+      // lo stato stun viene gestito localmente solo per mostrare messaggi duplicati; il server è sorgente di verità.
+    }
     else {
       addEventMessageSingle(player.nick, `${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`);
     }
 
-    // aggiorna UI
-    ref.label.textContent=`${player.nick} (${player.char}) HP: ${player.hp ?? 0}`;
-    ref.hp.style.width=Math.max(0,player.hp ?? 0)+"%";
+    // aggiorna UI: trasformiamo HP (0..80) in percentuale
+    const hpVal = Math.max(0, player.hp ?? 0);
+    const hpPercent = Math.round((hpVal / 80) * 100);
+    ref.label.textContent = `${player.nick} (${player.char}) HP: ${hpVal}`;
+    ref.hp.style.width = hpPercent + "%";
     ref.charImg.src = getCharImage(player.char, player.hp);
     ref.dice.src = `img/dice${diceDisplay}.png`;
   });
