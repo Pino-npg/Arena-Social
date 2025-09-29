@@ -210,8 +210,12 @@ function renderMatchCard(match){
   container.id=`match-${match.id}`;
 
   const stageLabel = document.createElement("h3");
-  stageLabel.textContent=`${match.stage.toUpperCase()} - ${match.id}`;
-  container.appendChild(stageLabel);
+let stageShort = match.stage === "quarter" ? "Q" :
+                 match.stage === "semi"    ? "S" :
+                 "F";
+stageLabel.textContent = stageShort;
+container.appendChild(stageLabel);
+
 
   const p1 = makePlayerCard(match.player1??{nick:"??",char:"unknown",hp:0});
   const p2 = makePlayerCard(match.player2??{nick:"??",char:"unknown",hp:0});
@@ -335,7 +339,14 @@ socket.on("tournamentOver", ({ nick, char }) => {
   setTimeout(()=> battleArea.innerHTML="<h2>Waiting for new tournament...</h2>", 2500);
 });
 
-socket.on("chatMessage", data => addEventMessage(`${data.nick}: ${data.text}`));
+socket.on("chatMessage", data => {
+  if(chatMessages){
+    const div = document.createElement("div");
+    div.textContent = `${data.nick}: ${data.text}`;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+});
 socket.on("log", msg => addEventMessage(msg));
 socket.on("tournamentState", bracket => renderBracket(bracket));
 
