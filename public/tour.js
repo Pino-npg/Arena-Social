@@ -211,32 +211,53 @@ function makePlayerCard(player){
 // ---------- renderMatchCard aggiornato ----------
 function renderMatchCard(match){
   if(!match?.id) return;
-  if(matchUI[match.id]) { updateMatchUI(match); return; }
 
-  const container=document.createElement("div");
-  container.className="match-container";
-  container.id=`match-${match.id}`;
+  let refs = matchUI[match.id];
 
-  const stageLabel=document.createElement("h3");
-  stageLabel.textContent=`${match.stage.toUpperCase()} - ${match.id}`;
-  container.appendChild(stageLabel);
+  if(!refs){
+    // crea il container solo se non esiste
+    const container = document.createElement("div");
+    container.className="match-container";
+    container.id=`match-${match.id}`;
 
-  const p1 = makePlayerCard(match.player1 || { nick:"??", char:"??", hp:0 });
-  const p2 = makePlayerCard(match.player2 || { nick:"??", char:"??", hp:0 });
+    const stageLabel=document.createElement("h3");
+    stageLabel.textContent=`${match.stage?.toUpperCase() || "??"} - ${match.id}`;
+    container.appendChild(stageLabel);
 
-  container.appendChild(p1.div);
-  container.appendChild(p2.div);
-  battleArea.appendChild(container);
+    const p1 = makePlayerCard(match.player1 || { nick:"??", char:"??", hp:0 });
+    const p2 = makePlayerCard(match.player2 || { nick:"??", char:"??", hp:0 });
 
-  matchUI[match.id] = { p1, p2 };
+    container.appendChild(p1.div);
+    container.appendChild(p2.div);
+    battleArea.appendChild(container);
+
+    refs = { p1, p2 };
+    matchUI[match.id] = refs;
+  }
+
+  // aggiorna subito i dati reali se arrivano
+  ["player1","player2"].forEach((key,i)=>{
+    const player = match[key];
+    if(!player) return;
+    const ref = i===0 ? refs.p1 : refs.p2;
+    const hpVal = Math.max(0, player.hp ?? 0);
+    const hpPercent = Math.round((hpVal / 80) * 100);
+    ref.label.textContent = `${player.nick} (${player.char}) HP: ${hpVal}`;
+    ref.hp.style.width = hpPercent + "%";
+    ref.charImg.src = getCharImage(player.char, player.hp);
+  });
 }
 
 // ---------- removeFinishedMatchBoxes aggiornato ----------
 function removeFinishedMatchBoxes() {
   Object.keys(matchUI).forEach(id => {
     const refs = matchUI[id];
-    const hpVals = [refs.p1.hp.style.width, refs.p2.hp.style.width];
-    if(hpVals.every(w => w === "0%")) {
+    const hpVals = [
+      parseInt(refs.p1.label.textContent.match(/HP: (\d+)/)?.[1] ?? 0),
+      parseInt(refs.p2.label.textContent.match(/HP: (\d+)/)?.[1] ?? 0)
+    ];
+
+    if(hpVals.every(v => v <= 0)){
       const el = document.getElementById(`match-${id}`);
       if(el) el.remove();
       delete matchUI[id];
@@ -245,34 +266,36 @@ function removeFinishedMatchBoxes() {
 }
 
 // ---------- Damage handling ----------
-const lastEventMessagesPerPlayer = {};
-
 function handleDamage(match){
-  if(!match?.id || !matchUI[match.id]) return;
+  if(!match?.id) return;
+
+  // se il box non esiste ancora lo creo
+  if(!matchUI[match.id]) renderMatchCard(match);
+
   const refs = matchUI[match.id];
 
   ["player1","player2"].forEach((key,i)=>{
     const player = match[key];
-    const ref = i===0 ? refs.p1 : refs.p2;
     if(!player) return;
+    const ref = i===0 ? refs.p1 : refs.p2;
 
-    const diceDisplay = (player.roll ?? player.dice ?? 1);
-    const dmg = (player.dmg ?? player.dice ?? 0);
+    const diceDisplay = player.roll ?? player.dice ?? 1;
+    const dmg = player.dmg ?? player.dice ?? 0;
 
-    let msg = "";
+    let msg="";
     if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
       msg = `${player.nick} is stunned! Rolled ${diceDisplay} → deals only ${dmg} 😵‍💫`;
       if(i===0) stunned.p1=false; else stunned.p2=false;
     }
-    else if(diceDisplay === 8){
+    else if(diceDisplay===8){
       msg = `${player.nick} CRIT! Rolled ${diceDisplay} → deals ${dmg} ⚡💥`;
-    }
-    else{
+    } else {
       msg = `${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`;
     }
 
     addEventMessageSingle(player.nick, msg);
 
+    // aggiorna UI
     const hpVal = Math.max(0, player.hp ?? 0);
     const hpPercent = Math.round((hpVal / 80) * 100);
     ref.label.textContent = `${player.nick} (${player.char}) HP: ${hpVal}`;
@@ -280,20 +303,27 @@ function handleDamage(match){
     ref.charImg.src = getCharImage(player.char, player.hp);
     ref.dice.src = `img/dice${diceDisplay}.png`;
   });
+
+  // subito dopo ogni danno ripulisce i match chiusi
+  removeFinishedMatchBoxes();
 }
 
-function addEventMessageSingle(playerNick, text){
-  if(lastEventMessagesPerPlayer[playerNick] === text) return;
-  lastEventMessagesPerPlayer[playerNick] = text;
+// ---------- removeFinishedMatchBoxes ----------
+function removeFinishedMatchBoxes() {
+  Object.keys(matchUI).forEach(id => {
+    const el = document.getElementById(`match-${id}`);
+    if(!el) return;
 
-  const d = document.createElement("div");
-  d.textContent = text;
-  eventBox.appendChild(d);
-  eventBox.scrollTop = eventBox.scrollHeight;
+    // prendo i label per vedere se entrambi sono a 0 HP
+    const refs = matchUI[id];
+    const hp1 = parseInt(refs.p1.label.textContent.split("HP:")[1] ?? "0", 10);
+    const hp2 = parseInt(refs.p2.label.textContent.split("HP:")[1] ?? "0", 10);
 
-  if(Object.keys(lastEventMessagesPerPlayer).length > 1000){
-    for(const key in lastEventMessagesPerPlayer) delete lastEventMessagesPerPlayer[key];
-  }
+    if(hp1<=0 && hp2<=0){
+      el.remove();
+      delete matchUI[id];
+    }
+  });
 }
 
 // ---------- Winner ----------
