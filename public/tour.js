@@ -31,6 +31,13 @@ let currentStage = "waiting";
 let waitingContainer = null;
 let stunned = { p1:false, p2:false }; // gestisce stun
 
+// Tiene traccia dei match renderizzati per fase
+let renderedMatchesByStage = {
+  quarter: new Set(),
+  semi: new Set(),
+  final: new Set()
+};
+
 // ---------- Music ----------
 const musicQuarter = "img/5.mp3";    
 const musicSemi    = "img/6.mp3"; 
@@ -202,15 +209,21 @@ function makePlayerCard(player){
   return { div,label,charImg:img,hp,dice };
 }
 
+// Funzione aggiornata per renderizzare match con rimozione automatica dei box della fase precedente
 function renderMatchCard(match){
   if(!match?.id) return;
   if(matchUI[match.id]) return;
+
   const container=document.createElement("div");
   container.className="match-container";
   container.id=`match-${match.id}`;
 
+  // Etichette compatte Q1, Q2, S1, F
+  let shortLabel = match.stage==="quarter" ? `Q${match.id}` :
+                   match.stage==="semi"    ? `S${match.id}` :
+                   match.stage==="final"   ? `F` : match.stage.toUpperCase();
   const stageLabel=document.createElement("h3");
-  stageLabel.textContent=`${match.stage.toUpperCase()} - ${match.id}`;
+  stageLabel.textContent = `${shortLabel}`;
   container.appendChild(stageLabel);
 
   const p1 = makePlayerCard(match.player1 || { nick:"??", char:"??", hp:0 });
@@ -221,10 +234,32 @@ function renderMatchCard(match){
   battleArea.appendChild(container);
 
   matchUI[match.id] = { p1, p2 };
+  renderedMatchesByStage[match.stage]?.add(match.id);
+
+  // --- pulizia fase precedente ---
+  if(match.stage==="semi"){
+    // semifinale pronta: rimuovi quarti solo se entrambe le semifinali sono renderizzate
+    if(renderedMatchesByStage.semi.size === 2){
+      clearStage("quarter");
+    }
+  } else if(match.stage==="final"){
+    // finale pronta: rimuovi semifinali
+    clearStage("semi");
+  }
+}
+
+function clearStage(stage){
+  const setKey = stage.toLowerCase();
+  renderedMatchesByStage[setKey]?.forEach(matchId => {
+    const el = document.getElementById(`match-${matchId}`);
+    if(el) el.remove();
+    delete matchUI[matchId];
+  });
+  renderedMatchesByStage[setKey]?.clear();
 }
 
 // ---------- Damage handling ----------
-const lastEventMessagesPerPlayer = {}; // evita doppi messaggi per player
+const lastEventMessagesPerPlayer = {};
 
 function handleDamage(match){
   if(!match?.id || !matchUI[match.id]) return;
@@ -267,8 +302,6 @@ function addEventMessageSingle(playerNick, text){
   eventBox.scrollTop = eventBox.scrollHeight;
 }
 
-socket.on("updateMatch", match => handleDamage(match));
-
 // ---------- Winner ----------
 function showWinnerChar(char){
   if(!char) return;
@@ -295,15 +328,6 @@ function playWinnerMusic(winnerChar){
   winnerMusic.play().catch(()=>{});
 }
 
-// ---------- Utility ----------
-function removeMatchBox(matchId){
-  const el = document.getElementById(`match-${matchId}`);
-  if(el){
-    el.remove();
-    delete matchUI[matchId];
-  }
-}
-
 // ---------- Socket events ----------
 socket.on("startTournament", matches => {
   if(waitingContainer) { waitingContainer.remove(); waitingContainer=null; }
@@ -322,7 +346,6 @@ socket.on("matchOver", ({ winnerNick, winnerChar, stage, matchId }) => {
   addEventMessage(`🏆 ${winnerNick ?? "??"} won the match (${stage})!`);
   if(stage==="final") playWinnerMusic(winnerChar);
 
-  // rimuovi il box del match terminato
   if(matchId && matchUI[matchId]){
     const el = document.getElementById(`match-${matchId}`);
     if(el) el.remove();
