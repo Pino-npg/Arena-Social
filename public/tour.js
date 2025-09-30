@@ -179,35 +179,36 @@ function setMusic(src){
 
 // ---------- Matches ----------
 function makePlayerCard(player){
-  const div=document.createElement("div");
-  div.className="player";
+  const p = player || { nick:"??", char:"unknown", hp:0, roll:0, dmg:0 };
+  const div = document.createElement("div");
+  div.className = "player";
 
-  const label=document.createElement("div");
-  label.className="player-label";
-  label.textContent=`${player.nick} (${player.char}) HP: ${player.hp ?? 0}`;
+  const label = document.createElement("div");
+  label.className = "player-label";
+  label.textContent = `${p.nick || "??"} (${p.char || "unknown"}) HP: ${p.hp ?? 0}`;
 
-  const img=document.createElement("img");
-  img.className="char-img";
-  img.src = getCharImage(player.char, player.hp);
+  const img = document.createElement("img");
+  img.className = "char-img";
+  img.src = getCharImage(p.char || "unknown", p.hp ?? 0);
   img.onerror = () => { img.src = "img/unknown.png"; };
 
-  const hpBar=document.createElement("div");
-  hpBar.className="hp-bar";
-  const hp=document.createElement("div");
-  hp.className="hp";
-  hp.style.width=Math.max(0,player.hp??0)+"%";
-  hpBar.appendChild(hp);
+  const hpBar = document.createElement("div");
+  hpBar.className = "hp-bar";
+  const hpEl = document.createElement("div");
+  hpEl.className = "hp";
+  hpEl.style.width = Math.max(0, p.hp ?? 0) + "%";
+  hpBar.appendChild(hpEl);
 
-  const dice=document.createElement("img");
-  dice.className="dice";
-  dice.src="img/dice1.png";
+  const dice = document.createElement("img");
+  dice.className = "dice";
+  dice.src = `img/dice${p.roll ?? 1}.png`;
 
   div.appendChild(label);
   div.appendChild(img);
   div.appendChild(hpBar);
   div.appendChild(dice);
 
-  return { div,label,charImg:img,hp,dice };
+  return { div, label, charImg: img, hp: hpEl, dice };
 }
 
 // ---------- Render match card ----------
@@ -216,7 +217,7 @@ function renderMatchCard(match){
 
   // aggiorna se già renderizzato
   if(matchUI[match.id]){
-    handleDamage(match);
+    handleDamage(match); // aggiorna HP/dado
     return;
   }
 
@@ -234,8 +235,41 @@ function renderMatchCard(match){
   stageLabel.textContent = `${shortLabel}`;
   container.appendChild(stageLabel);
 
-  const p1 = makePlayerCard(match.player1 ?? { nick:"??", char:"unknown", hp:0 });
-  const p2 = makePlayerCard(match.player2 ?? { nick:"??", char:"unknown", hp:0 });
+  // funzione interna per creare player card
+  function makePlayer(p){
+    const div=document.createElement("div");
+    div.className="player";
+
+    const label=document.createElement("div");
+    label.className="player-label";
+    label.textContent = `${p.nick || "??"} (${p.char || "unknown"}) HP: ${p.hp ?? 0}`;
+
+    const img=document.createElement("img");
+    img.className="char-img";
+    img.src = getCharImage(p.char, p.hp);
+    img.onerror = () => { img.src = "img/unknown.png"; };
+
+    const hpBar=document.createElement("div");
+    hpBar.className="hp-bar";
+    const hp=document.createElement("div");
+    hp.className="hp";
+    hp.style.width = Math.max(0, p.hp ?? 0) + "%";
+    hpBar.appendChild(hp);
+
+    const dice=document.createElement("img");
+    dice.className="dice";
+    dice.src = `img/dice${p.roll || 1}.png`;
+
+    div.appendChild(label);
+    div.appendChild(img);
+    div.appendChild(hpBar);
+    div.appendChild(dice);
+
+    return { div, label, charImg: img, hp, dice };
+  }
+
+  const p1 = makePlayer(match.player1 ?? { nick:"??", char:"unknown", hp:80, roll:1 });
+  const p2 = makePlayer(match.player2 ?? { nick:"??", char:"unknown", hp:80, roll:1 });
 
   container.appendChild(p1.div);
   container.appendChild(p2.div);

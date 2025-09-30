@@ -295,17 +295,36 @@ function nextTurn(match, tournamentId, attackerIndex) {
 
 function startMatch(tournamentId, p1, p2, stage, matchId) {
   const t = tournaments[tournamentId];
-  if (!t || !p1 || !p2) return;
+  if (!t) return;
+
+  // placeholder se player null
+  p1 = p1 || { nick:"??", char:"unknown", id:null };
+  p2 = p2 || { nick:"??", char:"unknown", id:null };
 
   const players = [
-    { ...p1, hp: 80, stunned: false, roll: 0, dmg: 0 },
-    { ...p2, hp: 80, stunned: false, roll: 0, dmg: 0 }
+    { ...p1, hp: 80, stunned: false, roll: 1, dmg: 0 },
+    { ...p2, hp: 80, stunned: false, roll: 1, dmg: 0 }
   ];
+
   const match = { id: matchId, players, stage };
   t.matches[matchId] = match;
 
+  // invia subito ai client lo stato iniziale del match
   nsp.to(tournamentId).emit("startTournament", Object.values(t.matches));
-  nsp.to(tournamentId).emit("startMatch", { id: matchId, player1: players[0], player2: players[1], stage });
+  nsp.to(tournamentId).emit("startMatch", { 
+    id: match.id, 
+    player1: players[0], 
+    player2: players[1], 
+    stage 
+  });
+
+  // forza il client a renderizzare subito l'HP e il dado
+  nsp.to(tournamentId).emit("updateMatch", {
+    id: match.id,
+    stage: stage,
+    player1: players[0],
+    player2: players[1]
+  });
 
   const first = Math.floor(Math.random() * 2);
   setTimeout(() => nextTurn(match, tournamentId, first), 1000);
