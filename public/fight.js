@@ -107,14 +107,33 @@ function updateGame(game) {
   player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${hp1}/${maxHp}`;
   player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${hp2}/${maxHp}`;
 
-  player1HpBar.style.width = `${(hp1 / maxHp) * 100}%`;
-  player2HpBar.style.width = `${(hp2 / maxHp) * 100}%`;
+  // --- HP BAR WIDTH ---
+  const hpPercent1 = (hp1 / maxHp) * 100;
+  const hpPercent2 = (hp2 / maxHp) * 100;
+
+  player1HpBar.style.width = `${hpPercent1}%`;
+  player2HpBar.style.width = `${hpPercent2}%`;
+
+  // --- HP BAR COLOR DYNAMIC ---
+  player1HpBar.style.background = getHpColor(hpPercent1);
+  player2HpBar.style.background = getHpColor(hpPercent2);
 
   if(game.player1.dice) handleDice(0, game);
   if(game.player2.dice) handleDice(1, game);
 
   updateCharacterImage(game.player1, 0);
   updateCharacterImage(game.player2, 1);
+}
+
+// --- Funzione colore dinamico ---
+function getHpColor(percent) {
+  if (percent > 60) {
+    return "linear-gradient(90deg, green, lime)";
+  } else if (percent > 30) {
+    return "linear-gradient(90deg, yellow, orange)";
+  } else {
+    return "linear-gradient(90deg, red, darkred)";
+  }
 }
 
 function handleDice(playerIndex, game) {
