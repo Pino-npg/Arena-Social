@@ -266,6 +266,9 @@ function handleDamage(match){
   if(!match?.id || !matchUI[match.id]) return;
   const refs = matchUI[match.id];
 
+  // reset filtro messaggi per questo match ad ogni update
+  lastEventMessagesPerPlayer[match.id] = {};
+
   ["player1","player2"].forEach((key,i)=>{
     const player = match[key];
     const ref = i===0 ? refs.p1 : refs.p2;
@@ -275,14 +278,14 @@ function handleDamage(match){
     let dmg = (player.dmg ?? player.dice ?? 0);
 
     if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
-      addEventMessageSingle(player.nick, `${player.nick} is stunned! Rolled ${diceDisplay} → deals only ${dmg} 😵‍💫`);
+      addEventMessageSingle(match.id, player.nick, `${player.nick} is stunned! Rolled ${diceDisplay} → deals only ${dmg} 😵‍💫`);
       if(i===0) stunned.p1=false; else stunned.p2=false;
     }
     else if((player.roll === 8) || (player.dice === 8)){
-      addEventMessageSingle(player.nick, `${player.nick} CRIT! Rolled ${diceDisplay} → deals ${dmg} ⚡💥`);
+      addEventMessageSingle(match.id, player.nick, `${player.nick} CRIT! Rolled ${diceDisplay} → deals ${dmg} ⚡💥`);
     }
     else {
-      addEventMessageSingle(player.nick, `${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`);
+      addEventMessageSingle(match.id, player.nick, `${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`);
     }
 
     const hpVal = Math.max(0, player.hp ?? 0);
@@ -294,9 +297,14 @@ function handleDamage(match){
   });
 }
 
-function addEventMessageSingle(playerNick, text){
-  if(lastEventMessagesPerPlayer[playerNick] === text) return;
-  lastEventMessagesPerPlayer[playerNick] = text;
+function addEventMessageSingle(matchId, playerNick, text){
+  if(!lastEventMessagesPerPlayer[matchId]) {
+    lastEventMessagesPerPlayer[matchId] = {};
+  }
+  // filtro: evita duplicati solo nello stesso updateMatch
+  if(lastEventMessagesPerPlayer[matchId][playerNick] === text) return;
+  lastEventMessagesPerPlayer[matchId][playerNick] = text;
+
   const d = document.createElement("div");
   d.textContent = text;
   eventBox.appendChild(d);
