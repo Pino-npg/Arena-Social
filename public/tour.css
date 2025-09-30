@@ -133,7 +133,6 @@ header {
 
 /* -------- MOBILE / RESPONSIVE -------- */
 @media (max-width:768px){
-  .match-container { justify-content: space-evenly; }
   #bottom-area { flex-direction:column; }
   .side-box { max-width:100%; max-height:8em; }
 
@@ -161,50 +160,26 @@ header {
     justify-content: space-evenly;
   }
   .player { 
-    flex: 1 1 35%; 
-    max-width:35%; 
+    flex: 1 1 40%; 
+    max-width:40%; 
     min-width:140px; 
   }
   .player img.char-img { width:140px; }
   .player-label { font-size:1.2rem; }
 }
-/* -------- HP COLORI E ANIMAZIONI CRIT/STUN -------- */
-
-/* Bagliore critico sul box */
-.player.crit {
-  box-shadow: 0 0 25px 5px gold;
-  transition: box-shadow 0.3s ease, filter 0.3s ease;
+.hp-bar {
+  width: 100%;
+  height: 20px;
+  background: #444;
+  border: 2px solid #222;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-top: 10px;
 }
 
-/* Contorno/effetto stun sul box */
-.player.stunned {
-  box-shadow: 0 0 20px 5px rgba(0,0,0,0.8);
-  filter: brightness(0.6);
-  transition: box-shadow 0.3s ease, filter 0.3s ease;
-}
-
-/* Effetto critico sull'immagine */
-.player img.crit {
-  filter: drop-shadow(0 0 15px gold);
-  animation: critFlash 0.6s ease-in-out;
-}
-
-/* Effetto stun sull'immagine */
-.player img.stunned {
-  filter: drop-shadow(0 0 10px black);
-  opacity: 0.6;
-  transform: scale(0.95);
-  transition: transform 0.3s ease, opacity 0.3s ease;
-}
-
-/* Animazione bagliore critico */
-@keyframes critFlash {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.15); }
-  100% { transform: scale(1); }
-}
-
-/* HP gradient dinamico */
 .hp {
-  transition: width 0.5s ease-in-out, background-color 0.5s ease;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, green, lime);
+  transition: width 0.5s ease-in-out, background 0.5s ease-in-out;
 }
