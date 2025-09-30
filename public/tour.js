@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
 let matchUI = {};
 let currentStage = "waiting";
 let waitingContainer = null;
-let stunned = { p1:false, p2:false };
+const matchStates = {}; // { matchId: { stunned: { p1: false, p2: false } } }
 let stageCounters = { quarter:0, semi:0, final:0 }; // contatori etichette
 
 // Tiene traccia dei match renderizzati per fase
@@ -259,11 +259,13 @@ function clearStage(stage){
   renderedMatchesByStage[setKey]?.clear();
 }
 
-// ---------- Damage handling ----------
-const lastEventMessagesPerPlayer = {}; // { matchId: { playerNick: lastMsg } }
-
+  // Handle Damage
 function handleDamage(match){
   if(!match?.id || !matchUI[match.id]) return;
+
+  if(!matchStates[match.id]) matchStates[match.id] = { stunned: { p1:false, p2:false } };
+  const stunned = matchStates[match.id].stunned;
+
   const refs = matchUI[match.id];
 
   ["player1","player2"].forEach((key,i)=>{
@@ -272,7 +274,7 @@ function handleDamage(match){
     if(!player) return;
 
     const diceDisplay = (player.roll ?? player.dice ?? 1);
-    let dmg = (player.dmg ?? player.dice ?? 0);
+    const dmg = (player.dmg ?? player.dice ?? 0);
 
     let msg;
     if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
@@ -281,6 +283,7 @@ function handleDamage(match){
     }
     else if((player.roll === 8) || (player.dice === 8)){
       msg = `${player.nick} CRIT! Rolled ${diceDisplay} → deals ${dmg} ⚡💥`;
+      if(i===0) stunned.p1=true; else stunned.p2=true;
     }
     else {
       msg = `${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`;
@@ -295,27 +298,6 @@ function handleDamage(match){
     ref.charImg.src = getCharImage(player.char, player.hp);
     ref.dice.src = `img/dice${diceDisplay}.png`;
   });
-}
-
-function addEventMessageSingle(matchId, playerNick, text){
-  if(!lastEventMessagesPerPlayer[matchId]) {
-    lastEventMessagesPerPlayer[matchId] = {};
-  }
-
-  // Evita duplicati consecutivi PER PLAYER nello stesso match
-  if(lastEventMessagesPerPlayer[matchId][playerNick] === text) return;
-
-  lastEventMessagesPerPlayer[matchId][playerNick] = text;
-
-  const d = document.createElement("div");
-  d.textContent = text;
-  eventBox.appendChild(d);
-  eventBox.scrollTop = eventBox.scrollHeight;
-}
-
-// Resetta all’inizio di un nuovo turno
-function startNewTurn(matchId){
-  lastEventMessagesPerPlayer[matchId] = {};
 }
 
 // ---------- Winner ----------
@@ -370,8 +352,12 @@ socket.on("updateMatch", match => {
   matchUI[match.id].lastTurn = match.turn;
 
   // reset filtro messaggi per questo match/turno
-  startNewTurn(match.id);
-
+  function startNewTurn(matchId){
+    lastEventMessagesPerPlayer[matchId] = {};
+    if(matchStates[matchId]) {
+      matchStates[matchId].stunned = { p1:false, p2:false };
+    }
+  }
   handleDamage(match);
 });
 
