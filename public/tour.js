@@ -215,9 +215,9 @@ function makePlayerCard(player){
 function renderMatchCard(match){
   if(!match?.id) return;
 
-  // aggiorna se già renderizzato
+  // Aggiorna se già renderizzato
   if(matchUI[match.id]){
-    handleDamage(match); // aggiorna HP/dado
+    handleDamage(match); // aggiorna HP, dado, effetti
     return;
   }
 
@@ -225,40 +225,39 @@ function renderMatchCard(match){
   container.className = "match-container";
   container.id = `match-${match.id}`;
 
-  // contatore fase
+  // Contatore fase
   stageCounters[match.stage] = (stageCounters[match.stage] || 0) + 1;
-  let shortLabel = match.stage==="quarter" ? `Q` :
-                   match.stage==="semi"    ? `S` :
-                   match.stage==="final"   ? `F` : match.stage.toUpperCase();
+  const shortLabel = match.stage==="quarter" ? `Q` :
+                     match.stage==="semi"    ? `S` :
+                     match.stage==="final"   ? `F` : match.stage.toUpperCase();
 
   const stageLabel = document.createElement("h3");
-  stageLabel.textContent = `${shortLabel}`;
+  stageLabel.textContent = shortLabel;
   container.appendChild(stageLabel);
 
-  // funzione interna per creare player card
+  // Funzione interna per creare player card
   function makePlayer(p){
-    const div=document.createElement("div");
+    const div = document.createElement("div");
     div.className="player";
 
-    const label=document.createElement("div");
+    const label = document.createElement("div");
     label.className="player-label";
     label.textContent = `${p.nick || "??"} (${p.char || "unknown"}) HP: ${p.hp ?? 0}`;
 
-    const img=document.createElement("img");
+    const img = document.createElement("img");
     img.className="char-img";
     img.src = getCharImage(p.char, p.hp);
     img.onerror = () => { img.src = "img/unknown.png"; };
 
-    const hpBar=document.createElement("div");
+    const hpBar = document.createElement("div");
     hpBar.className="hp-bar";
-    const hp=document.createElement("div");
-    hp.className="hp";
-    hp.style.width = Math.max(0, p.hp ?? 0) + "%";
-    hpBar.appendChild(hp);
+    const hp = document.createElement("div");
+    hp.className="hp"; 
+    hpBar.appendChild(hp); // larghezza aggiornata da handleDamage
 
-    const dice=document.createElement("img");
+    const dice = document.createElement("img");
     dice.className="dice";
-    dice.src = `img/dice${p.roll || 1}.png`;
+    dice.src = `img/dice1.png`; // iniziale 1, aggiornato da handleDamage
 
     div.appendChild(label);
     div.appendChild(img);
@@ -278,23 +277,12 @@ function renderMatchCard(match){
   matchUI[match.id] = { p1, p2 };
   renderedMatchesByStage[match.stage]?.add(match.id);
 
-  // pulizia fase precedente
+  // Pulizia fase precedente
   if(match.stage==="semi" && renderedMatchesByStage.semi.size===2) clearStage("quarter");
   if(match.stage==="final") clearStage("semi");
 }
 
-function clearStage(stage){
-  const setKey = stage.toLowerCase();
-  renderedMatchesByStage[setKey]?.forEach(matchId => {
-    const el = document.getElementById(`match-${matchId}`);
-    if(el) el.remove();
-    delete matchUI[matchId];
-  });
-  renderedMatchesByStage[setKey]?.clear();
-}
-
-  // Handle Damage
-// Aggiorna UI danni, effetti e HP
+// ---------- Handle Damage ----------
 function handleDamage(match) {
   if (!match?.id || !matchUI[match.id]) return;
   const refs = matchUI[match.id];
@@ -309,7 +297,7 @@ function handleDamage(match) {
     const hpPercent = Math.round((hpVal / 80) * 100);
     ref.hp.style.width = hpPercent + "%";
 
-    // Colore HP graduale: verde → giallo → rosso
+    // Colore HP graduale
     if (hpPercent > 60) ref.hp.style.background = "linear-gradient(90deg, green, lime)";
     else if (hpPercent > 30) ref.hp.style.background = "linear-gradient(90deg, yellow, orange)";
     else ref.hp.style.background = "linear-gradient(90deg, red, darkred)";
@@ -322,40 +310,38 @@ function handleDamage(match) {
     ref.charImg.onerror = () => { ref.charImg.src = "img/unknown.png"; };
 
     // --- Effetti visivi ---
-ref.charImg.classList.remove("crit", "stunned");
-ref.parentElement.classList.remove("crit", "stunned");
+    ref.charImg.classList.remove("crit", "stunned");
+    ref.parentElement.classList.remove("crit", "stunned");
 
-// Critico
-if (matchStates[match.id]?.crit) {
-  if ((i === 0 && matchStates[match.id].crit.p1) || (i === 1 && matchStates[match.id].crit.p2)) {
-    ref.charImg.classList.add("crit");
-    ref.parentElement.classList.add("crit");
+    // Critico (bagliore temporaneo)
+    if (matchStates[match.id]?.crit) {
+      if ((i===0 && matchStates[match.id].crit.p1) || (i===1 && matchStates[match.id].crit.p2)) {
+        ref.charImg.classList.add("crit");
+        ref.parentElement.classList.add("crit");
+        setTimeout(() => {
+          ref.charImg.classList.remove("crit");
+          ref.parentElement.classList.remove("crit");
+        }, 800);
+      }
+    }
 
-    // Rimuove l’effetto dopo 0.8s
-    setTimeout(() => {
-      ref.charImg.classList.remove("crit");
-      ref.parentElement.classList.remove("crit");
-    }, 800);
-  }
-}
+    // Stun (resta fino al reset del turno)
+    if (matchStates[match.id]?.stunned) {
+      if ((i===0 && matchStates[match.id].stunned.p1) || (i===1 && matchStates[match.id].stunned.p2)) {
+        ref.charImg.classList.add("stunned");
+        ref.parentElement.classList.add("stunned");
+      }
+    }
 
-// Stun (resta fino al reset del turno)
-if (matchStates[match.id]?.stunned) {
-  if ((i === 0 && matchStates[match.id].stunned.p1) || (i === 1 && matchStates[match.id].stunned.p2)) {
-    ref.charImg.classList.add("stunned");
-    ref.parentElement.classList.add("stunned");
-  }
-}
     // --- Dado ---
     const diceVal = player.roll ?? 1;
     ref.dice.src = `img/dice${diceVal}.png`;
   });
 }
 
-// Inizio nuovo turno: reset effetti crit/stun
+// ---------- Start New Turn ----------
 function startNewTurn(matchId) {
   lastEventMessagesPerPlayer[matchId] = {}; // previene doppi messaggi
-
   if (!matchStates[matchId]) matchStates[matchId] = {};
   matchStates[matchId].stunned = { p1: false, p2: false };
   matchStates[matchId].crit = { p1: false, p2: false };
