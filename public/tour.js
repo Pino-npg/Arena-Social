@@ -294,45 +294,32 @@ function clearStage(stage){
 }
 
   // Handle Damage
-function handleDamage(match){
-  if(!match?.id || !matchUI[match.id]) return;
-
-  if(!matchStates[match.id]) matchStates[match.id] = { stunned: { p1:false, p2:false } };
-  const stunned = matchStates[match.id].stunned;
-
-  const refs = matchUI[match.id];
-
-  ["player1","player2"].forEach((key,i)=>{
-    const player = match[key];
-    const ref = i===0 ? refs.p1 : refs.p2;
-    if(!player) return;
-
-    const diceDisplay = (player.roll ?? player.dice ?? 1);
-    const dmg = (player.dmg ?? player.dice ?? 0);
-
-    let msg;
-    if((i===0 && stunned.p1) || (i===1 && stunned.p2)){
-      msg = `${player.nick} is stunned! Rolled ${diceDisplay} → deals only ${dmg} 😵‍💫`;
-      if(i===0) stunned.p1=false; else stunned.p2=false;
-    }
-    else if((player.roll === 8) || (player.dice === 8)){
-      msg = `${player.nick} CRIT! Rolled ${diceDisplay} → deals ${dmg} ⚡💥`;
-      if(i===0) stunned.p1=true; else stunned.p2=true;
-    }
-    else {
-      msg = `${player.nick} rolls ${diceDisplay} and deals ${dmg} 💥`;
-    }
-
-    addEventMessageSingle(match.id, player.nick, msg);
-
-    const hpVal = Math.max(0, player.hp ?? 0);
-    const hpPercent = Math.round((hpVal / 80) * 100);
-    ref.label.textContent = `${player.nick} (${player.char}) HP: ${hpVal}`;
-    ref.hp.style.width = hpPercent + "%";
-    ref.charImg.src = getCharImage(player.char, player.hp);
-    ref.dice.src = `img/dice${diceDisplay}.png`;
-  });
-}
+  function handleDamage(match){
+    if(!match?.id || !matchUI[match.id]) return;
+    const refs = matchUI[match.id];
+  
+    ["player1","player2"].forEach((key,i)=>{
+      const player = match[key];
+      const ref = i===0 ? refs.p1 : refs.p2;
+      if(!player) return;
+  
+      // Calcola HP in percentuale
+      const hpVal = Math.max(0, player.hp ?? 0);
+      const hpPercent = Math.round((hpVal / 80) * 100);
+  
+      // Aggiorna label e barre HP
+      ref.label.textContent = `${player.nick || "??"} (${player.char || "unknown"}) HP: ${hpVal}`;
+      ref.hp.style.width = hpPercent + "%";
+  
+      // Aggiorna immagine personaggio
+      ref.charImg.src = getCharImage(player.char, player.hp);
+      ref.charImg.onerror = () => { ref.charImg.src = "img/unknown.png"; };
+  
+      // Aggiorna dado
+      const diceVal = player.roll ?? 1;
+      ref.dice.src = `img/dice${diceVal}.png`;
+    });
+  }
 
 // ---------- Winner ----------
 function showWinnerChar(char){

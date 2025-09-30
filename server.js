@@ -321,9 +321,9 @@ function startMatch(tournamentId, p1, p2, stage, matchId) {
   // forza il client a renderizzare subito l'HP e il dado
   nsp.to(tournamentId).emit("updateMatch", {
     id: match.id,
-    stage: stage,
-    player1: players[0],
-    player2: players[1]
+    stage: match.stage,
+    player1: match.players[0],
+    player2: match.players[1]
   });
 
   const first = Math.floor(Math.random() * 2);
