@@ -361,12 +361,16 @@ socket.on("startMatch", match => {
 socket.on("updateMatch", match => {
   renderMatchCard(match); // aggiorna o crea
 
-  // Reset filtro messaggi quando cambia il turno
   if (!matchUI[match.id]) return;
-  if (match.turn !== matchUI[match.id].lastTurn) {
-    matchUI[match.id].lastTurn = match.turn;
-    startNewTurn(match.id);
-  }
+
+  // Se abbiamo già elaborato questo turno, salta
+  if (matchUI[match.id].lastTurn === match.turn) return;
+
+  // Salva il turno corrente
+  matchUI[match.id].lastTurn = match.turn;
+
+  // reset filtro messaggi per questo match/turno
+  startNewTurn(match.id);
 
   handleDamage(match);
 });
