@@ -294,32 +294,60 @@ function clearStage(stage){
 }
 
   // Handle Damage
-  function handleDamage(match){
-    if(!match?.id || !matchUI[match.id]) return;
-    const refs = matchUI[match.id];
-  
-    ["player1","player2"].forEach((key,i)=>{
-      const player = match[key];
-      const ref = i===0 ? refs.p1 : refs.p2;
-      if(!player) return;
-  
-      // Calcola HP in percentuale
-      const hpVal = Math.max(0, player.hp ?? 0);
-      const hpPercent = Math.round((hpVal / 80) * 100);
-  
-      // Aggiorna label e barre HP
-      ref.label.textContent = `${player.nick || "??"} (${player.char || "unknown"}) HP: ${hpVal}`;
-      ref.hp.style.width = hpPercent + "%";
-  
-      // Aggiorna immagine personaggio
-      ref.charImg.src = getCharImage(player.char, player.hp);
-      ref.charImg.onerror = () => { ref.charImg.src = "img/unknown.png"; };
-  
-      // Aggiorna dado
-      const diceVal = player.roll ?? 1;
-      ref.dice.src = `img/dice${diceVal}.png`;
-    });
-  }
+// Aggiorna UI danni, effetti e HP
+function handleDamage(match) {
+  if (!match?.id || !matchUI[match.id]) return;
+  const refs = matchUI[match.id];
+
+  ["player1", "player2"].forEach((key, i) => {
+    const player = match[key];
+    const ref = i === 0 ? refs.p1 : refs.p2;
+    if (!player) return;
+
+    // --- HP ---
+    const hpVal = Math.max(0, player.hp ?? 0);
+    const hpPercent = Math.round((hpVal / 80) * 100);
+    ref.hp.style.width = hpPercent + "%";
+
+    // Colore HP graduale: verde → giallo → rosso
+    if (hpPercent > 60) ref.hp.style.background = "linear-gradient(90deg, green, lime)";
+    else if (hpPercent > 30) ref.hp.style.background = "linear-gradient(90deg, yellow, orange)";
+    else ref.hp.style.background = "linear-gradient(90deg, red, darkred)";
+
+    // --- Label ---
+    ref.label.textContent = `${player.nick || "??"} (${player.char || "unknown"}) HP: ${hpVal}`;
+
+    // --- Immagine personaggio ---
+    ref.charImg.src = getCharImage(player.char, player.hp);
+    ref.charImg.onerror = () => { ref.charImg.src = "img/unknown.png"; };
+
+    // --- Effetti visivi ---
+    ref.charImg.classList.remove("crit", "stunned");
+    if (matchStates[match.id]?.crit) {
+      if ((i === 0 && matchStates[match.id].crit.p1) || (i === 1 && matchStates[match.id].crit.p2)) {
+        ref.charImg.classList.add("crit");
+      }
+    }
+    if (matchStates[match.id]?.stunned) {
+      if ((i === 0 && matchStates[match.id].stunned.p1) || (i === 1 && matchStates[match.id].stunned.p2)) {
+        ref.charImg.classList.add("stunned");
+      }
+    }
+
+    // --- Dado ---
+    const diceVal = player.roll ?? 1;
+    ref.dice.src = `img/dice${diceVal}.png`;
+  });
+}
+
+// Inizio nuovo turno: reset effetti crit/stun
+function startNewTurn(matchId) {
+  lastEventMessagesPerPlayer[matchId] = {}; // previene doppi messaggi
+
+  if (!matchStates[matchId]) matchStates[matchId] = {};
+  matchStates[matchId].stunned = { p1: false, p2: false };
+  matchStates[matchId].crit = { p1: false, p2: false };
+}
 
 // ---------- Winner ----------
 function showWinnerChar(char){
@@ -372,13 +400,8 @@ socket.on("updateMatch", match => {
   // Salva il turno corrente
   matchUI[match.id].lastTurn = match.turn;
 
-  // reset filtro messaggi per questo match/turno
-  function startNewTurn(matchId){
-    lastEventMessagesPerPlayer[matchId] = {};
-    if(matchStates[matchId]) {
-      matchStates[matchId].stunned = { p1:false, p2:false };
-    }
-  }
+  
+  // Aggiorna HP, dado e effetti visivi
   handleDamage(match);
 });
 

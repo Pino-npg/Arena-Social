@@ -168,3 +168,39 @@ header {
   .player img.char-img { width:140px; }
   .player-label { font-size:1.2rem; }
 }
+/* -------- HP COLORI E ANIMAZIONI CRIT/STUN -------- */
+
+/* Critico: bagliore dorato */
+.player.crit {
+  box-shadow: 0 0 20px 5px gold;
+  transition: all 0.3s ease;
+}
+
+/* Stunned: contorno ombreggiato e leggermente scuro */
+.player.stunned {
+  box-shadow: 0 0 15px 5px rgba(0,0,0,0.7);
+  filter: brightness(0.7);
+  transition: all 0.3s ease;
+}
+
+.player img.crit {
+  filter: drop-shadow(0 0 10px gold);
+  animation: critFlash 0.6s ease-in-out;
+}
+
+.player img.stunned {
+  filter: drop-shadow(0 0 10px black);
+  opacity: 0.7;
+  transform: scale(0.95);
+}
+
+@keyframes critFlash {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* HP gradient dinamico (verde → giallo → rosso) */
+.hp {
+  transition: width 0.5s ease-in-out, background-color 0.5s ease;
+}
