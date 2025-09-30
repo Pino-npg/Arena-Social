@@ -310,6 +310,16 @@ function clearStage(stage){
       // Aggiorna label e barre HP
       ref.label.textContent = `${player.nick || "??"} (${player.char || "unknown"}) HP: ${hpVal}`;
       ref.hp.style.width = hpPercent + "%";
+      // --- Aggiorna barra HP con colore dinamico ---
+ref.hp.style.width = hpPercent + "%";
+
+if(hpPercent > 60){
+  ref.hp.style.background = "linear-gradient(90deg, green, lime)";
+} else if(hpPercent > 30){
+  ref.hp.style.background = "linear-gradient(90deg, yellow, orange)";
+} else {
+  ref.hp.style.background = "linear-gradient(90deg, red, darkred)";
+}
   
       // Aggiorna immagine personaggio
       ref.charImg.src = getCharImage(player.char, player.hp);
