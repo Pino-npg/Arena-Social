@@ -322,18 +322,30 @@ function handleDamage(match) {
     ref.charImg.onerror = () => { ref.charImg.src = "img/unknown.png"; };
 
     // --- Effetti visivi ---
-    ref.charImg.classList.remove("crit", "stunned");
-    if (matchStates[match.id]?.crit) {
-      if ((i === 0 && matchStates[match.id].crit.p1) || (i === 1 && matchStates[match.id].crit.p2)) {
-        ref.charImg.classList.add("crit");
-      }
-    }
-    if (matchStates[match.id]?.stunned) {
-      if ((i === 0 && matchStates[match.id].stunned.p1) || (i === 1 && matchStates[match.id].stunned.p2)) {
-        ref.charImg.classList.add("stunned");
-      }
-    }
+ref.charImg.classList.remove("crit", "stunned");
+ref.parentElement.classList.remove("crit", "stunned");
 
+// Critico
+if (matchStates[match.id]?.crit) {
+  if ((i === 0 && matchStates[match.id].crit.p1) || (i === 1 && matchStates[match.id].crit.p2)) {
+    ref.charImg.classList.add("crit");
+    ref.parentElement.classList.add("crit");
+
+    // Rimuove l’effetto dopo 0.8s
+    setTimeout(() => {
+      ref.charImg.classList.remove("crit");
+      ref.parentElement.classList.remove("crit");
+    }, 800);
+  }
+}
+
+// Stun (resta fino al reset del turno)
+if (matchStates[match.id]?.stunned) {
+  if ((i === 0 && matchStates[match.id].stunned.p1) || (i === 1 && matchStates[match.id].stunned.p2)) {
+    ref.charImg.classList.add("stunned");
+    ref.parentElement.classList.add("stunned");
+  }
+}
     // --- Dado ---
     const diceVal = player.roll ?? 1;
     ref.dice.src = `img/dice${diceVal}.png`;
@@ -401,6 +413,9 @@ socket.on("updateMatch", match => {
   matchUI[match.id].lastTurn = match.turn;
 
   
+  // Reset effetti e messaggi
+  startNewTurn(match.id);
+
   // Aggiorna HP, dado e effetti visivi
   handleDamage(match);
 });

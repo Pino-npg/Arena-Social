@@ -170,37 +170,41 @@ header {
 }
 /* -------- HP COLORI E ANIMAZIONI CRIT/STUN -------- */
 
-/* Critico: bagliore dorato */
+/* Bagliore critico sul box */
 .player.crit {
-  box-shadow: 0 0 20px 5px gold;
-  transition: all 0.3s ease;
+  box-shadow: 0 0 25px 5px gold;
+  transition: box-shadow 0.3s ease, filter 0.3s ease;
 }
 
-/* Stunned: contorno ombreggiato e leggermente scuro */
+/* Contorno/effetto stun sul box */
 .player.stunned {
-  box-shadow: 0 0 15px 5px rgba(0,0,0,0.7);
-  filter: brightness(0.7);
-  transition: all 0.3s ease;
+  box-shadow: 0 0 20px 5px rgba(0,0,0,0.8);
+  filter: brightness(0.6);
+  transition: box-shadow 0.3s ease, filter 0.3s ease;
 }
 
+/* Effetto critico sull'immagine */
 .player img.crit {
-  filter: drop-shadow(0 0 10px gold);
+  filter: drop-shadow(0 0 15px gold);
   animation: critFlash 0.6s ease-in-out;
 }
 
+/* Effetto stun sull'immagine */
 .player img.stunned {
   filter: drop-shadow(0 0 10px black);
-  opacity: 0.7;
+  opacity: 0.6;
   transform: scale(0.95);
+  transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
+/* Animazione bagliore critico */
 @keyframes critFlash {
   0% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+  50% { transform: scale(1.15); }
   100% { transform: scale(1); }
 }
 
-/* HP gradient dinamico (verde → giallo → rosso) */
+/* HP gradient dinamico */
 .hp {
   transition: width 0.5s ease-in-out, background-color 0.5s ease;
 }
