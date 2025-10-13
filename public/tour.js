@@ -143,9 +143,7 @@ function renderWaiting(count, required, players) {
     img.alt = p.char ?? "unknown";
     img.width = 32;
     img.height = 32;
-    img.onerror = () => {
-      img.src = "img/unknown.png";
-    };
+    img.onerror = () => { img.src = "img/unknown.png"; };
     li.appendChild(img);
     li.appendChild(document.createTextNode(` ${p.nick} (${p.char})`));
     ul.appendChild(li);
@@ -183,22 +181,18 @@ function setMusic(src) {
 }
 
 // ---------- Match UI ----------
-function makePlayer(p) {
+function makePlayer(p, matchId, side) {
   const div = document.createElement("div");
   div.className = "player";
 
   const label = document.createElement("div");
   label.className = "player-label";
-  label.textContent = `${p.nick || "??"} (${p.char || "unknown"}) HP: ${
-    p.hp ?? 0
-  }`;
+  label.textContent = `${p.nick || "??"} (${p.char || "unknown"}) HP: ${p.hp ?? 0}`;
 
   const img = document.createElement("img");
   img.className = "char-img";
   img.src = getCharImage(p.char, p.hp);
-  img.onerror = () => {
-    img.src = "img/unknown.png";
-  };
+  img.onerror = () => { img.src = "img/unknown.png"; };
 
   const hpBar = document.createElement("div");
   hpBar.className = "hp-bar";
@@ -211,8 +205,22 @@ function makePlayer(p) {
   dice.className = "dice";
   dice.src = `img/dice${p.roll || 1}.png`;
 
-  div.append(label, img, hpBar, dice);
-  return { div, label, charImg: img, hp, dice };
+  const buttons = document.createElement("div");
+  buttons.className = "choice-buttons";
+  ["water","wood","fire"].forEach(type=>{
+    const btn = document.createElement("button");
+    btn.className = `choice-btn ${type}`;
+    btn.textContent = type==="water"?"💧":type==="wood"?"🌿":"🔥";
+    btn.addEventListener("click", ()=>{
+      if (matchStates[matchId].stunned[side]) return;
+      socket.emit("playerChoice", { matchId, choice: type, side });
+      btn.disabled=true;
+    });
+    buttons.appendChild(btn);
+  });
+
+  div.append(label, img, hpBar, dice, buttons);
+  return { div, label, charImg: img, hp, dice, buttons };
 }
 
 function renderMatchCard(match) {
@@ -227,18 +235,13 @@ function renderMatchCard(match) {
   container.id = `match-${match.id}`;
 
   stageCounters[match.stage] = (stageCounters[match.stage] || 0) + 1;
-  const shortLabel =
-    match.stage === "quarter"
-      ? "Q"
-      : match.stage === "semi"
-      ? "S"
-      : "F";
+  const shortLabel = match.stage==="quarter"?"Q":match.stage==="semi"?"S":"F";
   const stageLabel = document.createElement("h3");
   stageLabel.textContent = shortLabel;
   container.appendChild(stageLabel);
 
-  const p1 = makePlayer(match.player1 ?? { nick: "??", char: "unknown", hp: 80 });
-  const p2 = makePlayer(match.player2 ?? { nick: "??", char: "unknown", hp: 80 });
+  const p1 = makePlayer(match.player1 ?? {}, match.id, "p1");
+  const p2 = makePlayer(match.player2 ?? {}, match.id, "p2");
 
   container.append(p1.div, p2.div);
   battleArea.appendChild(container);
@@ -252,128 +255,103 @@ function renderMatchCard(match) {
 function handleDamage(match) {
   if (!match?.id || !matchUI[match.id]) return;
   const refs = matchUI[match.id];
-
-  ["player1", "player2"].forEach((key, i) => {
+  ["player1","player2"].forEach((key,i)=>{
     const player = match[key];
-    const ref = i === 0 ? refs.p1 : refs.p2;
     if (!player) return;
-
+    const ref = i===0?refs.p1:refs.p2;
     const hpVal = Math.max(0, player.hp ?? 0);
-    const hpPercent = Math.round((hpVal / 80) * 100);
-    ref.label.textContent = `${player.nick || "??"} (${player.char}) HP: ${hpVal}`;
-    ref.hp.style.width = hpPercent + "%";
-    if (hpPercent > 60)
-      ref.hp.style.background = "linear-gradient(90deg, green, lime)";
-    else if (hpPercent > 30)
-      ref.hp.style.background = "linear-gradient(90deg, yellow, orange)";
-    else ref.hp.style.background = "linear-gradient(90deg, red, darkred)";
-
+    const hpPercent = Math.round((hpVal/80)*100);
+    ref.label.textContent = `${player.nick} (${player.char}) HP: ${hpVal}`;
+    ref.hp.style.width = hpPercent+"%";
+    ref.hp.style.background = hpPercent>60?"linear-gradient(90deg, green, lime)":hpPercent>30?"linear-gradient(90deg, yellow, orange)":"linear-gradient(90deg, red, darkred)";
     ref.charImg.src = getCharImage(player.char, player.hp);
-    ref.dice.src = `img/dice${player.roll ?? 1}.png`;
+    ref.dice.src = `img/dice${player.roll??1}.png`;
+    matchStates[match.id].stunned[i===0?"p1":"p2"]=!!player.stunned;
+    // enable/disable buttons
+    Object.values(ref.buttons.children).forEach(btn=>btn.disabled=!!player.stunned);
   });
 }
 
 // ---------- Timer ----------
-function startCountdown(seconds = 10) {
+function startCountdown(seconds=10){
   clearInterval(countdownInterval);
   let time = seconds;
-  timerEl.textContent = time;
-  timerEl.style.display = "block";
-  countdownInterval = setInterval(() => {
+  timerEl.textContent=time;
+  timerEl.style.display="block";
+  countdownInterval=setInterval(()=>{
     time--;
-    timerEl.textContent = time;
-    if (time <= 0) {
-      clearInterval(countdownInterval);
-      timerEl.textContent = "0";
-    }
-  }, 1000);
+    timerEl.textContent=time;
+    if(time<=0) clearInterval(countdownInterval);
+  },1000);
 }
 
 // ---------- Winner ----------
-function showWinnerChar(char) {
-  if (!char) return;
-  const winnerImg = document.createElement("img");
-  winnerImg.src = `img/${char}.webp`;
-  winnerImg.onerror = () => {
-    winnerImg.src = `img/${char}.png`;
-  };
-  Object.assign(winnerImg.style, {
-    position: "fixed",
-    top: "0",
-    left: "0",
-    width: "100%",
-    height: "100%",
-    objectFit: "contain",
-    zIndex: "9999",
-    backgroundColor: "black"
-  });
+function showWinnerChar(char){
+  if(!char) return;
+  const winnerImg=document.createElement("img");
+  winnerImg.src=`img/${char}.webp`;
+  winnerImg.onerror=()=>{winnerImg.src=`img/${char}.png`;};
+  Object.assign(winnerImg.style,{position:"fixed",top:"0",left:"0",width:"100%",height:"100%",objectFit:"contain",zIndex:"9999",backgroundColor:"black"});
   document.body.appendChild(winnerImg);
-  winnerImg.addEventListener("click", () => winnerImg.remove());
+  winnerImg.addEventListener("click",()=>winnerImg.remove());
 }
-
-function playWinnerMusic(char) {
-  if (!char) return;
+function playWinnerMusic(char){
+  if(!char) return;
   musicBattle.pause();
-  winnerMusic.src = `img/${char}.mp3`;
-  winnerMusic.currentTime = 0;
-  winnerMusic.play().catch(() => {});
+  winnerMusic.src=`img/${char}.mp3`;
+  winnerMusic.currentTime=0;
+  winnerMusic.play().catch(()=>{});
 }
 
 // ---------- Socket events ----------
-socket.on("startTournament", matches => {
-  if (waitingContainer) {
-    waitingContainer.remove();
-    waitingContainer = null;
-  }
+socket.on("startTournament", matches=>{
+  if(waitingContainer){waitingContainer.remove(); waitingContainer=null;}
   clearMatchesUI();
-  currentStage = matches[0]?.stage || "quarter";
+  currentStage=matches[0]?.stage||"quarter";
   setStage(currentStage);
-  matches.forEach(m => renderMatchCard(m));
+  matches.forEach(m=>renderMatchCard(m));
 });
 
-socket.on("startMatch", match => {
-  if (match.stage) setStage(match.stage);
+socket.on("startMatch", match=>{
+  if(match.stage) setStage(match.stage);
   renderMatchCard(match);
   startCountdown(10);
 });
 
-socket.on("updateMatch", match => {
+socket.on("updateMatch", match=>{
   renderMatchCard(match);
   handleDamage(match);
 });
 
-socket.on("matchOver", ({ winnerNick, winnerChar, stage, matchId }) => {
+socket.on("matchOver", ({winnerNick,winnerChar,stage,matchId})=>{
   addEventMessage(`🏆 ${winnerNick} won the match (${stage})!`);
-  if (stage === "final") playWinnerMusic(winnerChar);
-  const el = document.getElementById(`match-${matchId}`);
-  if (el) el.remove();
+  if(stage==="final") playWinnerMusic(winnerChar);
+  const el=document.getElementById(`match-${matchId}`);
+  if(el) el.remove();
   delete matchUI[matchId];
 });
 
-socket.on("tournamentOver", ({ nick, char }) => {
+socket.on("tournamentOver", ({nick,char})=>{
   addEventMessage(`🎉 ${nick} won the tournament!`);
   showWinnerChar(char);
   playWinnerMusic(char);
-  setTimeout(
-    () => (battleArea.innerHTML = "<h2>Waiting for new tournament...</h2>"),
-    2500
-  );
+  setTimeout(()=>battleArea.innerHTML="<h2>Waiting for new tournament...</h2>",2500);
 });
 
-socket.on("log", msg => addEventMessage(msg));
-socket.on("tournamentState", bracket => renderBracket(bracket));
+socket.on("log", msg=>addEventMessage(msg));
+socket.on("tournamentState", bracket=>renderBracket(bracket));
 
 // ---------- Bracket ----------
-function renderBracket(bracket) {
-  bracketContainer.innerHTML = "";
-  bracket.forEach(m => {
-    const div = document.createElement("div");
-    div.className = "bracket-row";
-    const p1 = m.player1?.nick ?? "??";
-    const p2 = m.player2?.nick ?? "??";
-    const winner = m.winner ? ` - Winner: ${escapeHtml(m.winner.nick)}` : "";
-    div.textContent = `${p1} vs ${p2} (${m.stage})${winner}`;
-    if (m.winner) div.style.color = "#FFD700";
+function renderBracket(bracket){
+  bracketContainer.innerHTML="";
+  bracket.forEach(m=>{
+    const div=document.createElement("div");
+    div.className="bracket-row";
+    const p1=m.player1?.nick??"??";
+    const p2=m.player2?.nick??"??";
+    const winner=m.winner?` - Winner: ${escapeHtml(m.winner.nick)}`:"";
+    div.textContent=`${p1} vs ${p2} (${m.stage})${winner}`;
+    if(m.winner) div.style.color="#FFD700";
     bracketContainer.appendChild(div);
   });
 }

@@ -33,7 +33,7 @@ header {
 #topLeftUI {
   position: absolute;
   top: 10px;
-  left: 10px;  /* SINISTRA */
+  left: 10px;
   display: flex;
   gap: 10px;
 }
@@ -59,7 +59,7 @@ header {
 /* -------- MAIN AREA -------- */
 #main-area {
   display: flex;
-  flex-direction: column; /* battle sopra, chat/events sotto */
+  flex-direction: column;
   align-items: center;
   width: 100%;
   flex-grow: 1;
@@ -68,7 +68,7 @@ header {
 
 /* -------- CHAT + EVENTI -------- */
 #bottom-area {
-  position: relative; /* non più absolute */
+  position: relative;
   width: 100%;
   display: flex;
   gap: 10px;
@@ -84,7 +84,7 @@ header {
   padding: 5px;
   display: flex;
   flex-direction: column;
-  max-height: 7em; /* ≈ 5 righe di testo */
+  max-height: 7em;
 }
 
 .side-box h3 {
@@ -121,7 +121,7 @@ header {
   align-items: flex-end;
   width: 100%;
   position: relative;
-  margin-bottom: 180px; /* spazio per chat+eventi */
+  margin-bottom: 180px;
 }
 
 .player {
@@ -174,25 +174,15 @@ header {
   text-shadow: 1px 1px 4px black;
 }
 
-/* Mobile */
-@media (max-width: 768px) {
-  #bottom-area {
-    flex-direction: column;
-  }
-  .side-box {
-    max-width: 100%;
-  }
-}
-
 /* -------- SCELTA ATTACCO (ACQUA / LEGNO / FUOCO) -------- */
 .choice-buttons {
-  display: none; /* visibili solo nel proprio turno */
+  display: none;
   position: absolute;
-  bottom: 200px;
+  bottom: 10px; /* dentro il box del player */
   left: 50%;
   transform: translateX(-50%);
-  width: 180px;
-  height: 160px;
+  width: 140px;
+  height: 120px;
   justify-content: center;
   align-items: center;
 }
@@ -215,7 +205,6 @@ header {
   transition: all 0.2s;
 }
 
-/* Posizioni triangolari */
 .choice-btn.fire  { top: 0; left: 50%; transform: translateX(-50%); }
 .choice-btn.wood  { bottom: 0; left: 0; }
 .choice-btn.water { bottom: 0; right: 0; }
@@ -230,16 +219,15 @@ header {
   cursor: not-allowed;
 }
 
-/* Animazione comparsa */
 @keyframes fadeIn {
   from { opacity: 0; transform: scale(0.9); }
   to { opacity: 1; transform: scale(1); }
 }
 
-/* -------- TIMER -------- */
+/* -------- TIMER CENTRALE -------- */
 #timer-container {
   position: absolute;
-  bottom: 160px;
+  bottom: calc(50% + 30px);
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.6);
@@ -267,6 +255,19 @@ header {
 }
 #homeBtn:hover {
   background: rgba(255, 215, 0, 0.3);
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  #bottom-area {
+    flex-direction: column;
+  }
+  .side-box {
+    max-width: 100%;
+  }
+  .player img { width: 90%; }
+  .choice-buttons { width: 120px; height: 100px; }
+  .choice-btn { width: 60px; height: 60px; font-size: 1.5rem; }
 }
 
 /* Scroll bar visiva nei box */

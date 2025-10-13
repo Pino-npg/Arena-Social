@@ -5,28 +5,21 @@ const socket = io();
 // ---------- ELEMENTI BASE ----------
 const player1Box = document.getElementById("player1");
 const player2Box = document.getElementById("player2");
-
 const player1Name = document.getElementById("player1-nick");
 const player2Name = document.getElementById("player2-nick");
-
 const player1HpBar = document.getElementById("player1-hp");
 const player2HpBar = document.getElementById("player2-hp");
-
 const player1CharImg = document.getElementById("player1-char");
 const player2CharImg = document.getElementById("player2-char");
-
 const diceP1 = document.getElementById("dice-p1");
 const diceP2 = document.getElementById("dice-p2");
-
 const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
 const eventBox = document.getElementById("event-messages");
 const onlineCountDisplay = document.getElementById("onlineCount");
 const homeBtn = document.getElementById("homeBtn");
 
-homeBtn.addEventListener("click", () => {
-  window.location.href = "https://fight-game-server.onrender.com/";
-});
+homeBtn.addEventListener("click", () => window.location.href = "https://fight-game-server.onrender.com/");
 
 // ---------- MUSICA ----------
 const musicBattle = new Audio("img/9.mp3");
@@ -55,24 +48,20 @@ fullscreenBtn.addEventListener("click", async () => {
 // ---------- GIOCATORE ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
-socket.emit("join1vs1", { nick, char }, roomId => {
-  socket.roomId = roomId;
-});
+socket.emit("join1vs1", { nick, char });
 
 // ---------- STATO ----------
-let stunned = { p1: false, p2: false };
-let isMyTurn = false;
+let currentGame = null;
 let timer = 10;
 let countdownInterval = null;
-let currentGame = null;
 
 // ---------- TIMER CENTRALE ----------
 const timerContainer = document.createElement("div");
 timerContainer.id = "timer-container";
-timerContainer.textContent = "10";
+timerContainer.textContent = timer;
 document.getElementById("battle-area").appendChild(timerContainer);
 
-// ---------- PULSANTI ELEMENTI DENTRO PLAYER ----------
+// ---------- PULSANTI ELEMENTI ----------
 function createChoiceButtons(playerBox, playerId) {
   const container = document.createElement("div");
   container.className = "choice-buttons";
@@ -99,7 +88,7 @@ const buttonsMap = {
 Object.entries(buttonsMap).forEach(([player, btns]) => {
   Object.entries(btns).forEach(([choice, btn]) => {
     btn.addEventListener("click", () => {
-      if (!isMyTurn || stunnedMe()) return;
+      if (stunnedMe()) return;
       sendChoice(choice);
       disableButtons(player);
     });
@@ -107,52 +96,57 @@ Object.entries(buttonsMap).forEach(([player, btns]) => {
 });
 
 function stunnedMe() {
-  return nick === currentGame?.player1?.nick ? stunned.p1 : stunned.p2;
+  if (!currentGame) return false;
+  return nick === currentGame.player1.nick ? currentGame.player1.stunned : currentGame.player2.stunned;
 }
 
 function sendChoice(choice) {
-  if (!socket.roomId) return;
-  socket.emit("playerChoice", { roomId: socket.roomId, choice });
+  if (!currentGame) return;
+  socket.emit("selectChoice", { gameId: currentGame.id, choice });
   addEventMessageSingle(nick, `You chose ${choice.toUpperCase()}`);
 }
 
 // ---------- SOCKET EVENTS ----------
 socket.on("onlineCount", count => onlineCountDisplay.textContent = `Online: ${count}`);
 socket.on("waiting", msg => addEventMessageSingle("system", msg));
+socket.on("log", msg => addEventMessageSingle("system", msg));
 
-socket.on("gameStart", (roomId, game) => {
-  socket.roomId = roomId;
+socket.on("gameStart", (gameId, game) => {
+  currentGame = game;
+  timer = 10;
+  startTurn();
+  updateGame(game);
+});
+
+socket.on("roundStart", ({ gameId, timer: t, players }) => {
+  timer = t;
+  timerContainer.textContent = timer;
+  startTurn();
+});
+
+socket.on("1vs1Update", (gameId, game) => {
   currentGame = game;
   updateGame(game);
 });
 
-socket.on("1vs1Update", (roomId, game) => {
-  if (roomId === socket.roomId) {
-    currentGame = game;
-    updateGame(game);
-  }
-});
-
-socket.on("gameOver", (roomId, { winnerNick, winnerChar }) => {
-  if (roomId === socket.roomId) {
-    addEventMessageWinner(`🏆 ${winnerNick} has won the battle!`);
-    playWinnerMusic(winnerChar);
-    stopTimer();
-    disableButtons("p1");
-    disableButtons("p2");
-  }
+socket.on("gameOver", (gameId, { winnerNick, winnerChar }) => {
+  addEventMessageWinner(`🏆 ${winnerNick} has won the battle!`);
+  playWinnerMusic(winnerChar);
+  stopTimer();
+  disableButtons("p1");
+  disableButtons("p2");
 });
 
 // ---------- CHAT ----------
 chatInput.addEventListener("keydown", e => {
-  if(e.key === "Enter" && e.target.value.trim() !== "" && socket.roomId) {
-    socket.emit("chatMessage", { roomId: socket.roomId, text: e.target.value });
+  if(e.key === "Enter" && e.target.value.trim() !== "" && currentGame) {
+    socket.emit("chatMessage", { roomId: currentGame.id, text: e.target.value });
     e.target.value = "";
   }
 });
 
 socket.on("chatMessage", data => {
-  if (data.roomId === socket.roomId) addChatMessage(`${data.nick}: ${data.text}`);
+  if (data.roomId === currentGame?.id) addChatMessage(`${data.nick}: ${data.text}`);
 });
 
 // ---------- AGGIORNAMENTO GAME ----------
@@ -163,26 +157,18 @@ function updateGame(game) {
 
   player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${hp1}/${maxHp}`;
   player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${hp2}/${maxHp}`;
-
   player1HpBar.style.width = `${(hp1 / maxHp) * 100}%`;
   player2HpBar.style.width = `${(hp2 / maxHp) * 100}%`;
-
   player1HpBar.style.background = getHpColor(hp1 / maxHp * 100);
   player2HpBar.style.background = getHpColor(hp2 / maxHp * 100);
 
   updateCharacterImage(game.player1, 0);
   updateCharacterImage(game.player2, 1);
-
-  // Aggiorna dado animato
   rollDiceAnimation(diceP1, game.player1.roll ?? 1);
   rollDiceAnimation(diceP2, game.player2.roll ?? 1);
-
-  // Eventi
-  if(game.lastAction) addEventMessageSingle(game.lastAction.player, game.lastAction.text);
-
-  handleTurn(game);
 }
 
+// ---------- SUPPORTO ----------
 function getHpColor(percent) {
   if (percent > 60) return "linear-gradient(90deg, green, lime)";
   if (percent > 30) return "linear-gradient(90deg, yellow, orange)";
@@ -201,75 +187,6 @@ function updateCharacterImage(player,index){
   else player2CharImg.src=src;
 }
 
-// ---------- TURNI ----------
-function handleTurn(game) {
-  const myNick = nick;
-  const turn = game.turn;
-  const myIsP1 = (myNick === game.player1.nick);
-
-  isMyTurn = (turn === myNick);
-  
-  if (isMyTurn && !stunnedMe()) {
-    addEventMessageSingle("system", `Your turn! Choose element.`);
-    enableButtons(myIsP1 ? "p1" : "p2");
-    startTimer();
-  } else {
-    disableButtons("p1");
-    disableButtons("p2");
-    stopTimer();
-  }
-}
-
-// ---------- TIMER ----------
-function startTimer(seconds = 10) {
-  timer = seconds;
-  timerContainer.textContent = timer;
-  stopTimer();
-  countdownInterval = setInterval(() => {
-    timer--;
-    timerContainer.textContent = timer;
-    if (timer <= 0) {
-      stopTimer();
-      disableButtons("p1");
-      disableButtons("p2");
-      socket.emit("playerTimeout", { roomId: socket.roomId });
-    }
-  }, 1000);
-}
-
-function stopTimer() {
-  if (countdownInterval) clearInterval(countdownInterval);
-  countdownInterval = null;
-}
-
-// ---------- ABILITAZIONE / DISABILITAZIONE PULSANTI ----------
-function enableButtons(player) {
-  const btns = buttonsMap[player];
-  if(!btns) return;
-  Object.values(btns).forEach(btn => {
-    btn.disabled = false;
-    btn.classList.remove("disabled");
-  });
-  document.getElementById(`choice-buttons-${player}`).classList.add("active");
-}
-
-function disableButtons(player) {
-  if(player){
-    const btns = buttonsMap[player];
-    if(!btns) return;
-    Object.values(btns).forEach(btn => {
-      btn.disabled = true;
-      btn.classList.add("disabled");
-    });
-    document.getElementById(`choice-buttons-${player}`).classList.remove("active");
-  } else {
-    // se non specificato disabilita entrambi
-    disableButtons("p1");
-    disableButtons("p2");
-  }
-}
-
-// ---------- DADO ANIMATO ----------
 function rollDiceAnimation(el, finalRoll) {
   let count = 0;
   const interval = setInterval(() => {
@@ -282,11 +199,47 @@ function rollDiceAnimation(el, finalRoll) {
   }, 50);
 }
 
+// ---------- TURNI ----------
+function startTurn() {
+  enableButtons("p1");
+  enableButtons("p2");
+  startTimer(10);
+}
+
+// ---------- TIMER ----------
+function startTimer(seconds = 10) {
+  timer = seconds;
+  timerContainer.textContent = timer;
+  stopTimer();
+  countdownInterval = setInterval(() => {
+    timer--;
+    timerContainer.textContent = timer;
+    if(timer <= 0) stopTimer();
+  }, 1000);
+}
+
+function stopTimer() {
+  if (countdownInterval) clearInterval(countdownInterval);
+  countdownInterval = null;
+}
+
+// ---------- PULSANTI ----------
+function enableButtons(player){
+  const btns = buttonsMap[player];
+  if(!btns) return;
+  Object.values(btns).forEach(btn => { btn.disabled = false; btn.classList.remove("disabled"); });
+  document.getElementById(`choice-buttons-${player}`).classList.add("active");
+}
+
+function disableButtons(player){
+  const btns = buttonsMap[player];
+  if(!btns) return;
+  Object.values(btns).forEach(btn => { btn.disabled = true; btn.classList.add("disabled"); });
+  document.getElementById(`choice-buttons-${player}`).classList.remove("active");
+}
+
 // ---------- EVENTI ----------
-const lastEventMessagesPerPlayer = {};
 function addEventMessageSingle(playerNick, text) {
-  if (lastEventMessagesPerPlayer[playerNick] === text) return;
-  lastEventMessagesPerPlayer[playerNick] = text;
   const msg = document.createElement("div");
   msg.textContent = text;
   eventBox.appendChild(msg);
