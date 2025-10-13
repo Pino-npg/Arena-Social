@@ -17,7 +17,7 @@ const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
 const eventBox = document.getElementById("event-messages");
 const onlineCountDisplay = document.getElementById("onlineCount");
-const homeBtn = document.getElementById("home-btn");
+const homeBtn = document.getElementById("homeBtn"); // correzione ID
 
 homeBtn.addEventListener("click", () => window.location.href = "/");
 
@@ -48,7 +48,7 @@ fullscreenBtn.addEventListener("click", async () => {
 // ---------- GIOCATORE ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
-socket.emit("join1vs1", { nick, char });
+if(nick && char) socket.emit("join1vs1", { nick, char }); // join immediato
 
 // ---------- STATO ----------
 let currentGame = null;
@@ -112,7 +112,6 @@ function sendChoice(choice) {
 // online count globale per 1vs1
 socket.on("onlineCount", count => {
   onlineCountDisplay.textContent = `Online: ${count}`;
-  if(count >= 2 && !currentGame) socket.emit("tryStart1vs1");
 });
 
 // messaggi di sistema
