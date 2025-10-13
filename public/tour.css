@@ -57,6 +57,16 @@ header {
   display:flex; flex-wrap:wrap; justify-content:center; gap:20px; width:100%; 
 }
 
+/* -------- TIMER -------- */
+#turn-timer {
+  font-size: 2rem;
+  color: gold;
+  text-shadow: 2px 2px 6px black;
+  margin-top: 10px;
+  text-align: center;
+  font-weight: bold;
+}
+
 /* -------- SIDE BOXES -------- */
 #bottom-area { 
   width:100%; display:flex; gap:10px; padding:10px; background:rgba(0,0,0,0.6); border-top:1px solid #444;
@@ -85,12 +95,29 @@ header {
   text-align:center; font-size:1.5rem; margin-bottom:5px; color:gold; text-shadow:1px 1px 4px black; 
 }
 .hp-bar { 
-  width:100%; height:20px; background:#444; border:2px solid #222; border-radius:5px; overflow:hidden; margin-top:10px; 
+  width:100%; height:20px; background:#444; border:2px solid #222; border-radius:5px; overflow:hidden; margin-top:10px; position:relative;
 }
 .hp { 
-  height:100%; width:100%; background:linear-gradient(90deg,green,lime); transition:width 0.3s ease-in-out; 
+  height:100%; width:100%; background:linear-gradient(90deg,green,lime); 
+  transition:width 0.4s ease-in-out, background 0.4s ease-in-out, box-shadow 0.4s ease-in-out;
+  border-radius:3px;
+  box-shadow:0 0 10px rgba(0,255,0,0.3);
 }
-.dice { width:60px; height:60px; margin:10px auto; }
+
+/* HP bar bassa = colore rosso + bagliore */
+.hp.low {
+  background:linear-gradient(90deg, red, orange);
+  box-shadow:0 0 20px rgba(255,0,0,0.7);
+}
+
+/* Effetto danno */
+.hp.damaged {
+  animation: hpFlash 0.4s ease;
+}
+@keyframes hpFlash {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(2); }
+}
 
 /* -------- WINNER IMAGE -------- */
 #winnerImage {
@@ -166,10 +193,4 @@ header {
   }
   .player img.char-img { width:140px; }
   .player-label { font-size:1.2rem; }
-}
-/* -------- HP BAR DINAMICA -------- */
-.hp {
-  height: 100%;
-  transition: width 0.5s ease-in-out, background 0.5s ease-in-out;
-  border-radius: 3px;
 }

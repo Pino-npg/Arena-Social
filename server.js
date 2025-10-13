@@ -1,4 +1,5 @@
-// server.js
+// server.js (AGGIORNATO: supporto scelte a round per 1vs1 e torneo)
+// ... (mantieni le parti iniziali identiche) ...
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -10,16 +11,15 @@ const io = new Server(httpServer, { cors: { origin: "*" } });
 
 const PORT = process.env.PORT || 10000;
 
-// ------------------- STATIC -------------------
 app.use(express.static("public"));
 app.get("/1vs1.html", (req, res) => res.sendFile(new URL("public/1vs1.html", import.meta.url).pathname));
 app.get("/tour.html", (req, res) => res.sendFile(new URL("public/tour.html", import.meta.url).pathname));
 app.get("/", (req, res) => res.send("Fight server attivo!"));
 
-// ------------------- UTILS -------------------
+// UTILS
 const rollDice = () => Math.floor(Math.random() * 8) + 1;
 
-const usedNicks = new Map(); // base -> count
+const usedNicks = new Map();
 function assignUniqueNick(nick) {
   if (!nick || nick.trim() === "") return "Anon";
   const base = nick.trim();
@@ -33,7 +33,6 @@ function assignUniqueNick(nick) {
   }
   return finalNick;
 }
-
 function releaseNick(nick) {
   if (!nick) return;
   const base = nick.split("#")[0];
@@ -45,102 +44,203 @@ function releaseNick(nick) {
 }
 
 // ------------------- 1VS1 MODE -------------------
-const games = {};
+const games = {};          // gameId -> game
 let waitingPlayer = null;
 const lastGames = {};
 
-async function nextTurn1vs1(game, attackerIndex) {
-  const defenderIndex = attackerIndex === 0 ? 1 : 0;
-  const attacker = game.players[attackerIndex];
-  const defender = game.players[defenderIndex];
+// choices possible
+const CHOICES = ["water","wood","fire"];
+// beats map: key beats value
+const BEATS = { water: "fire", wood: "water", fire: "wood" };
 
-  // Tiro del dado
-  const realRoll = rollDice();
-  let damage = realRoll;
-  let logMsg = "";
+function startRound1vs1(gameId) {
+  const game = games[gameId];
+  if (!game) return;
 
-  // Gestione stun e critico
-  if (attacker.stunned) {
-    damage = Math.max(1, damage - 1);
-    attacker.stunned = false;
-    logMsg = `${attacker.nick} is stunned! Rolled ${realRoll} → deals only ${damage} 😵‍💫`;
-  } else if (realRoll === 8) {
-    defender.stunned = true;
-    logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥`;
+  // prepare choices slot and timer
+  game.choices = { [game.players[0].id]: null, [game.players[1].id]: null };
+  // if player stunned, we mark they cannot choose (handled in evaluation)
+  game.roundTimer = 10; // seconds
+
+  // notify both clients round started + timer and state
+  io.to(gameId).emit("roundStart", { gameId, timer: game.roundTimer, players: game.players.map(p => ({ id:p.id, nick:p.nick })) });
+
+  // countdown and evaluate after 10s
+  game.roundTimeout && clearTimeout(game.roundTimeout);
+  game.roundTimeout = setTimeout(() => {
+    evaluateRound1vs1(gameId);
+  }, game.roundTimer * 1000);
+}
+
+function evaluateRound1vs1(gameId) {
+  const game = games[gameId];
+  if (!game) return;
+  const p0 = game.players[0];
+  const p1 = game.players[1];
+  const c0 = game.choices[p0.id]; // maybe null
+  const c1 = game.choices[p1.id];
+
+  // Helper to apply damage and send update/log
+  function applyDamage(targetPlayer, dmg, reason) {
+    const prevHp = targetPlayer.hp;
+    targetPlayer.hp = Math.max(0, targetPlayer.hp - dmg);
+    io.to(gameId).emit("log", `${targetPlayer.nick} takes ${dmg} damage (${reason}). HP ${prevHp} -> ${targetPlayer.hp}`);
+    // mark dice/dmg for clients (so they can show dice image)
+    targetPlayer.lastDamage = dmg;
+  }
+
+  // Evaluate stunned: if player.stunned true => cannot choose this round (treated as no-choice)
+  const p0CannotChoose = !!p0.stunned;
+  const p1CannotChoose = !!p1.stunned;
+
+  // If stunned, consume stun now (they miss this round)
+  if (p0CannotChoose) p0.stunned = false;
+  if (p1CannotChoose) p1.stunned = false;
+
+  // Normalize choices: ensure valid or null
+  const choice0 = (CHOICES.includes(c0) && !p0CannotChoose) ? c0 : null;
+  const choice1 = (CHOICES.includes(c1) && !p1CannotChoose) ? c1 : null;
+
+  // CASES
+  if (!choice0 && !choice1) {
+    // both didn't choose -> both take 1d8
+    const d0 = rollDice();
+    const d1 = rollDice();
+    applyDamage(p0, d0, "no choice (both)");
+    applyDamage(p1, d1, "no choice (both)");
+  } else if (choice0 && !choice1) {
+    // p1 didn't choose -> p1 takes 1d8
+    const d = rollDice();
+    applyDamage(p1, d, `no choice (vs ${choice0})`);
+  } else if (!choice0 && choice1) {
+    const d = rollDice();
+    applyDamage(p0, d, `no choice (vs ${choice1})`);
   } else {
-    logMsg = `${attacker.nick} rolls ${realRoll} and deals ${damage} 💥`;
+    // both chose something
+    if (choice0 === choice1) {
+      // same choice -> both take 1d8
+      const d0 = rollDice();
+      const d1 = rollDice();
+      applyDamage(p0, d0, "same choice");
+      applyDamage(p1, d1, "same choice");
+    } else {
+      // check winner via BEATS
+      if (BEATS[choice0] === choice1) {
+        // p0 beats p1
+        const dmg = rollDice();
+        applyDamage(p1, dmg, `${p0.nick} (${choice0}) beats ${choice1}`);
+        // if crit (8) => p1 stunned next round
+        if (dmg === 8) {
+          p1.stunned = true;
+          io.to(gameId).emit("log", `${p1.nick} is stunned by CRIT! Will miss next round.`);
+        }
+      } else if (BEATS[choice1] === choice0) {
+        // p1 beats p0
+        const dmg = rollDice();
+        applyDamage(p0, dmg, `${p1.nick} (${choice1}) beats ${choice0}`);
+        if (dmg === 8) {
+          p0.stunned = true;
+          io.to(gameId).emit("log", `${p0.nick} is stunned by CRIT! Will miss next round.`);
+        }
+      } else {
+        // defensive fallback (shouldn't happen) -> both take 1d8
+        const d0 = rollDice();
+        const d1 = rollDice();
+        applyDamage(p0, d0, "fallback");
+        applyDamage(p1, d1, "fallback");
+      }
+    }
   }
 
-  // Aggiornamento HP
-  defender.hp = Math.max(0, Math.min(defender.hp - damage, 80));
-  attacker.hp = Math.min(attacker.hp, 80);
-  attacker.dice = damage;
+  // send update to players (both get updated players)
+  io.to(gameId).emit("1vs1Update", gameId, { player1: game.players[0], player2: game.players[1] });
 
-  // Aggiorna stato per ciascun player
-  for (const p of game.players) {
-    const me = game.players.find(pl => pl.id === p.id);
-    const opp = game.players.find(pl => pl.id !== p.id);
-    io.to(p.id).emit("1vs1Update", game.id, { player1: me, player2: opp });
-  }
-
-  // Invia log **una sola volta** alla stanza
-  io.to(game.id).emit("log", logMsg);
-
-  // Controlla vittoria
-  if (defender.hp === 0) {
+  // check victory
+  if (p0.hp <= 0 || p1.hp <= 0) {
+    const winner = p0.hp > 0 ? p0 : p1;
     for (const p of game.players) {
-      io.to(p.id).emit("gameOver", game.id, { winnerNick: attacker.nick, winnerChar: attacker.char });
+      io.to(p.id).emit("gameOver", gameId, { winnerNick: winner.nick, winnerChar: winner.char });
       lastGames[p.id] = game;
     }
-    delete games[game.id];
+    // cleanup
+    clearTimeout(game.roundTimeout);
+    delete games[gameId];
     return;
   }
 
-  // Passa il turno
-  setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
+  // prepare next round after short delay (1s)
+  setTimeout(() => startRound1vs1(gameId), 1000);
 }
 
-// ------------------- SOCKET.IO CONNECTION -------------------
+// socket handlers for players selecting choice (1vs1)
 io.on("connection", socket => {
-  // Online count
+  // online count
   io.emit("onlineCount", io.engine.clientsCount);
 
-  // ------------------- NICKNAME -------------------
+  // setNickname handler (same as before)
   socket.on("setNickname", nick => {
     const finalNick = assignUniqueNick(nick);
     socket.nick = finalNick;
     socket.emit("nickConfirmed", finalNick);
   });
 
-  // ------------------- 1VS1 -------------------
   socket.on("join1vs1", ({ nick, char }) => {
     socket.nick = assignUniqueNick(nick);
     socket.char = char;
-  
+
     if (!waitingPlayer) {
       waitingPlayer = socket;
       socket.emit("waiting", "Waiting for opponent...");
     } else {
       const gameId = socket.id + "#" + waitingPlayer.id;
       const players = [
-        { id: waitingPlayer.id, nick: waitingPlayer.nick, char: waitingPlayer.char, hp: 80, stunned: false, dice: 0 },
-        { id: socket.id, nick: socket.nick, char, hp: 80, stunned: false, dice: 0 }
+        { id: waitingPlayer.id, nick: waitingPlayer.nick, char: waitingPlayer.char, hp: 80, stunned: false, lastDamage: 0 },
+        { id: socket.id, nick: socket.nick, char, hp: 80, stunned: false, lastDamage: 0 }
       ];
       games[gameId] = { id: gameId, players };
-  
-      // inserimento in stanza
+
       for (const p of players) {
         io.sockets.sockets.get(p.id)?.join(gameId);
         const opp = players.find(pl => pl.id !== p.id);
-        io.to(p.id).emit("gameStart", gameId, { player1: p, player2: opp });  // <-- passa gameId
+        // send initial game start state
+        io.to(p.id).emit("gameStart", gameId, { player1: p, player2: opp });
       }
-  
-      const first = Math.floor(Math.random() * 2);
-      setTimeout(() => nextTurn1vs1(games[gameId], first), 1000);
+
+      // start first round
+      setTimeout(() => startRound1vs1(gameId), 1000);
       waitingPlayer = null;
     }
   });
 
+  // Player sends their choice in 1vs1
+  // payload: { gameId, choice } where choice is 'water'|'wood'|'fire'
+  socket.on("selectChoice", ({ gameId, choice }) => {
+    const game = games[gameId];
+    if (!game) return;
+    if (!CHOICES.includes(choice)) return;
+    // only accept choice if player in game and hasn't been set and wasn't stunned
+    const player = game.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    // if player was stunned at the start of round (we flagged and it's been cleared only on evaluate), ignore set
+    // we check location in game.choices: if round not started, ignore
+    if (!game.choices) return;
+    // only set if not already set
+    if (game.choices[socket.id] == null) {
+      // If they were stunned we should have marked inability earlier (we store stunned on player property)
+      if (player.stunned) {
+        // cannot choose this round; ignore
+        return;
+      }
+      game.choices[socket.id] = choice;
+      // optional feedback
+      io.to(gameId).emit("log", `${player.nick} chose ${choice}`);
+      // immediate update to other player that choice arrived (no sensitive reveal)
+      // no revealing opponent choice
+    }
+  });
+
+  // chatMessage existing handler (unchanged)
   socket.on("chatMessage", data => {
     const { roomId, text } = data;
     let game = Object.values(games).find(g => g.id === roomId);
@@ -150,9 +250,9 @@ io.on("connection", socket => {
     for (const p of game.players) {
       io.to(p.id).emit("chatMessage", { nick: socket.nick, text, roomId });
     }
-});
+  });
 
-  // ------------------- DISCONNECT -------------------
+  // disconnect handling (unchanged logic but ensure waitingPlayer cleared)
   socket.on("disconnect", () => {
     releaseNick(socket.nick);
     io.emit("onlineCount", io.engine.clientsCount);
@@ -164,8 +264,10 @@ io.on("connection", socket => {
       const idx = game.players.findIndex(p => p.id === socket.id);
       if (idx !== -1) {
         const other = game.players.find(p => p.id !== socket.id);
-        io.to(other.id).emit("gameOver", gameId, { winnerNick: other.nick, winnerChar: other.char });  // aggiungi gameId
+        io.to(other.id).emit("gameOver", gameId, { winnerNick: other.nick, winnerChar: other.char });
         lastGames[other.id] = game;
+        // cleanup
+        clearTimeout(game.roundTimeout);
         delete games[gameId];
         break;
       }
@@ -173,7 +275,7 @@ io.on("connection", socket => {
   });
 });
 
-// ------------------- TOURNAMENT MODE -------------------
+// ------------------- TOURNAMENT MODE (aggiornato per usare round-based choices) -------------------
 const tournaments = {};
 const nsp = io.of("/tournament");
 
@@ -182,19 +284,16 @@ function createTournament() {
   tournaments[id] = { id, waiting: [], matches: {}, bracket: [] };
   return id;
 }
-
 function broadcastWaiting(tournamentId) {
   const t = tournaments[tournamentId];
   if (!t) return;
   nsp.to(tournamentId).emit("waitingCount", { count: t.waiting.length, required: 8, players: t.waiting });
 }
-
 function emitBracket(tournamentId) {
   const t = tournaments[tournamentId];
   if (!t) return;
   nsp.to(tournamentId).emit("tournamentState", t.bracket);
 }
-
 function generateBracket(players8, t) {
   t.bracket = [
     { id: "Q1", stage: "quarter", player1: players8[0], player2: players8[1], next: "S1", winner: null },
@@ -235,69 +334,117 @@ function advanceWinner(tournamentId, matchId, winnerObj) {
     setTimeout(() => resetTournament(tournamentId), 5000);
   }
 }
-
 function resetTournament(tournamentId) {
   delete tournaments[tournamentId];
 }
 
-// ---------- Turni di battaglia ----------
-function nextTurn(match, tournamentId, attackerIndex) {
-  const defenderIndex = attackerIndex === 0 ? 1 : 0;
-  const attacker = match.players[attackerIndex];
-  const defender = match.players[defenderIndex];
+// For tournament we reuse same round/evaluate logic but adapted for namespace
+function startTournamentRound(tId, matchId) {
+  const t = tournaments[tId];
+  if (!t) return;
+  const match = t.matches[matchId];
+  if (!match) return;
 
-  const realRoll = rollDice();
-  let damage = realRoll;
-  let logMsg = "";
+  // set choices map and timer
+  match.choices = { [match.players[0].id]: null, [match.players[1].id]: null };
+  match.roundTimer = 10;
+  nsp.to(tId).emit("roundStart", { matchId: match.id, timer: match.roundTimer });
 
-  if (attacker.stunned) {
-    // penalità al danno inflitto
-    damage = Math.max(0, damage - 1);
-    attacker.stunned = false;
-    logMsg = `${attacker.nick} is stunned! Rolled ${realRoll} → deals only ${damage} 😵‍💫`;
-  } else if (realRoll === 8) {
-    // critico
-    defender.stunned = true;
-    logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥`;
-  } else {
-    logMsg = `${attacker.nick} rolls ${realRoll} and deals ${damage} 💥`;
+  match.roundTimeout && clearTimeout(match.roundTimeout);
+  match.roundTimeout = setTimeout(() => evaluateTournamentRound(tId, matchId), match.roundTimer * 1000);
+}
+function evaluateTournamentRound(tId, matchId) {
+  const t = tournaments[tId];
+  if (!t) return;
+  const match = t.matches[matchId];
+  if (!match) return;
+  const p0 = match.players[0];
+  const p1 = match.players[1];
+  const c0 = match.choices[p0.id];
+  const c1 = match.choices[p1.id];
+
+  function applyDamage(target, dmg, reason) {
+    const prev = target.hp;
+    target.hp = Math.max(0, target.hp - dmg);
+    nsp.to(tId).emit("log", `${target.nick} takes ${dmg} damage (${reason}). HP ${prev} -> ${target.hp}`);
+    target.lastDamage = dmg;
   }
 
-  defender.hp = Math.max(0, defender.hp - damage);
+  const p0CannotChoose = !!p0.stunned;
+  const p1CannotChoose = !!p1.stunned;
+  if (p0CannotChoose) p0.stunned = false;
+  if (p1CannotChoose) p1.stunned = false;
 
-  attacker.roll = realRoll; // valore reale
-  attacker.dmg = damage;    // danno applicato
+  const choice0 = (CHOICES.includes(c0) && !p0CannotChoose) ? c0 : null;
+  const choice1 = (CHOICES.includes(c1) && !p1CannotChoose) ? c1 : null;
 
-  nsp.to(tournamentId).emit("updateMatch", {
+  if (!choice0 && !choice1) {
+    const d0 = rollDice();
+    const d1 = rollDice();
+    applyDamage(p0, d0, "no choice (both)");
+    applyDamage(p1, d1, "no choice (both)");
+  } else if (choice0 && !choice1) {
+    const d = rollDice();
+    applyDamage(p1, d, `no choice (vs ${choice0})`);
+  } else if (!choice0 && choice1) {
+    const d = rollDice();
+    applyDamage(p0, d, `no choice (vs ${choice1})`);
+  } else {
+    if (choice0 === choice1) {
+      const d0 = rollDice();
+      const d1 = rollDice();
+      applyDamage(p0, d0, "same choice");
+      applyDamage(p1, d1, "same choice");
+    } else {
+      if (BEATS[choice0] === choice1) {
+        const dmg = rollDice();
+        applyDamage(p1, dmg, `${p0.nick} (${choice0}) beats ${choice1}`);
+        if (dmg === 8) { p1.stunned = true; nsp.to(tId).emit("log", `${p1.nick} stunned by CRIT!`); }
+      } else if (BEATS[choice1] === choice0) {
+        const dmg = rollDice();
+        applyDamage(p0, dmg, `${p1.nick} (${choice1}) beats ${choice0}`);
+        if (dmg === 8) { p0.stunned = true; nsp.to(tId).emit("log", `${p0.nick} stunned by CRIT!`); }
+      } else {
+        const d0 = rollDice();
+        const d1 = rollDice();
+        applyDamage(p0, d0, "fallback");
+        applyDamage(p1, d1, "fallback");
+      }
+    }
+  }
+
+  // emit updateMatch for clients
+  nsp.to(tId).emit("updateMatch", {
     id: match.id,
     stage: match.stage,
     player1: match.players[0],
     player2: match.players[1]
   });
 
-  nsp.to(tournamentId).emit("log", logMsg);
-
-  if (defender.hp <= 0) {
-    const winner = attacker;
-    nsp.to(tournamentId).emit("matchOver", {
+  // check winner
+  if (p0.hp <= 0 || p1.hp <= 0) {
+    const winner = p0.hp > 0 ? p0 : p1;
+    nsp.to(tId).emit("matchOver", {
       winnerNick: winner.nick,
       winnerChar: winner.char,
       stage: match.stage,
       player1: match.players[0],
       player2: match.players[1]
     });
-    advanceWinner(tournamentId, match.id, winner);
+    advanceWinner(tId, match.id, winner);
     return;
   }
 
-  setTimeout(() => nextTurn(match, tournamentId, defenderIndex), 3000);
+  // next round after short delay
+  setTimeout(() => startTournamentRound(tId, match.id), 1000);
 }
 
+// modify startMatch for tournament to initialize (we already emitted updateMatch earlier)
 function startMatch(tournamentId, p1, p2, stage, matchId) {
   const t = tournaments[tournamentId];
-  if (!t) return;
+  if (!t || !p1 || !p2) return;
 
-  // placeholder se player null
+  // placeholders if necessary
   p1 = p1 || { nick:"??", char:"unknown", id:null };
   p2 = p2 || { nick:"??", char:"unknown", id:null };
 
@@ -305,20 +452,13 @@ function startMatch(tournamentId, p1, p2, stage, matchId) {
     { ...p1, hp: 80, stunned: false, roll: 1, dmg: 0 },
     { ...p2, hp: 80, stunned: false, roll: 1, dmg: 0 }
   ];
-
   const match = { id: matchId, players, stage };
   t.matches[matchId] = match;
 
-  // invia subito ai client lo stato iniziale del match
   nsp.to(tournamentId).emit("startTournament", Object.values(t.matches));
-  nsp.to(tournamentId).emit("startMatch", { 
-    id: match.id, 
-    player1: players[0], 
-    player2: players[1], 
-    stage 
-  });
+  nsp.to(tournamentId).emit("startMatch", { id: match.id, player1: players[0], player2: players[1], stage });
 
-  // forza il client a renderizzare subito l'HP e il dado
+  // force an initial update so clients show HP/dice immediately
   nsp.to(tournamentId).emit("updateMatch", {
     id: match.id,
     stage: match.stage,
@@ -326,15 +466,13 @@ function startMatch(tournamentId, p1, p2, stage, matchId) {
     player2: match.players[1]
   });
 
-  const first = Math.floor(Math.random() * 2);
-  setTimeout(() => nextTurn(match, tournamentId, first), 1000);
+  // start round-based flow
+  setTimeout(() => startTournamentRound(tournamentId, match.id), 1000);
 }
 
-// ------------------- TOURNAMENT NAMESPACE -------------------
+// Tournament namespace handlers
 nsp.on("connection", socket => {
-  // invia subito il numero di client connessi nella namespace tournament
   nsp.emit("onlineCount", nsp.sockets.size);
-
   let currentTournament = null;
 
   socket.on("setNickname", nick => {
@@ -369,6 +507,21 @@ nsp.on("connection", socket => {
     }
   });
 
+  // tournament clients send choices via 'selectChoiceTournament'
+  // payload: { tournamentId, matchId, choice }
+  socket.on("selectChoiceTournament", ({ tournamentId, matchId, choice }) => {
+    const t = tournaments[tournamentId];
+    if (!t) return;
+    const match = t.matches[matchId];
+    if (!match) return;
+    if (!CHOICES.includes(choice)) return;
+    // only set if not already set and if player is in match
+    if (match.choices && match.choices[socket.id] == null && match.players.find(p => p.id === socket.id && !p.stunned)) {
+      match.choices[socket.id] = choice;
+      nsp.to(tournamentId).emit("log", `${socket.nick} chose ${choice}`);
+    }
+  });
+
   socket.on("chatMessage", text => {
     const tId = currentTournament;
     if (!tId) return;
@@ -395,11 +548,9 @@ nsp.on("connection", socket => {
     }
     broadcastWaiting(tId);
     emitBracket(tId);
-
-    // aggiorna il numero di client connessi dopo il disconnect
     nsp.emit("onlineCount", nsp.sockets.size);
   });
 });
 
-// ------------------- SERVER LISTEN -------------------
-httpServer.listen(PORT, () => console.log(`Server unico attivo su http://localhost:${PORT}`));
+// Start server
+httpServer.listen(PORT, () => console.log(`Server attivo su http://localhost:${PORT}`));

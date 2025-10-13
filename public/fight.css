@@ -98,10 +98,10 @@ header {
   overflow-y: auto;
   font-size: 0.85rem;
   display: flex;
-  flex-direction: column; /* non più reverse */
+  flex-direction: column;
 }
 
-/* Chat input dentro il box */
+/* Chat input */
 #chat-input {
   border: none;
   padding: 4px;
@@ -110,7 +110,7 @@ header {
   margin-top: 5px;
   background: #333;
   color: white;
-  height: 1.8em; /* sempre una riga */
+  height: 1.8em;
 }
 
 /* -------- BATTLE -------- */
@@ -123,7 +123,6 @@ header {
   position: relative;
   margin-bottom: 180px; /* spazio per chat+eventi */
 }
-
 
 .player {
   display: flex;
@@ -162,7 +161,8 @@ header {
   height: 100%;
   width: 100%;
   background: linear-gradient(90deg, green, lime);
-  transition: width 0.3s ease-in-out;
+  transition: width 0.5s ease-in-out, background 0.5s ease-in-out;
+  border-radius: 3px;
 }
 
 /* Player label */
@@ -174,7 +174,7 @@ header {
   text-shadow: 1px 1px 4px black;
 }
 
-/* Mobile: chat/eventi uno sopra l’altro */
+/* Mobile */
 @media (max-width: 768px) {
   #bottom-area {
     flex-direction: column;
@@ -184,9 +184,98 @@ header {
   }
 }
 
-/* -------- HP BAR DINAMICA -------- */
-.hp {
-  height: 100%;
-  transition: width 0.5s ease-in-out, background 0.5s ease-in-out;
+/* -------- SCELTA ATTACCO (ACQUA / LEGNO / FUOCO) -------- */
+.choice-buttons {
+  display: none; /* visibili solo nel proprio turno */
+  position: absolute;
+  bottom: 200px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 180px;
+  height: 160px;
+  justify-content: center;
+  align-items: center;
+}
+
+.choice-buttons.active {
+  display: flex !important;
+  animation: fadeIn 0.4s ease-in-out;
+}
+
+.choice-btn {
+  position: absolute;
+  width: 70px;
+  height: 70px;
+  font-size: 2rem;
+  border-radius: 50%;
+  border: 2px solid gold;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+/* Posizioni triangolari */
+.choice-btn.fire  { top: 0; left: 50%; transform: translateX(-50%); }
+.choice-btn.wood  { bottom: 0; left: 0; }
+.choice-btn.water { bottom: 0; right: 0; }
+
+.choice-btn:hover:not(.disabled) {
+  background: rgba(255, 215, 0, 0.8);
+  transform: scale(1.1);
+}
+
+.choice-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Animazione comparsa */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* -------- TIMER -------- */
+#timer-container {
+  position: absolute;
+  bottom: 160px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid gold;
+  border-radius: 50%;
+  width: 70px;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: gold;
+  text-shadow: 2px 2px 8px black;
+}
+
+/* -------- ALTRI DETTAGLI -------- */
+#homeBtn {
+  background: rgba(0,0,0,0.6);
+  color: gold;
+  border: 1px solid gold;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  border-radius: 4px;
+}
+#homeBtn:hover {
+  background: rgba(255, 215, 0, 0.3);
+}
+
+/* Scroll bar visiva nei box */
+#chat-messages::-webkit-scrollbar,
+#event-messages::-webkit-scrollbar {
+  width: 6px;
+}
+#chat-messages::-webkit-scrollbar-thumb,
+#event-messages::-webkit-scrollbar-thumb {
+  background: gold;
   border-radius: 3px;
 }

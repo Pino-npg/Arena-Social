@@ -2,7 +2,7 @@ import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 
 const socket = io();
 
-// ---------- ELEMENTI ----------
+// ---------- ELEMENTI BASE ----------
 const player1Box = document.getElementById("player1");
 const player2Box = document.getElementById("player2");
 
@@ -21,10 +21,9 @@ const diceP2 = document.getElementById("dice-p2");
 const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
 const eventBox = document.getElementById("event-messages");
-
-// ---------- ONLINE & HOME ----------
 const onlineCountDisplay = document.getElementById("onlineCount");
 const homeBtn = document.getElementById("homeBtn");
+
 homeBtn.addEventListener("click", () => {
   window.location.href = "https://fight-game-server.onrender.com/";
 });
@@ -35,7 +34,7 @@ musicBattle.loop = true;
 musicBattle.volume = 0.5;
 
 let winnerMusic = new Audio();
-winnerMusic.loop = true; 
+winnerMusic.loop = true;
 winnerMusic.volume = 0.7;
 
 function unlockAudio() {
@@ -53,34 +52,85 @@ fullscreenBtn.addEventListener("click", async () => {
   else await document.exitFullscreen();
 });
 
-// ---------- INIZIO PARTITA ----------
+// ---------- GIOCATORE ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
 socket.emit("join1vs1", { nick, char }, roomId => {
   socket.roomId = roomId;
 });
 
-// ---------- GESTIONE STUN ----------
+// ---------- STATO ----------
 let stunned = { p1: false, p2: false };
+let isMyTurn = false;
+let timer = 10;
+let countdownInterval = null;
+
+// ---------- CREAZIONE PULSANTI ----------
+const buttonContainer = document.createElement("div");
+buttonContainer.id = "choice-buttons";
+buttonContainer.innerHTML = `
+  <button id="btn-water" class="choice-btn">💧</button>
+  <button id="btn-wood" class="choice-btn">🌿</button>
+  <button id="btn-fire" class="choice-btn">🔥</button>
+`;
+document.body.appendChild(buttonContainer);
+
+const timerDisplay = document.createElement("div");
+timerDisplay.id = "timer-display";
+timerDisplay.textContent = "10";
+document.body.appendChild(timerDisplay);
+
+// Pulsanti e scelte
+const buttons = {
+  water: document.getElementById("btn-water"),
+  wood: document.getElementById("btn-wood"),
+  fire: document.getElementById("btn-fire"),
+};
+
+// ---------- GESTIONE CLICK ----------
+Object.entries(buttons).forEach(([choice, btn]) => {
+  btn.addEventListener("click", () => {
+    if (!isMyTurn || stunnedMe()) return;
+    sendChoice(choice);
+    disableButtons();
+  });
+});
+
+function stunnedMe() {
+  return nick === currentGame?.player1?.nick ? stunned.p1 : stunned.p2;
+}
+
+function sendChoice(choice) {
+  if (!socket.roomId) return;
+  socket.emit("playerChoice", { roomId: socket.roomId, choice });
+  addEventMessageSingle(nick, `You chose ${choice.toUpperCase()}`);
+}
 
 // ---------- SOCKET EVENTS ----------
 socket.on("onlineCount", count => onlineCountDisplay.textContent = `Online: ${count}`);
 socket.on("waiting", msg => addEventMessageSingle("system", msg));
 
+let currentGame = null;
+
 socket.on("gameStart", (roomId, game) => {
   socket.roomId = roomId;
+  currentGame = game;
   updateGame(game);
 });
 
 socket.on("1vs1Update", (roomId, game) => {
-  if (roomId === socket.roomId) updateGame(game);
+  if (roomId === socket.roomId) {
+    currentGame = game;
+    updateGame(game);
+  }
 });
 
 socket.on("gameOver", (roomId, { winnerNick, winnerChar }) => {
   if (roomId === socket.roomId) {
-    // Forza sempre il messaggio del vincitore
     addEventMessageWinner(`🏆 ${winnerNick} has won the battle!`);
     playWinnerMusic(winnerChar);
+    stopTimer();
+    disableButtons();
   }
 });
 
@@ -93,12 +143,10 @@ chatInput.addEventListener("keydown", e => {
 });
 
 socket.on("chatMessage", data => {
-  if (data.roomId === socket.roomId) {
-    addChatMessage(`${data.nick}: ${data.text}`);
-  }
+  if (data.roomId === socket.roomId) addChatMessage(`${data.nick}: ${data.text}`);
 });
 
-// ---------- FUNZIONI ----------
+// ---------- FUNZIONI DI AGGIORNAMENTO ----------
 function updateGame(game) {
   const maxHp = 80;
   const hp1 = Math.min(game.player1.hp, maxHp);
@@ -107,69 +155,23 @@ function updateGame(game) {
   player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${hp1}/${maxHp}`;
   player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${hp2}/${maxHp}`;
 
-  // --- HP BAR WIDTH ---
-  const hpPercent1 = (hp1 / maxHp) * 100;
-  const hpPercent2 = (hp2 / maxHp) * 100;
+  player1HpBar.style.width = `${(hp1 / maxHp) * 100}%`;
+  player2HpBar.style.width = `${(hp2 / maxHp) * 100}%`;
 
-  player1HpBar.style.width = `${hpPercent1}%`;
-  player2HpBar.style.width = `${hpPercent2}%`;
-
-  // --- HP BAR COLOR DYNAMIC ---
-  player1HpBar.style.background = getHpColor(hpPercent1);
-  player2HpBar.style.background = getHpColor(hpPercent2);
-
-  if(game.player1.dice) handleDice(0, game);
-  if(game.player2.dice) handleDice(1, game);
+  player1HpBar.style.background = getHpColor(hp1 / maxHp * 100);
+  player2HpBar.style.background = getHpColor(hp2 / maxHp * 100);
 
   updateCharacterImage(game.player1, 0);
   updateCharacterImage(game.player2, 1);
+
+  // Avvia il turno
+  handleTurn(game);
 }
 
-// --- Funzione colore dinamico ---
 function getHpColor(percent) {
-  if (percent > 60) {
-    return "linear-gradient(90deg, green, lime)";
-  } else if (percent > 30) {
-    return "linear-gradient(90deg, yellow, orange)";
-  } else {
-    return "linear-gradient(90deg, red, darkred)";
-  }
-}
-
-function handleDice(playerIndex, game) {
-  const player = playerIndex === 0 ? game.player1 : game.player2;
-  const opponentIndex = playerIndex === 0 ? 1 : 0;
-  const opponent = opponentIndex === 0 ? game.player1 : game.player2;
-
-  let finalDmg = player.dice;
-
-  // Se il player è stunnato → danno ridotto di 1
-  const isPlayerStunned = (playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2);
-  if (isPlayerStunned) {
-    finalDmg = Math.max(0, player.dice - 1);
-    addEventMessageSingle(player.nick, `${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
-    if (playerIndex === 0) stunned.p1 = false;
-    else stunned.p2 = false;
-  } 
-  // Se il player fa CRIT → stunna l’avversario
-  else if (player.dice === 8) {
-    addEventMessageSingle(player.nick, `${player.nick} CRIT! ${player.dice} damage dealt ⚡💥`);
-    if (playerIndex === 0) stunned.p2 = true;
-    else stunned.p1 = true;
-  } 
-  else {
-    addEventMessageSingle(player.nick, `${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);
-  }
-
-  showDice(playerIndex, player.dice);
-}
-
-
-function showDice(playerIndex, value){
-  const diceEl = playerIndex === 0 ? diceP1 : diceP2;
-  diceEl.src = `img/dice${value}.png`;
-  diceEl.style.width = "80px";
-  diceEl.style.height = "80px";
+  if (percent > 60) return "linear-gradient(90deg, green, lime)";
+  if (percent > 30) return "linear-gradient(90deg, yellow, orange)";
+  return "linear-gradient(90deg, red, darkred)";
 }
 
 function updateCharacterImage(player,index){
@@ -184,19 +186,72 @@ function updateCharacterImage(player,index){
   else player2CharImg.src=src;
 }
 
-// ---------- DOPPI EVENTI PER SINGOLO GIOCATORE ----------
+// ---------- TURNI ----------
+function handleTurn(game) {
+  const myNick = nick;
+  const myIsP1 = (myNick === game.player1.nick);
+  const turn = game.turn;
+
+  isMyTurn = (turn === myNick);
+  
+  if (isMyTurn && !stunnedMe()) {
+    addEventMessageSingle("system", `Your turn! Choose element.`);
+    enableButtons();
+    startTimer();
+  } else {
+    disableButtons();
+    stopTimer();
+  }
+}
+
+// ---------- TIMER ----------
+function startTimer() {
+  timer = 10;
+  timerDisplay.textContent = timer;
+  stopTimer();
+  countdownInterval = setInterval(() => {
+    timer--;
+    timerDisplay.textContent = timer;
+    if (timer <= 0) {
+      stopTimer();
+      disableButtons();
+      socket.emit("playerTimeout", { roomId: socket.roomId });
+    }
+  }, 1000);
+}
+
+function stopTimer() {
+  if (countdownInterval) clearInterval(countdownInterval);
+  countdownInterval = null;
+}
+
+function enableButtons() {
+  buttonContainer.style.display = "flex";
+  Object.values(buttons).forEach(btn => {
+    btn.disabled = false;
+    btn.classList.remove("disabled");
+  });
+}
+
+function disableButtons() {
+  Object.values(buttons).forEach(btn => {
+    btn.disabled = true;
+    btn.classList.add("disabled");
+  });
+  buttonContainer.style.display = "none";
+}
+
+// ---------- MESSAGGI ----------
 const lastEventMessagesPerPlayer = {};
 function addEventMessageSingle(playerNick, text) {
   if (lastEventMessagesPerPlayer[playerNick] === text) return;
   lastEventMessagesPerPlayer[playerNick] = text;
-
   const msg = document.createElement("div");
   msg.textContent = text;
   eventBox.appendChild(msg);
   eventBox.scrollTop = eventBox.scrollHeight;
 }
 
-// ---------- MESSAGGIO VINCITORE (FORZATO) ----------
 function addEventMessageWinner(text) {
   const msg = document.createElement("div");
   msg.textContent = text;
@@ -204,7 +259,6 @@ function addEventMessageWinner(text) {
   eventBox.scrollTop = eventBox.scrollHeight;
 }
 
-// ---------- CHAT ----------
 function addChatMessage(text) {
   const msg = document.createElement("div");
   msg.textContent = text;
@@ -212,15 +266,11 @@ function addChatMessage(text) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// ---------- AUDIO VINCITORE ----------
 function playWinnerMusic(winnerChar) {
-  // stoppa musica battaglia
   musicBattle.pause();
   musicBattle.currentTime = 0;
-
   winnerMusic.src = `img/${winnerChar}.mp3`;
-  winnerMusic.play().catch(err => console.log("⚠️ Audio non avviato automaticamente:", err));
+  winnerMusic.play().catch(()=>{});
 }
 
-// ---------- FIX SCROLL MOBILE ----------
 document.body.style.overflowY = "auto";
