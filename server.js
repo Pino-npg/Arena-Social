@@ -52,13 +52,16 @@ function startRound1vs1(gameId) {
   const game = games[gameId];
   if (!game) return;
 
+  // Reset scelte e timer di scelta
   game.choices = { [game.players[0].id]: null, [game.players[1].id]: null };
   game.roundTimer = 10;
-
   io.to(gameId).emit("roundStart", { gameId, timer: game.roundTimer });
 
+  // Pulizia eventuale timeout precedente
   game.roundTimeout && clearTimeout(game.roundTimeout);
-  game.roundTimeout = setTimeout(() => evaluateRound1vs1(gameId), game.roundTimer * 1000);
+
+  // Timeout per valutazione round (10s + 3s risultati)
+  game.roundTimeout = setTimeout(() => evaluateRound1vs1(gameId), (game.roundTimer + 3) * 1000);
 }
 
 function evaluateRound1vs1(gameId) {
@@ -68,13 +71,16 @@ function evaluateRound1vs1(gameId) {
   const c0 = game.choices[p0.id];
   const c1 = game.choices[p1.id];
 
+  const events = [];
+
   function applyDamage(target, dmg, reason) {
     const prevHp = target.hp;
     target.hp = Math.max(0, target.hp - dmg);
     target.lastDamage = dmg;
-    io.to(gameId).emit("log", `${target.nick} takes ${dmg} damage (${reason}). HP ${prevHp} -> ${target.hp}`);
+    events.push(`${target.nick} takes ${dmg} damage (${reason}). HP ${prevHp} -> ${target.hp}`);
   }
 
+  // Gestione stun
   const p0CannotChoose = !!p0.stunned;
   const p1CannotChoose = !!p1.stunned;
   if (p0CannotChoose) p0.stunned = false;
@@ -83,43 +89,57 @@ function evaluateRound1vs1(gameId) {
   const choice0 = (CHOICES.includes(c0) && !p0CannotChoose) ? c0 : null;
   const choice1 = (CHOICES.includes(c1) && !p1CannotChoose) ? c1 : null;
 
+  // Logica danno aggiornata
   if (!choice0 && !choice1) {
     applyDamage(p0, rollDice(), "no choice (both)");
     applyDamage(p1, rollDice(), "no choice (both)");
   } else if (choice0 && !choice1) {
-    applyDamage(p1, rollDice(), `no choice (vs ${choice0})`);
+    applyDamage(p0, rollDice(), `no choice (vs ${choice0})`);
   } else if (!choice0 && choice1) {
-    applyDamage(p0, rollDice(), `no choice (vs ${choice1})`);
+    applyDamage(p1, rollDice(), `no choice (vs ${choice1})`);
   } else if (choice0 === choice1) {
-    applyDamage(p0, rollDice(), "same choice");
-    applyDamage(p1, rollDice(), "same choice");
+    // stesso elemento → nessun danno
+    events.push(`Both chose ${choice0}. No damage.`);
   } else if (BEATS[choice0] === choice1) {
     const dmg = rollDice();
     applyDamage(p1, dmg, `${p0.nick} (${choice0}) beats ${choice1}`);
-    if (dmg === 8) { p1.stunned = true; io.to(gameId).emit("log", `${p1.nick} stunned by CRIT!`); }
+    if (dmg === 8) { p1.stunned = true; events.push(`${p1.nick} stunned by CRIT!`); }
   } else if (BEATS[choice1] === choice0) {
     const dmg = rollDice();
     applyDamage(p0, dmg, `${p1.nick} (${choice1}) beats ${choice0}`);
-    if (dmg === 8) { p0.stunned = true; io.to(gameId).emit("log", `${p0.nick} stunned by CRIT!`); }
+    if (dmg === 8) { p0.stunned = true; events.push(`${p0.nick} stunned by CRIT!`); }
   } else {
+    // fallback danno
     applyDamage(p0, rollDice(), "fallback");
     applyDamage(p1, rollDice(), "fallback");
   }
 
-  io.to(gameId).emit("1vs1Update", gameId, { player1: p0, player2: p1 });
-
-  if (p0.hp <= 0 || p1.hp <= 0) {
-    const winner = p0.hp > 0 ? p0 : p1;
-    game.players.forEach(p => {
-      io.to(p.id).emit("gameOver", gameId, { winnerNick: winner.nick, winnerChar: winner.char });
-      lastGames[p.id] = game;
+  // --- Invio aggiornamento al client dopo 3 secondi fase risultati ---
+  setTimeout(() => {
+    io.to(gameId).emit("1vs1Update", gameId, {
+      player1: { ...p0, choice: choice0 },
+      player2: { ...p1, choice: choice1 }
     });
-    clearTimeout(game.roundTimeout);
-    delete games[gameId];
-    return;
-  }
 
-  setTimeout(() => startRound1vs1(gameId), 1000);
+    events.forEach(e => io.to(gameId).emit("log", e));
+
+    // Controllo vittoria o Draw
+    if (p0.hp <= 0 && p1.hp <= 0) {
+      io.to(gameId).emit("gameOver", gameId, { winnerNick: null, winnerChar: null, draw: true });
+      game.players.forEach(p => lastGames[p.id] = game);
+      delete games[gameId];
+    } else if (p0.hp <= 0 || p1.hp <= 0) {
+      const winner = p0.hp > 0 ? p0 : p1;
+      game.players.forEach(p => {
+        io.to(p.id).emit("gameOver", gameId, { winnerNick: winner.nick, winnerChar: winner.char });
+        lastGames[p.id] = game;
+      });
+      delete games[gameId];
+    } else {
+      // round successivo
+      startRound1vs1(gameId);
+    }
+  }, 3000);
 }
 
 // ------------------- SOCKET HANDLERS -------------------

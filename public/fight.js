@@ -17,7 +17,7 @@ const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
 const eventBox = document.getElementById("event-messages");
 const onlineCountDisplay = document.getElementById("onlineCount");
-const homeBtn = document.getElementById("homeBtn"); // correzione ID
+const homeBtn = document.getElementById("homeBtn"); 
 
 homeBtn.addEventListener("click", () => window.location.href = "/");
 
@@ -48,7 +48,7 @@ fullscreenBtn.addEventListener("click", async () => {
 // ---------- GIOCATORE ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
-if(nick && char) socket.emit("join1vs1", { nick, char }); // join immediato
+if(nick && char) socket.emit("join1vs1", { nick, char });
 
 // ---------- STATO ----------
 let currentGame = null;
@@ -89,7 +89,7 @@ const buttonsMap = {
 Object.entries(buttonsMap).forEach(([player, btns]) => {
   Object.entries(btns).forEach(([choice, btn]) => {
     btn.addEventListener("click", () => {
-      if (stunnedMe()) return;
+      if (roundFinished || stunnedMe()) return;
       sendChoice(choice);
       disableButtons(player);
     });
@@ -108,17 +108,10 @@ function sendChoice(choice) {
 }
 
 // ---------- SOCKET EVENTS ----------
-
-// online count globale per 1vs1
-socket.on("onlineCount", count => {
-  onlineCountDisplay.textContent = `Online: ${count}`;
-});
-
-// messaggi di sistema
+socket.on("onlineCount", count => { onlineCountDisplay.textContent = `Online: ${count}`; });
 socket.on("waiting", msg => addEventMessageSingle("system", msg));
 socket.on("log", msg => addEventMessageSingle("system", msg));
 
-// partita iniziata
 socket.on("gameStart", (gameId, game) => {
   currentGame = game;
   timer = 10;
@@ -127,7 +120,6 @@ socket.on("gameStart", (gameId, game) => {
   updateGame(game, false);
 });
 
-// inizio round
 socket.on("roundStart", ({ gameId, timer: t }) => {
   timer = t;
   roundFinished = false;
@@ -136,14 +128,13 @@ socket.on("roundStart", ({ gameId, timer: t }) => {
   updateGame(currentGame, false);
 });
 
-// aggiornamento round (mostra danni e scelte solo alla fine)
 socket.on("1vs1Update", (gameId, gameWithRolls) => {
   currentGame = gameWithRolls;
   roundFinished = true;
+  // mostriamo le scelte e i log solo in fase risultati
   updateGame(gameWithRolls, true);
 });
 
-// partita finita
 socket.on("gameOver", (gameId, { winnerNick, winnerChar }) => {
   addEventMessageWinner(`🏆 ${winnerNick} has won the battle!`);
   playWinnerMusic(winnerChar);
@@ -181,11 +172,23 @@ function updateGame(game, revealChoices) {
   updateCharacterImage(game.player2, 1);
 
   if (revealChoices) {
+    // animazione dadi e log evento
     rollDiceAnimation(diceP1, game.player1.lastDamage || 1);
     rollDiceAnimation(diceP2, game.player2.lastDamage || 1);
+
+    // evidenzia scelta giocatore
+    addEventMessageSingle("result", `${game.player1.nick} chose: ${game.player1.choice ? game.player1.choice.toUpperCase() : "NONE"}`);
+    addEventMessageSingle("result", `${game.player2.nick} chose: ${game.player2.choice ? game.player2.choice.toUpperCase() : "NONE"}`);
+
+    // disabilita pulsanti per 3 secondi extra
+    disableButtons("p1");
+    disableButtons("p2");
   } else {
+    // fase scelta
     rollDiceAnimation(diceP1, 1);
     rollDiceAnimation(diceP2, 1);
+    enableButtons("p1");
+    enableButtons("p2");
   }
 }
 
@@ -222,26 +225,19 @@ function rollDiceAnimation(el, finalRoll) {
 
 // ---------- TURNI ----------
 function startTurn() {
+  roundFinished = false;
+  timer = 10;
+  timerContainer.textContent = timer;
+
   enableButtons("p1");
   enableButtons("p2");
-  startTimer(10);
-}
 
-// ---------- TIMER ----------
-function startTimer(seconds = 10) {
-  timer = seconds;
-  timerContainer.textContent = timer;
   stopTimer();
   countdownInterval = setInterval(() => {
     timer--;
     timerContainer.textContent = timer;
-    if(timer <= 0) stopTimer();
+    if (timer <= 0) stopTimer();
   }, 1000);
-}
-
-function stopTimer() {
-  if (countdownInterval) clearInterval(countdownInterval);
-  countdownInterval = null;
 }
 
 // ---------- PULSANTI ----------
