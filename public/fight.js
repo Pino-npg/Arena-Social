@@ -17,9 +17,9 @@ const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
 const eventBox = document.getElementById("event-messages");
 const onlineCountDisplay = document.getElementById("onlineCount");
-const homeBtn = document.getElementById("homeBtn");
+const homeBtn = document.getElementById("home-btn");
 
-homeBtn.addEventListener("click", () => window.location.href = "https://fight-game-server.onrender.com/");
+homeBtn.addEventListener("click", () => window.location.href = "/");
 
 // ---------- MUSICA ----------
 const musicBattle = new Audio("img/9.mp3");
@@ -54,6 +54,7 @@ socket.emit("join1vs1", { nick, char });
 let currentGame = null;
 let timer = 10;
 let countdownInterval = null;
+let roundFinished = false;
 
 // ---------- TIMER CENTRALE ----------
 const timerContainer = document.createElement("div");
@@ -114,19 +115,23 @@ socket.on("log", msg => addEventMessageSingle("system", msg));
 socket.on("gameStart", (gameId, game) => {
   currentGame = game;
   timer = 10;
+  roundFinished = false;
   startTurn();
-  updateGame(game);
+  updateGame(game, false); // non mostrare scelte ancora
 });
 
 socket.on("roundStart", ({ gameId, timer: t, players }) => {
   timer = t;
+  roundFinished = false;
   timerContainer.textContent = timer;
   startTurn();
+  updateGame(currentGame, false);
 });
 
-socket.on("1vs1Update", (gameId, game) => {
-  currentGame = game;
-  updateGame(game);
+socket.on("1vs1Update", (gameId, gameWithRolls) => {
+  currentGame = gameWithRolls;
+  roundFinished = true;
+  updateGame(gameWithRolls, true); // mostra anche scelte e dadi
 });
 
 socket.on("gameOver", (gameId, { winnerNick, winnerChar }) => {
@@ -139,18 +144,18 @@ socket.on("gameOver", (gameId, { winnerNick, winnerChar }) => {
 
 // ---------- CHAT ----------
 chatInput.addEventListener("keydown", e => {
-  if(e.key === "Enter" && e.target.value.trim() !== "" && currentGame) {
-    socket.emit("chatMessage", { roomId: currentGame.id, text: e.target.value });
+  if(e.key === "Enter" && e.target.value.trim() !== "") {
+    socket.emit("chatMessage", { roomId: currentGame?.id || "global", text: e.target.value });
     e.target.value = "";
   }
 });
 
 socket.on("chatMessage", data => {
-  if (data.roomId === currentGame?.id) addChatMessage(`${data.nick}: ${data.text}`);
+  addChatMessage(`${data.nick}: ${data.text}`);
 });
 
 // ---------- AGGIORNAMENTO GAME ----------
-function updateGame(game) {
+function updateGame(game, revealChoices) {
   const maxHp = 80;
   const hp1 = Math.min(game.player1.hp, maxHp);
   const hp2 = Math.min(game.player2.hp, maxHp);
@@ -164,8 +169,14 @@ function updateGame(game) {
 
   updateCharacterImage(game.player1, 0);
   updateCharacterImage(game.player2, 1);
-  rollDiceAnimation(diceP1, game.player1.roll ?? 1);
-  rollDiceAnimation(diceP2, game.player2.roll ?? 1);
+
+  if (revealChoices) {
+    rollDiceAnimation(diceP1, game.player1.lastDamage || 1);
+    rollDiceAnimation(diceP2, game.player2.lastDamage || 1);
+  } else {
+    rollDiceAnimation(diceP1, 1);
+    rollDiceAnimation(diceP2, 1);
+  }
 }
 
 // ---------- SUPPORTO ----------
