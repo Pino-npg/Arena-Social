@@ -69,7 +69,7 @@ function createChoiceButtons(playerBox, playerId) {
   container.id = `choice-buttons-${playerId}`;
   container.innerHTML = `
     <button class="choice-btn water">💧</button>
-    <button class="choice-btn wood">🌿</button>
+    <button class="choice-btn wood">🪵</button>
     <button class="choice-btn fire">🔥</button>
   `;
   playerBox.appendChild(container);
@@ -110,7 +110,10 @@ function sendChoice(choice) {
 // ---------- SOCKET EVENTS ----------
 
 // online count globale per 1vs1
-socket.on("onlineCount", count => onlineCountDisplay.textContent = `Online: ${count}`);
+socket.on("onlineCount", count => {
+  onlineCountDisplay.textContent = `Online: ${count}`;
+  if(count >= 2 && !currentGame) socket.emit("tryStart1vs1");
+});
 
 // messaggi di sistema
 socket.on("waiting", msg => addEventMessageSingle("system", msg));
@@ -122,7 +125,7 @@ socket.on("gameStart", (gameId, game) => {
   timer = 10;
   roundFinished = false;
   startTurn();
-  updateGame(game, false); // non mostrare ancora le scelte
+  updateGame(game, false);
 });
 
 // inizio round
@@ -287,5 +290,10 @@ function playWinnerMusic(winnerChar) {
   winnerMusic.src = `img/${winnerChar}.mp3`;
   winnerMusic.play().catch(()=>{});
 }
+
+// ---------- PING PRESENZA ----------
+setInterval(() => {
+  socket.emit("stillHere");
+}, 5000);
 
 document.body.style.overflowY = "auto";
