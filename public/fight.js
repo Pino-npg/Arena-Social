@@ -108,19 +108,25 @@ function sendChoice(choice) {
 }
 
 // ---------- SOCKET EVENTS ----------
+
+// online count globale per 1vs1
 socket.on("onlineCount", count => onlineCountDisplay.textContent = `Online: ${count}`);
+
+// messaggi di sistema
 socket.on("waiting", msg => addEventMessageSingle("system", msg));
 socket.on("log", msg => addEventMessageSingle("system", msg));
 
+// partita iniziata
 socket.on("gameStart", (gameId, game) => {
   currentGame = game;
   timer = 10;
   roundFinished = false;
   startTurn();
-  updateGame(game, false); // non mostrare scelte ancora
+  updateGame(game, false); // non mostrare ancora le scelte
 });
 
-socket.on("roundStart", ({ gameId, timer: t, players }) => {
+// inizio round
+socket.on("roundStart", ({ gameId, timer: t }) => {
   timer = t;
   roundFinished = false;
   timerContainer.textContent = timer;
@@ -128,12 +134,14 @@ socket.on("roundStart", ({ gameId, timer: t, players }) => {
   updateGame(currentGame, false);
 });
 
+// aggiornamento round (mostra danni e scelte solo alla fine)
 socket.on("1vs1Update", (gameId, gameWithRolls) => {
   currentGame = gameWithRolls;
   roundFinished = true;
-  updateGame(gameWithRolls, true); // mostra anche scelte e dadi
+  updateGame(gameWithRolls, true);
 });
 
+// partita finita
 socket.on("gameOver", (gameId, { winnerNick, winnerChar }) => {
   addEventMessageWinner(`🏆 ${winnerNick} has won the battle!`);
   playWinnerMusic(winnerChar);
@@ -144,14 +152,14 @@ socket.on("gameOver", (gameId, { winnerNick, winnerChar }) => {
 
 // ---------- CHAT ----------
 chatInput.addEventListener("keydown", e => {
-  if(e.key === "Enter" && e.target.value.trim() !== "") {
-    socket.emit("chatMessage", { roomId: currentGame?.id || "global", text: e.target.value });
+  if(e.key === "Enter" && e.target.value.trim() !== "" && currentGame) {
+    socket.emit("chatMessage", { roomId: currentGame.id, text: e.target.value });
     e.target.value = "";
   }
 });
 
 socket.on("chatMessage", data => {
-  addChatMessage(`${data.nick}: ${data.text}`);
+  if(data.roomId === currentGame?.id) addChatMessage(`${data.nick}: ${data.text}`);
 });
 
 // ---------- AGGIORNAMENTO GAME ----------
