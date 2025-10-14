@@ -51,15 +51,10 @@ function evaluateRound1vs1(gameId) {
     events.push(`${target.nick} takes ${dmg} damage (${reason}). HP ${prevHp} -> ${target.hp}`);
   }
 
-  const p0CannotChoose = !!p0.stunned;
-  const p1CannotChoose = !!p1.stunned;
-  if (p0CannotChoose) p0.stunned = false;
-  if (p1CannotChoose) p1.stunned = false;
+  const choice0 = (CHOICES.includes(c0) && !p0.stunned) ? c0 : null;
+  const choice1 = (CHOICES.includes(c1) && !p1.stunned) ? c1 : null;
 
-  const choice0 = (CHOICES.includes(c0) && !p0CannotChoose) ? c0 : null;
-  const choice1 = (CHOICES.includes(c1) && !p1CannotChoose) ? c1 : null;
-
-  // Logica danno
+  // Danno logico
   if (!choice0 && !choice1) {
     applyDamage(p0, rollDice(), "no choice (both)");
     applyDamage(p1, rollDice(), "no choice (both)");
@@ -77,34 +72,33 @@ function evaluateRound1vs1(gameId) {
     const dmg = rollDice();
     applyDamage(p0, dmg, `${p1.nick} (${choice1}) beats ${choice0}`);
     if (dmg === 8) { p0.stunned = true; events.push(`${p0.nick} stunned by CRIT!`); }
-  } else {
-    applyDamage(p0, rollDice(), "fallback");
-    applyDamage(p1, rollDice(), "fallback");
   }
 
   setTimeout(() => {
+    // invia tutto al client
     io.to(gameId).emit("1vs1Update", gameId, {
-      player1: { ...p0, choice: choice0 },
-      player2: { ...p1, choice: choice1 }
+      player1: { ...p0 },
+      player2: { ...p1 }
     });
 
     events.forEach(e => io.to(gameId).emit("log", e));
 
+    // reset scelte
+    p0.choice = null;
+    p1.choice = null;
+    game.choices = { [p0.id]: null, [p1.id]: null };
+
     if (p0.hp <= 0 && p1.hp <= 0) {
       io.to(gameId).emit("gameOver", gameId, { winnerNick: null, winnerChar: null, draw: true });
-      game.players.forEach(p => lastGames[p.id] = game);
       delete games[gameId];
     } else if (p0.hp <= 0 || p1.hp <= 0) {
       const winner = p0.hp > 0 ? p0 : p1;
-      game.players.forEach(p => {
-        io.to(p.id).emit("gameOver", gameId, { winnerNick: winner.nick, winnerChar: winner.char });
-        lastGames[p.id] = game;
-      });
+      game.players.forEach(p => io.to(p.id).emit("gameOver", gameId, { winnerNick: winner.nick, winnerChar: winner.char }));
       delete games[gameId];
     } else {
       startRound1vs1(gameId);
     }
-  }, 3000);
+  }, 3000); // 3s fase risultati
 }
 
 // ---------- SOCKET ----------
@@ -119,34 +113,44 @@ io.on("connection", socket => {
   socket.on("join1vs1", ({ nick, char }) => {
     socket.nick = nick;
     socket.char = char;
-
+  
+    // Se sei già in waitingPlayer, non creare duplicati
+    if (waitingPlayer && waitingPlayer.id === socket.id) {
+      socket.emit("waiting", "Waiting for opponent...");
+      return;
+    }
+  
     if (!waitingPlayer) {
       waitingPlayer = socket;
       socket.emit("waiting", "Waiting for opponent...");
     } else {
-      const gameId = socket.id + "#" + waitingPlayer.id;
+      // nessun #2 nel gameId
+      const gameId = waitingPlayer.id + "_" + socket.id;
       const players = [
-        { id: waitingPlayer.id, nick: waitingPlayer.nick, char: waitingPlayer.char, hp: 80, stunned: false, lastDamage: 0 },
-        { id: socket.id, nick: socket.nick, char, hp: 80, stunned: false, lastDamage: 0 }
+        { id: waitingPlayer.id, nick: waitingPlayer.nick, char: waitingPlayer.char, hp: 80, stunned: false, lastDamage: 0, choice: null },
+        { id: socket.id, nick: socket.nick, char, hp: 80, stunned: false, lastDamage: 0, choice: null }
       ];
       games[gameId] = { id: gameId, players };
       players.forEach(p => io.sockets.sockets.get(p.id)?.join(gameId));
+      io.to(gameId).emit("gameStart", gameId, games[gameId]); // invia subito info ai client
       startRound1vs1(gameId);
       waitingPlayer = null;
     }
   });
-
+  
   socket.on("selectChoice", ({ gameId, choice }) => {
     const game = games[gameId];
     if (!game || !CHOICES.includes(choice)) return;
     const player = game.players.find(p => p.id === socket.id);
     if (!player || player.stunned) return;
-    if (game.choices[socket.id] == null) {
+  
+    if (!player.choice) {
+      player.choice = choice;
       game.choices[socket.id] = choice;
-      io.to(gameId).emit("log", `${player.nick} chose ${choice}`);
+      io.to(socket.id).emit("log", `You chose ${choice.toUpperCase()}`); // Mostra immediatamente
+      io.to(gameId).emit("log", `${player.nick} chose ${choice.toUpperCase()}`); // Mostra anche all’altro
     }
   });
-
   socket.on("chatMessage", data => {
     const { roomId, text } = data;
     let game = Object.values(games).find(g => g.id === roomId);
