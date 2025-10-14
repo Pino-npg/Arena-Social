@@ -1,55 +1,47 @@
-// ------------------- 1VS1 SERVER PULITO -------------------
-const { Server } = require("socket.io");
-const io = new Server(3000);
+// server.js
+import express from "express";
+import http from "http";
+import { Server } from "socket.io";
 
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: "*" } // Cambia se vuoi limitare l'origine
+});
+
+// ---------- STATIC FILES ----------
+app.use(express.static("public")); // qui ci metti index.html, js, img ecc
+
+// ---------- GAME LOGIC ----------
 const CHOICES = ["water","wood","fire"];
 const BEATS = { water: "fire", wood: "water", fire: "wood" };
 
-const games = {};       // gameId -> game
+const games = {};
 let waitingPlayer = null;
+const lastGames = {};
 
-// Funzione roll danno
-function rollDice() { return Math.ceil(Math.random() * 8); }
-
-// Funzione per assegnare nick univoco
-const usedNicks = new Set();
-function assignUniqueNick(nick) {
-  let base = nick.replace(/#\d+$/,'');
-  let final = base;
-  let i = 1;
-  while (usedNicks.has(final)) {
-    final = `${base}#${i}`;
-    i++;
-  }
-  usedNicks.add(final);
-  return final;
+function rollDice() {
+  return Math.floor(Math.random()*8) + 1; // 1-8
 }
-function releaseNick(nick) { usedNicks.delete(nick); }
 
-// --- ROUND LOGIC ---
-function startRound(gameId) {
+function startRound1vs1(gameId) {
   const game = games[gameId];
   if (!game) return;
 
-  // Reset scelte e timer
-  game.choices = {};
-  game.roundFinished = false;
+  game.choices = { [game.players[0].id]: null, [game.players[1].id]: null };
   game.roundTimer = 10;
   io.to(gameId).emit("roundStart", { gameId, timer: game.roundTimer });
 
-  // Timeout fase scelta (10s)
-  game.roundTimeout && clearTimeout(game.roundTimeout);
-  game.roundTimeout = setTimeout(() => revealRound(gameId), game.roundTimer * 1000);
+  if (game.roundTimeout) clearTimeout(game.roundTimeout);
+  game.roundTimeout = setTimeout(() => evaluateRound1vs1(gameId), (game.roundTimer + 3) * 1000);
 }
 
-function revealRound(gameId) {
+function evaluateRound1vs1(gameId) {
   const game = games[gameId];
   if (!game) return;
-
   const [p0, p1] = game.players;
-  const choice0 = game.choices[p0.id] || null;
-  const choice1 = game.choices[p1.id] || null;
-
+  const c0 = game.choices[p0.id];
+  const c1 = game.choices[p1.id];
   const events = [];
 
   function applyDamage(target, dmg, reason) {
@@ -59,18 +51,22 @@ function revealRound(gameId) {
     events.push(`${target.nick} takes ${dmg} damage (${reason}). HP ${prevHp} -> ${target.hp}`);
   }
 
-  // Stun gestione
-  if (p0.stunned) { events.push(`${p0.nick} was stunned and misses this round!`); p0.stunned = false; }
-  if (p1.stunned) { events.push(`${p1.nick} was stunned and misses this round!`); p1.stunned = false; }
+  const p0CannotChoose = !!p0.stunned;
+  const p1CannotChoose = !!p1.stunned;
+  if (p0CannotChoose) p0.stunned = false;
+  if (p1CannotChoose) p1.stunned = false;
+
+  const choice0 = (CHOICES.includes(c0) && !p0CannotChoose) ? c0 : null;
+  const choice1 = (CHOICES.includes(c1) && !p1CannotChoose) ? c1 : null;
 
   // Logica danno
   if (!choice0 && !choice1) {
     applyDamage(p0, rollDice(), "no choice (both)");
     applyDamage(p1, rollDice(), "no choice (both)");
   } else if (choice0 && !choice1) {
-    applyDamage(p1, rollDice(), `${p0.nick} attacks (vs none)`);
+    applyDamage(p1, rollDice(), `no choice vs ${choice0}`);
   } else if (!choice0 && choice1) {
-    applyDamage(p0, rollDice(), `${p1.nick} attacks (vs none)`);
+    applyDamage(p0, rollDice(), `no choice vs ${choice1}`);
   } else if (choice0 === choice1) {
     events.push(`Both chose ${choice0}. No damage.`);
   } else if (BEATS[choice0] === choice1) {
@@ -86,56 +82,56 @@ function revealRound(gameId) {
     applyDamage(p1, rollDice(), "fallback");
   }
 
-  // Emit aggiornamento
-  io.to(gameId).emit("1vs1Update", gameId, {
-    player1: { ...p0, choice: choice0 },
-    player2: { ...p1, choice: choice1 }
-  });
-  events.forEach(e => io.to(gameId).emit("log", e));
+  setTimeout(() => {
+    io.to(gameId).emit("1vs1Update", gameId, {
+      player1: { ...p0, choice: choice0 },
+      player2: { ...p1, choice: choice1 }
+    });
 
-  // Controllo vittoria
-  if (p0.hp <= 0 && p1.hp <= 0) {
-    io.to(gameId).emit("gameOver", gameId, { winnerNick: null, winnerChar: null, draw: true });
-    delete games[gameId];
-  } else if (p0.hp <= 0 || p1.hp <= 0) {
-    const winner = p0.hp > 0 ? p0 : p1;
-    io.to(gameId).emit("gameOver", gameId, { winnerNick: winner.nick, winnerChar: winner.char });
-    delete games[gameId];
-  } else {
-    // Round successivo dopo 3s reveal
-    setTimeout(() => startRound(gameId), 3000);
-  }
+    events.forEach(e => io.to(gameId).emit("log", e));
+
+    if (p0.hp <= 0 && p1.hp <= 0) {
+      io.to(gameId).emit("gameOver", gameId, { winnerNick: null, winnerChar: null, draw: true });
+      game.players.forEach(p => lastGames[p.id] = game);
+      delete games[gameId];
+    } else if (p0.hp <= 0 || p1.hp <= 0) {
+      const winner = p0.hp > 0 ? p0 : p1;
+      game.players.forEach(p => {
+        io.to(p.id).emit("gameOver", gameId, { winnerNick: winner.nick, winnerChar: winner.char });
+        lastGames[p.id] = game;
+      });
+      delete games[gameId];
+    } else {
+      startRound1vs1(gameId);
+    }
+  }, 3000);
 }
 
-// --- SOCKET ---
+// ---------- SOCKET ----------
 io.on("connection", socket => {
   io.emit("onlineCount", io.engine.clientsCount);
 
   socket.on("setNickname", nick => {
-    socket.nick = assignUniqueNick(nick);
-    socket.emit("nickConfirmed", socket.nick);
+    socket.nick = nick;
+    socket.emit("nickConfirmed", nick);
   });
 
   socket.on("join1vs1", ({ nick, char }) => {
-    socket.nick = assignUniqueNick(nick);
+    socket.nick = nick;
     socket.char = char;
 
     if (!waitingPlayer) {
       waitingPlayer = socket;
       socket.emit("waiting", "Waiting for opponent...");
     } else {
-      const opponent = waitingPlayer;
-      const gameId = socket.id + "#" + opponent.id;
+      const gameId = socket.id + "#" + waitingPlayer.id;
       const players = [
-        { id: opponent.id, nick: opponent.nick, char: opponent.char, hp: 80, stunned: false, lastDamage: 0 },
-        { id: socket.id, nick: socket.nick, char: socket.char, hp: 80, stunned: false, lastDamage: 0 }
+        { id: waitingPlayer.id, nick: waitingPlayer.nick, char: waitingPlayer.char, hp: 80, stunned: false, lastDamage: 0 },
+        { id: socket.id, nick: socket.nick, char, hp: 80, stunned: false, lastDamage: 0 }
       ];
       games[gameId] = { id: gameId, players };
-
       players.forEach(p => io.sockets.sockets.get(p.id)?.join(gameId));
-      io.to(gameId).emit("gameStart", gameId, { player1: players[0], player2: players[1] });
-
-      startRound(gameId);
+      startRound1vs1(gameId);
       waitingPlayer = null;
     }
   });
@@ -145,19 +141,23 @@ io.on("connection", socket => {
     if (!game || !CHOICES.includes(choice)) return;
     const player = game.players.find(p => p.id === socket.id);
     if (!player || player.stunned) return;
-    if (!game.choices[socket.id]) game.choices[socket.id] = choice;
-    io.to(gameId).emit("log", `${player.nick} chose ${choice}`);
+    if (game.choices[socket.id] == null) {
+      game.choices[socket.id] = choice;
+      io.to(gameId).emit("log", `${player.nick} chose ${choice}`);
+    }
   });
 
-  socket.on("chatMessage", ({ roomId, text }) => {
-    const game = games[roomId];
+  socket.on("chatMessage", data => {
+    const { roomId, text } = data;
+    let game = Object.values(games).find(g => g.id === roomId);
+    if (!game) game = lastGames[roomId];
     if (!game) return;
     game.players.forEach(p => io.to(p.id).emit("chatMessage", { nick: socket.nick, text, roomId }));
   });
 
   socket.on("disconnect", () => {
-    releaseNick(socket.nick);
     io.emit("onlineCount", io.engine.clientsCount);
+
     if (waitingPlayer?.id === socket.id) waitingPlayer = null;
 
     for (const gameId in games) {
@@ -165,13 +165,17 @@ io.on("connection", socket => {
       const idx = game.players.findIndex(p => p.id === socket.id);
       if (idx !== -1) {
         const other = game.players.find(p => p.id !== socket.id);
-        if (other) io.to(other.id).emit("gameOver", gameId, { winnerNick: other.nick, winnerChar: other.char });
+        io.to(other.id).emit("gameOver", gameId, { winnerNick: other.nick, winnerChar: other.char });
+        lastGames[other.id] = game;
+        clearTimeout(game.roundTimeout);
         delete games[gameId];
         break;
       }
     }
   });
 });
+
+
 
 // ------------------- TOURNAMENT NAMESPACE -------------------
 const tournaments = {};
@@ -363,5 +367,6 @@ nsp.on("connection", socket => {
   });
 });
 
-// ------------------- START SERVER -------------------
-httpServer.listen(PORT, () => console.log(`Server attivo su http://localhost:${PORT}`));
+// ---------- SERVER ----------
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
