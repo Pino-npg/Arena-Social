@@ -1,3 +1,4 @@
+// fight.js (client)
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 const socket = io();
 
@@ -20,48 +21,35 @@ const homeBtn = document.getElementById("homeBtn");
 
 homeBtn.addEventListener("click", () => window.location.href = "/");
 
-// ---------- MUSICA ----------
-const musicBattle = new Audio("img/9.mp3");
-musicBattle.loop = true;
-musicBattle.volume = 0.5;
-
-let winnerMusic = new Audio();
-winnerMusic.loop = true;
-winnerMusic.volume = 0.7;
-
-function unlockAudio() {
-  if (musicBattle.paused) musicBattle.play().catch(()=>{});
-  if (winnerMusic.paused) winnerMusic.play().catch(()=>{});
-}
-window.addEventListener("click", unlockAudio, { once: true });
-window.addEventListener("touchstart", unlockAudio, { once: true });
-
-// ---------- FULLSCREEN ----------
-const fullscreenBtn = document.getElementById("fullscreen-btn");
-const container = document.getElementById("game-container");
-fullscreenBtn.addEventListener("click", async () => {
-  if (!document.fullscreenElement) await container.requestFullscreen();
-  else await document.exitFullscreen();
-});
+// audio + fullscreen omitted for brevity (keep your existing code) ...
 
 // ---------- GIOCATORE ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
-if (nick && char) socket.emit("join1vs1", { nick, char });
+
+// Guard: evita join multipli
+let joined1v1 = false;
+function tryJoin1v1() {
+  if (!joined1v1 && nick && char) {
+    socket.emit("join1vs1", { nick, char });
+    joined1v1 = true;
+  }
+}
+tryJoin1v1();
 
 // ---------- STATO ----------
-let currentGame = null;
+let currentGame = null; // { id, me, opp }
 let timer = 10;
 let countdownInterval = null;
-let roundFinished = false;
+let inRevealPhase = false;
 
-// ---------- TIMER ----------
+// timer container (same as before)
 const timerContainer = document.createElement("div");
 timerContainer.id = "timer-container";
 timerContainer.textContent = timer;
 document.getElementById("battle-area").appendChild(timerContainer);
 
-// ---------- PULSANTI ----------
+// create buttons (same as before)
 function createChoiceButtons(playerBox, playerId) {
   const container = document.createElement("div");
   container.className = "choice-buttons";
@@ -78,184 +66,217 @@ function createChoiceButtons(playerBox, playerId) {
     fire: container.querySelector(".fire")
   };
 }
+const buttonsMap = { p1: createChoiceButtons(player1Box,"p1"), p2: createChoiceButtons(player2Box,"p2") };
 
-const buttonsMap = {
-  p1: createChoiceButtons(player1Box, "p1")
-};
-
-// ---------- CLICK PULSANTI ----------
+// click handlers — only allow when not in reveal and not stunned
 Object.entries(buttonsMap).forEach(([player, btns]) => {
   Object.entries(btns).forEach(([choice, btn]) => {
     btn.addEventListener("click", () => {
-      if (roundFinished || stunnedMe()) return;
-      sendChoice(choice);
-      disableButtons(player);
+      if (inRevealPhase) return;
+      if (!currentGame) return;
+      if (stunnedMe()) return;
+      // send choice (server will acknowledge)
+      socket.emit("selectChoice", { gameId: currentGame.id, choice });
+      // local visible ack
+      addEventMessageSingle("you", `You chose ${choice.toUpperCase()}`);
+      // disable local buttons until next round or reveal
+      disableButtons("p1"); disableButtons("p2");
     });
   });
 });
 
 function stunnedMe() {
   if (!currentGame) return false;
-  return nick === currentGame.player1.nick ? currentGame.player1.stunned : currentGame.player2.stunned;
+  return !!currentGame.me?.stunned;
 }
 
-function sendChoice(choice) {
-  if (!currentGame) return;
-  socket.emit("selectChoice", { gameId: currentGame.id, choice });
-  addEventMessageSingle("You", `You chose ${choice.toUpperCase()}`);
-}
+// ---------- SOCKET EVENTS ----------
+// online
+socket.on("onlineCount", count => {
+  onlineCountDisplay.textContent = `Online: ${count}`;
+  // try join if not yet joined (safety)
+  tryJoin1v1();
+});
 
-// ---------- SOCKET ----------
-socket.on("onlineCount", count => { onlineCountDisplay.textContent = `Online: ${count}`; });
+// system logs
 socket.on("waiting", msg => addEventMessageSingle("system", msg));
 socket.on("log", msg => addEventMessageSingle("system", msg));
 
-socket.on("gameStart", (gameId, game) => {
-  currentGame = game;
-  startTurn();
-  updateGame(game, false);
-  addEventMessageSingle("system", "⚔️ Battle started!");
-});
-
-socket.on("roundStart", ({ gameId, timer: t }) => {
-  timer = t;
-  roundFinished = false;
+// gameStart: server sends personalized payload { me, opp }
+socket.on("gameStart", (gameId, payload) => {
+  currentGame = { id: gameId, me: payload.me, opp: payload.opp };
+  inRevealPhase = false;
+  timer = 10;
   timerContainer.textContent = timer;
-  startTurn();
-  updateGame(currentGame, false);
+  updateGameFromPerspective(currentGame, false);
+  startTurnTimer(10);
 });
 
-socket.on("1vs1Update", (gameId, gameWithRolls) => {
-  currentGame = gameWithRolls;
-  roundFinished = true;
-  revealRoundResults(gameWithRolls);
+// roundStart (general)
+socket.on("roundStart", ({ gameId, timer: t }) => {
+  // only react if belongs to our current game
+  if (!currentGame || currentGame.id !== gameId) return;
+  inRevealPhase = false;
+  timer = t;
+  timerContainer.textContent = timer;
+  updateGameFromPerspective(currentGame, false);
+  startTurnTimer(t);
 });
 
-socket.on("gameOver", (gameId, { winnerNick, winnerChar, draw }) => {
-  if (draw) addEventMessageWinner("🤝 It's a draw!");
-  else addEventMessageWinner(`🏆 ${winnerNick} has won the battle!`);
-  playWinnerMusic(winnerChar);
-  stopTimer();
-  disableButtons("p1");
+// 1vs1Update: server sends per-player personalized { me, opp } and includes lastDamage & choice
+socket.on("1vs1Update", (gameId, payload) => {
+  if (!currentGame || currentGame.id !== gameId) return;
+  // update local copy
+  currentGame.me = payload.me;
+  currentGame.opp = payload.opp;
+  inRevealPhase = true;
+  // reveal choices & animate dice using lastDamage
+  updateGameFromPerspective(currentGame, true);
+  // after reveal-phase (server already waited 3s before sending), client waits for next roundStart
 });
 
-// ---------- CHAT ----------
-chatInput.addEventListener("keydown", e => {
-  if(e.key === "Enter" && e.target.value.trim() !== "" && currentGame) {
-    socket.emit("chatMessage", { roomId: currentGame.id, text: e.target.value });
-    e.target.value = "";
+// gameOver
+socket.on("gameOver", (gameId, data) => {
+  // data: { winnerNick, winnerChar, draw? }
+  if (!currentGame || currentGame.id !== gameId) {
+    // still show event if not matched (global)
+    if (data?.draw) addEventMessageWinner("Draw!");
+    else addEventMessageWinner(`🏆 ${data.winnerNick} has won the battle!`);
+    return;
   }
+  if (data?.draw) addEventMessageWinner("🏳️ Draw!");
+  else addEventMessageWinner(`🏆 ${data.winnerNick} has won the battle!`);
+  // allow chat to keep working — do not delete currentGame (so chat roomId still exists)
+  // disable choices permanently for now
+  disableButtons("p1"); disableButtons("p2");
 });
 
+// choice ack (private)
+socket.on("choiceAck", ({ choice }) => {
+  // optional: show only to chooser
+  addEventMessageSingle("system", `Choice confirmed: ${choice.toUpperCase()}`);
+});
+
+// chat
+chatInput.addEventListener("keydown", e => {
+  if (e.key !== "Enter") return;
+  const text = e.target.value.trim();
+  if (!text) return;
+  const roomId = currentGame?.id || "global";
+  socket.emit("chatMessage", { roomId, text });
+  e.target.value = "";
+});
 socket.on("chatMessage", data => {
-  if(data.roomId === currentGame?.id) addChatMessage(`${data.nick}: ${data.text}`);
+  addChatMessage(`${data.nick}: ${data.text}`);
 });
 
-// ---------- FUNZIONI ----------
-function updateGame(game, revealChoices) {
+// ---------- UI UPDATE (perspective-aware) ----------
+function updateGameFromPerspective(game, revealChoices) {
+  if (!game) return;
   const maxHp = 80;
-  const hp1 = Math.min(game.player1.hp, maxHp);
-  const hp2 = Math.min(game.player2.hp, maxHp);
+  const hpMe = Math.min(game.me.hp ?? 0, maxHp);
+  const hpOpp = Math.min(game.opp.hp ?? 0, maxHp);
 
-  player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${hp1}/${maxHp}`;
-  player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${hp2}/${maxHp}`;
-  player1HpBar.style.width = `${(hp1 / maxHp) * 100}%`;
-  player2HpBar.style.width = `${(hp2 / maxHp) * 100}%`;
-  player1HpBar.style.background = getHpColor(hp1 / maxHp * 100);
-  player2HpBar.style.background = getHpColor(hp2 / maxHp * 100);
+  player1Name.textContent = `${game.me.nick} (${game.me.char}) HP: ${hpMe}/${maxHp}`;
+  player2Name.textContent = `${game.opp.nick} (${game.opp.char}) HP: ${hpOpp}/${maxHp}`;
 
-  updateCharacterImage(game.player1, 0);
-  updateCharacterImage(game.player2, 1);
+  player1HpBar.style.width = `${(hpMe / maxHp) * 100}%`;
+  player2HpBar.style.width = `${(hpOpp / maxHp) * 100}%`;
+
+  player1HpBar.style.background = getHpColor((hpMe / maxHp) * 100);
+  player2HpBar.style.background = getHpColor((hpOpp / maxHp) * 100);
+
+  player1CharImg.src = getCharImage(game.me.char, game.me.hp);
+  player2CharImg.src = getCharImage(game.opp.char, game.opp.hp);
+
+  if (revealChoices) {
+    // animate dice with lastDamage values
+    rollDiceAnimation(diceP1, game.me.lastDamage || 1);
+    rollDiceAnimation(diceP2, game.opp.lastDamage || 1);
+
+    // now reveal choices as events (only here)
+    addEventMessageSingle("result", `${game.me.nick} chose: ${game.me.choice ? game.me.choice.toUpperCase() : "NONE"}`);
+    addEventMessageSingle("result", `${game.opp.nick} chose: ${game.opp.choice ? game.opp.choice.toUpperCase() : "NONE"}`);
+    // server already sent logs of damage (io.emit log), so they'll appear in eventBox via log handler
+    // disable choice buttons during reveal
+    disableButtons("p1"); disableButtons("p2");
+  } else {
+    // choice phase
+    rollDiceAnimation(diceP1, 1);
+    rollDiceAnimation(diceP2, 1);
+    // enable only if local not stunned
+    if (!stunnedMe()) enableButtons("p1");
+    // opponent's panel should not be clickable — but we used same UI for both sides, so disable opponent buttons
+    disableButtons("p2");
+  }
 }
 
-function revealRoundResults(game) {
-  rollDiceAnimation(diceP1, game.player1.lastDamage || 1);
-  rollDiceAnimation(diceP2, game.player2.lastDamage || 1);
-
-  addEventMessageSingle("result", `${game.player1.nick} chose: ${game.player1.choice ? game.player1.choice.toUpperCase() : "NONE"}`);
-  addEventMessageSingle("result", `${game.player2.nick} chose: ${game.player2.choice ? game.player2.choice.toUpperCase() : "NONE"}`);
-
-  updateGame(game, true);
+// helper image
+function getCharImage(char, hp=100) {
+  if (!char) return "img/unknown.png";
+  let suffix = "";
+  if (hp <= 0) suffix = "0";
+  else if (hp <= 20) suffix = "20";
+  else if (hp <= 40) suffix = "40";
+  else if (hp <= 60) suffix = "60";
+  return `img/${char.replace(/\s/g,"")}${suffix}.png`;
 }
 
-// ---------- UTILS ----------
-function getHpColor(percent) {
-  if (percent > 60) return "linear-gradient(90deg, green, lime)";
-  if (percent > 30) return "linear-gradient(90deg, yellow, orange)";
-  return "linear-gradient(90deg, red, darkred)";
-}
-
-function updateCharacterImage(player,index){
-  let hp = Math.min(player.hp, 80);
-  let src = `img/${player.char}`;
-  if(hp<=0) src+='0';
-  else if(hp<=20) src+='20';
-  else if(hp<=40) src+='40';
-  else if(hp<=60) src+='60';
-  src+='.png';
-  if(index===0) player1CharImg.src=src;
-  else player2CharImg.src=src;
-}
-
+// dice animation
 function rollDiceAnimation(el, finalRoll) {
   let count = 0;
   const interval = setInterval(() => {
     count++;
     el.src = `img/dice${Math.ceil(Math.random()*6)}.png`;
-    if(count>=10) {
+    if (count >= 10) {
       clearInterval(interval);
       el.src = `img/dice${finalRoll}.png`;
     }
-  }, 50);
+  }, 40);
 }
 
-// ---------- TURNI ----------
-function startTurn() {
-  roundFinished = false;
-  timer = 10;
-  timerContainer.textContent = timer;
+// ---------- buttons enable/disable ----------
+function enableButtons(player) {
+  const btns = buttonsMap[player];
+  if (!btns) return;
+  Object.values(btns).forEach(btn => { btn.disabled = false; btn.classList.remove("disabled"); });
+  document.getElementById(`choice-buttons-${player}`).classList.add("active");
+}
+function disableButtons(player) {
+  const btns = buttonsMap[player];
+  if (!btns) return;
+  Object.values(btns).forEach(btn => { btn.disabled = true; btn.classList.add("disabled"); });
+  document.getElementById(`choice-buttons-${player}`).classList.remove("active");
+}
 
-  enableButtons("p1");
-  stopTimer();
+// ---------- timer (client local visual) ----------
+function startTurnTimer(seconds=10) {
+  if (countdownInterval) clearInterval(countdownInterval);
+  let t = seconds;
+  timerContainer.textContent = t;
   countdownInterval = setInterval(() => {
-    timer--;
-    timerContainer.textContent = timer;
-    if (timer <= 0) stopTimer();
+    t--;
+    timerContainer.textContent = t;
+    if (t <= 0) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+    }
   }, 1000);
 }
 
-function stopTimer() {
-  if (countdownInterval) clearInterval(countdownInterval);
-}
-
-// ---------- BUTTONS ----------
-function enableButtons(player){
-  const btns = buttonsMap[player];
-  if(!btns) return;
-  Object.values(btns).forEach(btn => { btn.disabled = false; btn.classList.remove("disabled"); });
-}
-
-function disableButtons(player){
-  const btns = buttonsMap[player];
-  if(!btns) return;
-  Object.values(btns).forEach(btn => { btn.disabled = true; btn.classList.add("disabled"); });
-}
-
-// ---------- EVENTI ----------
+// events + chat UI helpers
 function addEventMessageSingle(playerNick, text) {
   const msg = document.createElement("div");
-  msg.textContent = text;
+  msg.textContent = `[${playerNick}] ${text}`;
   eventBox.appendChild(msg);
   eventBox.scrollTop = eventBox.scrollHeight;
 }
-
 function addEventMessageWinner(text) {
   const msg = document.createElement("div");
   msg.textContent = text;
   eventBox.appendChild(msg);
   eventBox.scrollTop = eventBox.scrollHeight;
 }
-
 function addChatMessage(text) {
   const msg = document.createElement("div");
   msg.textContent = text;
@@ -263,18 +284,11 @@ function addChatMessage(text) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// ---------- MUSIC ----------
-function playWinnerMusic(winnerChar) {
-  musicBattle.pause();
-  musicBattle.currentTime = 0;
-  if (!winnerChar) return;
-  winnerMusic.src = `img/${winnerChar}.mp3`;
-  winnerMusic.play().catch(()=>{});
+// helpers
+function getHpColor(percent) {
+  if (percent > 60) return "linear-gradient(90deg, green, lime)";
+  if (percent > 30) return "linear-gradient(90deg, yellow, orange)";
+  return "linear-gradient(90deg, red, darkred)";
 }
-
-// ---------- PING ----------
-setInterval(() => {
-  socket.emit("stillHere");
-}, 5000);
 
 document.body.style.overflowY = "auto";
