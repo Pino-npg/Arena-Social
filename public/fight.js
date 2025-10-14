@@ -1,4 +1,4 @@
-// fight.js
+// fight.js (client)
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 const socket = io();
 
@@ -19,11 +19,14 @@ const eventBox = document.getElementById("event-messages");
 const onlineCountDisplay = document.getElementById("onlineCount");
 const homeBtn = document.getElementById("homeBtn");
 
-// audio
+// ---------- MUSIC ----------
 const battleMusic = new Audio("audio/battle.mp3");
 battleMusic.loop = true;
-const winMusic = new Audio("audio/win.mp3");
+battleMusic.volume = 0.3;
+const victoryMusic = new Audio("audio/victory.mp3");
+victoryMusic.volume = 0.5;
 
+// ---------- HOME BUTTON ----------
 homeBtn.addEventListener("click", () => window.location.href = "/");
 
 // ---------- GIOCATORE ----------
@@ -52,7 +55,7 @@ timerContainer.id = "timer-container";
 timerContainer.textContent = timer;
 document.getElementById("battle-area").appendChild(timerContainer);
 
-// ---------- BUTTONS ----------
+// ---------- CREATE BUTTONS ----------
 function createChoiceButtons(playerBox, playerId) {
   const container = document.createElement("div");
   container.className = "choice-buttons";
@@ -71,13 +74,15 @@ function createChoiceButtons(playerBox, playerId) {
 }
 const buttonsMap = { p1: createChoiceButtons(player1Box,"p1"), p2: createChoiceButtons(player2Box,"p2") };
 
-// click handlers — solo se non in reveal e non stunned
+// click handlers
 Object.entries(buttonsMap).forEach(([player, btns]) => {
   Object.entries(btns).forEach(([choice, btn]) => {
     btn.addEventListener("click", () => {
-      if (!currentGame || inRevealPhase) return;
+      if (inRevealPhase) return;
+      if (!currentGame) return;
       if (stunnedMe()) return;
       socket.emit("selectChoice", { gameId: currentGame.id, choice });
+      addEventMessageSingle("you", `You chose ${choice.toUpperCase()}`);
       disableButtons("p1"); disableButtons("p2");
     });
   });
@@ -88,17 +93,14 @@ function stunnedMe() {
 }
 
 // ---------- SOCKET EVENTS ----------
-// online count
 socket.on("onlineCount", count => {
   onlineCountDisplay.textContent = `Online: ${count}`;
   tryJoin1v1();
 });
 
-// system logs
 socket.on("waiting", msg => addEventMessageSingle("system", msg));
 socket.on("log", msg => addEventMessageSingle("system", msg));
 
-// gameStart
 socket.on("gameStart", (gameId, payload) => {
   currentGame = { id: gameId, me: payload.me, opp: payload.opp };
   inRevealPhase = false;
@@ -106,11 +108,9 @@ socket.on("gameStart", (gameId, payload) => {
   timerContainer.textContent = timer;
   updateGameFromPerspective(currentGame, false);
   startTurnTimer(10);
-  removeWaitingMessages();
-  battleMusic.play();
+  battleMusic.play().catch(()=>{}); // autoplay try
 });
 
-// roundStart
 socket.on("roundStart", ({ gameId, timer: t }) => {
   if (!currentGame || currentGame.id !== gameId) return;
   inRevealPhase = false;
@@ -120,7 +120,6 @@ socket.on("roundStart", ({ gameId, timer: t }) => {
   startTurnTimer(t);
 });
 
-// 1vs1Update
 socket.on("1vs1Update", (gameId, payload) => {
   if (!currentGame || currentGame.id !== gameId) return;
   currentGame.me = payload.me;
@@ -129,21 +128,18 @@ socket.on("1vs1Update", (gameId, payload) => {
   updateGameFromPerspective(currentGame, true);
 });
 
-// gameOver
 socket.on("gameOver", (gameId, data) => {
-  if (!currentGame || currentGame.id !== gameId) {
-    addEventMessageWinner(data?.draw ? "Draw!" : `🏆 ${data.winnerNick} has won the battle!`);
-    return;
-  }
   inRevealPhase = true;
-  updateGameFromPerspective(currentGame, true);
-  addEventMessageWinner(data?.draw ? "🏳️ Draw!" : `🏆 ${data.winnerNick} has won the battle!`);
+  if (data?.draw) addEventMessageWinner("🏳️ Draw!");
+  else addEventMessageWinner(`🏆 ${data.winnerNick} has won the battle!`);
   disableButtons("p1"); disableButtons("p2");
-  battleMusic.pause(); battleMusic.currentTime = 0;
-  winMusic.play();
+  battleMusic.pause();
+  battleMusic.currentTime = 0;
+  victoryMusic.play().catch(()=>{});
 });
 
-// chat
+socket.on("choiceAck", ({ choice }) => addEventMessageSingle("system", `Choice confirmed: ${choice.toUpperCase()}`));
+
 chatInput.addEventListener("keydown", e => {
   if (e.key !== "Enter") return;
   const text = e.target.value.trim();
@@ -154,7 +150,7 @@ chatInput.addEventListener("keydown", e => {
 });
 socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
 
-// ---------- UPDATE UI ----------
+// ---------- UI UPDATE ----------
 function updateGameFromPerspective(game, revealChoices) {
   if (!game) return;
   const maxHp = 80;
@@ -164,19 +160,19 @@ function updateGameFromPerspective(game, revealChoices) {
   player1Name.textContent = `${game.me.nick} (${game.me.char}) HP: ${hpMe}/${maxHp}`;
   player2Name.textContent = `${game.opp.nick} (${game.opp.char}) HP: ${hpOpp}/${maxHp}`;
 
+  player1HpBar.style.transition = "width 0.5s ease-in-out";
+  player2HpBar.style.transition = "width 0.5s ease-in-out";
   player1HpBar.style.width = `${(hpMe / maxHp) * 100}%`;
   player2HpBar.style.width = `${(hpOpp / maxHp) * 100}%`;
-
   player1HpBar.style.background = getHpColor((hpMe / maxHp) * 100);
   player2HpBar.style.background = getHpColor((hpOpp / maxHp) * 100);
 
-  player1CharImg.src = getCharImage(game.me.char, hpMe);
-  player2CharImg.src = getCharImage(game.opp.char, hpOpp);
+  player1CharImg.src = getCharImage(game.me.char, game.me.hp);
+  player2CharImg.src = getCharImage(game.opp.char, game.opp.hp);
 
   if (revealChoices) {
     rollDiceAnimation(diceP1, game.me.lastDamage || 1);
     rollDiceAnimation(diceP2, game.opp.lastDamage || 1);
-
     addEventMessageSingle("result", `${game.me.nick} chose: ${game.me.choice ?? "NONE"}`);
     addEventMessageSingle("result", `${game.opp.nick} chose: ${game.opp.choice ?? "NONE"}`);
     disableButtons("p1"); disableButtons("p2");
@@ -188,86 +184,79 @@ function updateGameFromPerspective(game, revealChoices) {
   }
 }
 
-// helper image
+// ---------- HELPERS ----------
 function getCharImage(char, hp=100) {
   if (!char) return "img/unknown.png";
-  let suffix = hp <= 0 ? "0" : hp <= 20 ? "20" : hp <= 40 ? "40" : hp <= 60 ? "60" : "";
+  let suffix = hp<=0?"0":hp<=20?"20":hp<=40?"40":hp<=60?"60":"";
   return `img/${char.replace(/\s/g,"")}${suffix}.png`;
 }
 
-// dice animation
 function rollDiceAnimation(el, finalRoll) {
   let count = 0;
-  const interval = setInterval(() => {
+  const totalFrames = 15;
+  const interval = setInterval(()=>{
     count++;
-    el.src = `img/dice${Math.ceil(Math.random()*6)}.png`;
-    if (count >= 10) {
+    const rand = Math.ceil(Math.random()*6);
+    el.style.transform = `rotate(${Math.random()*40-20}deg)`;
+    el.src = `img/dice${rand}.png`;
+    if(count>=totalFrames){
       clearInterval(interval);
       el.src = `img/dice${finalRoll}.png`;
+      el.style.transform = "rotate(0deg)";
     }
-  }, 40);
+  },40);
 }
 
-// ---------- BUTTONS ----------
-function enableButtons(player) {
+function enableButtons(player){
   const btns = buttonsMap[player];
-  if (!btns) return;
-  Object.values(btns).forEach(btn => { btn.disabled = false; btn.classList.remove("disabled"); });
+  if(!btns) return;
+  Object.values(btns).forEach(btn=>{btn.disabled=false; btn.classList.remove("disabled");});
   document.getElementById(`choice-buttons-${player}`).classList.add("active");
 }
-function disableButtons(player) {
+
+function disableButtons(player){
   const btns = buttonsMap[player];
-  if (!btns) return;
-  Object.values(btns).forEach(btn => { btn.disabled = true; btn.classList.add("disabled"); });
+  if(!btns) return;
+  Object.values(btns).forEach(btn=>{btn.disabled=true; btn.classList.add("disabled");});
   document.getElementById(`choice-buttons-${player}`).classList.remove("active");
 }
 
-// ---------- TIMER ----------
-function startTurnTimer(seconds=10) {
-  if (countdownInterval) clearInterval(countdownInterval);
-  let t = seconds;
-  timerContainer.textContent = t;
-  countdownInterval = setInterval(() => {
+function startTurnTimer(seconds=10){
+  if(countdownInterval) clearInterval(countdownInterval);
+  let t=seconds;
+  timerContainer.textContent=t;
+  countdownInterval = setInterval(()=>{
     t--;
-    timerContainer.textContent = t;
-    if (t <= 0) {
-      clearInterval(countdownInterval);
-      countdownInterval = null;
-    }
-  }, 1000);
+    timerContainer.textContent=t;
+    if(t<=0){clearInterval(countdownInterval); countdownInterval=null;}
+  },1000);
 }
 
-// ---------- EVENTS & CHAT ----------
-function addEventMessageSingle(playerNick, text) {
+function addEventMessageSingle(playerNick,text){
   const msg = document.createElement("div");
   msg.textContent = `[${playerNick}] ${text}`;
   eventBox.appendChild(msg);
   eventBox.scrollTop = eventBox.scrollHeight;
 }
-function addEventMessageWinner(text) {
+
+function addEventMessageWinner(text){
   const msg = document.createElement("div");
   msg.textContent = text;
-  msg.style.fontWeight = "bold";
   eventBox.appendChild(msg);
   eventBox.scrollTop = eventBox.scrollHeight;
 }
-function addChatMessage(text) {
+
+function addChatMessage(text){
   const msg = document.createElement("div");
   msg.textContent = text;
   chatMessages.appendChild(msg);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// ---------- HELPERS ----------
-function getHpColor(percent) {
-  if (percent > 60) return "linear-gradient(90deg, green, lime)";
-  if (percent > 30) return "linear-gradient(90deg, yellow, orange)";
+function getHpColor(percent){
+  if(percent>60) return "linear-gradient(90deg, green, lime)";
+  if(percent>30) return "linear-gradient(90deg, yellow, orange)";
   return "linear-gradient(90deg, red, darkred)";
-}
-function removeWaitingMessages() {
-  [...eventBox.children].forEach(msg => {
-    if (msg.textContent.includes("Waiting for opponent")) msg.remove();
-  });
 }
 
 document.body.style.overflowY = "auto";
