@@ -11,20 +11,22 @@ const io = new Server(server, { cors: { origin: "*" } });
 // static
 app.use(express.static("public"));
 
-// --- 1vs1 utilities ---
-const CHOICES = ["water","wood","fire"];
+// --- Utilities ---
+const CHOICES = ["water", "wood", "fire"];
 const BEATS = { water: "fire", wood: "water", fire: "wood" };
 
 const games = {};
 let waitingPlayer = null;
+const lastGames = {}; // store last game for disconnected player
 
 function rollDice() { return Math.floor(Math.random() * 8) + 1; }
 
+// ------------------- 1vs1 -------------------
 function startRound1vs1(gameId) {
   const game = games[gameId];
   if (!game) return;
-
   const [p0, p1] = game.players;
+
   p0.choice = null;
   p1.choice = null;
   game.choices = {};
@@ -39,7 +41,6 @@ function startRound1vs1(gameId) {
 function evaluateRound1vs1(gameId) {
   const game = games[gameId];
   if (!game) return;
-
   const [p0, p1] = game.players;
   const c0 = game.choices[p0.id] || null;
   const c1 = game.choices[p1.id] || null;
@@ -74,13 +75,11 @@ function evaluateRound1vs1(gameId) {
     if (dmg === 8) { p0.stunned = true; events.push(`${p0.nick} stunned by CRIT!`); }
   }
 
-  // invia risultati e log
   io.to(gameId).emit("1vs1Update", { gameId, player1: p0, player2: p1, lastEvents: events });
   events.forEach(e => io.to(gameId).emit("log", `[system] ${e}`));
   io.to(gameId).emit("log", `[result] ${p0.nick} chose: ${choice0 || "NONE"}`);
   io.to(gameId).emit("log", `[result] ${p1.nick} chose: ${choice1 || "NONE"}`);
 
-  // controlla game over
   if (p0.hp <= 0 && p1.hp <= 0) {
     io.to(gameId).emit("gameOver", gameId, { draw: true });
     delete games[gameId];
@@ -97,16 +96,24 @@ function evaluateRound1vs1(gameId) {
 
 // --- 1vs1 socket ---
 io.on("connection", socket => {
+  // aggiorna contatore online reale
+  io.emit("onlineCount", io.sockets.sockets.size);
+
   socket.on("join1vs1", ({ nick, char }) => {
     socket.nick = nick || `Anon-${socket.id.slice(0,4)}`;
     socket.char = char || "unknown";
 
-    if(waitingPlayer && !io.sockets.sockets.has(waitingPlayer.id)) waitingPlayer = null;
+    // se non c’è alcun waiting player, rimane null
+    if (waitingPlayer && !io.sockets.sockets.has(waitingPlayer.id)) waitingPlayer = null;
 
     if (!waitingPlayer) {
       waitingPlayer = socket;
       socket.emit("waiting", "Waiting for opponent...");
-    } else {
+      return; // non crea giochi finché non arriva un altro giocatore
+    }
+
+    // solo se c’è un giocatore reale in attesa
+    if (waitingPlayer.id !== socket.id) {
       const gameId = `${waitingPlayer.id}_${socket.id}`;
       const players = [
         { id: waitingPlayer.id, nick: waitingPlayer.nick, char: waitingPlayer.char, hp: 80, stunned: false, lastDamage: 0 },
@@ -119,50 +126,33 @@ io.on("connection", socket => {
         if (s) s.join(gameId);
       });
 
-      for (const p of players) {
+      // invia gameStart personalizzato
+      players.forEach(p => {
         const me = players.find(x => x.id === p.id);
         const opp = players.find(x => x.id !== p.id);
         io.to(p.id).emit("gameStart", gameId, { me, opp });
-      }
+      });
 
       startRound1vs1(gameId);
       waitingPlayer = null;
     }
   });
 
-  socket.on("selectChoice", ({ gameId, choice }) => {
-    const game = games[gameId];
-    if (!game || !CHOICES.includes(choice)) return;
-
-    const player = game.players.find(p => p.id === socket.id);
-    if (!player || player.stunned) return;
-
-    player.choice = choice;
-    game.choices[socket.id] = choice;
-    io.to(socket.id).emit("choiceAck", { choice });
-    io.to(socket.id).emit("log", `[you] Choice confirmed: ${choice.toUpperCase()}`);
-  });
-
-  socket.on("chatMessage", ({ roomId, text }) => {
-    let game = Object.values(games).find(g => g.id === roomId);
-    const nick = socket.nick || "Anon";
-    if (game) {
-      game.players.forEach(p => io.to(p.id).emit("chatMessage", { nick, text, roomId }));
-    } else {
-      io.emit("chatMessage", { nick, text, roomId: "global" });
-    }
-  });
-
   socket.on("disconnect", () => {
-    io.emit("onlineCount", io.engine.clientsCount);
     if (waitingPlayer?.id === socket.id) waitingPlayer = null;
 
+    // aggiorna contatore online reale
+    io.emit("onlineCount", io.sockets.sockets.size);
+
+    // gestisci se era in game
     for (const gameId in games) {
       const game = games[gameId];
       const idx = game.players.findIndex(p => p.id === socket.id);
       if (idx !== -1) {
         const other = game.players.find(p => p.id !== socket.id);
-        io.to(other.id).emit("gameOver", gameId, { winnerNick: other.nick, winnerChar: other.char });
+        if (other) {
+          io.to(other.id).emit("gameOver", gameId, { winnerNick: other.nick, winnerChar: other.char });
+        }
         clearTimeout(game.roundTimeout);
         delete games[gameId];
         break;
@@ -171,10 +161,7 @@ io.on("connection", socket => {
   });
 });
 
-
-
-
-// ------------------- TOURNAMENT NAMESPACE -------------------
+// ------------------- TOURNAMENT -------------------
 const tournaments = {};
 const nsp = io.of("/tournament");
 
@@ -214,7 +201,6 @@ function advanceWinner(tournamentId, matchId, winnerObj) {
   if (!t) return;
   const brMatch = t.bracket.find(m => m.id === matchId);
   if (!brMatch) return;
-
   brMatch.winner = { id: winnerObj.id, nick: winnerObj.nick, char: winnerObj.char };
 
   if (brMatch.next) {
@@ -241,10 +227,9 @@ function startMatch(tId, p1, p2, stage, matchId) {
     { ...p1, hp: 80, stunned: false, lastDamage: 0 },
     { ...p2, hp: 80, stunned: false, lastDamage: 0 }
   ];
-  t.matches[matchId] = { id: matchId, players, stage };
+  t.matches[matchId] = { id: matchId, players, stage, choices: {} };
 
   nsp.to(tId).emit("startMatch", { id: matchId, player1: players[0], player2: players[1], stage });
-  nsp.to(tId).emit("updateMatch", { id: matchId, stage, player1: players[0], player2: players[1] });
   setTimeout(() => startTournamentRound(tId, matchId), 1000);
 }
 
@@ -252,17 +237,19 @@ function startTournamentRound(tId, matchId) {
   const t = tournaments[tId];
   const match = t?.matches[matchId];
   if (!match) return;
+
   match.choices = { [match.players[0].id]: null, [match.players[1].id]: null };
   match.roundTimer = 10;
   nsp.to(tId).emit("roundStart", { matchId, timer: match.roundTimer });
-  match.roundTimeout && clearTimeout(match.roundTimeout);
-  match.roundTimeout = setTimeout(() => evaluateTournamentRound(tId, matchId), match.roundTimer*1000);
+  if (match.roundTimeout) clearTimeout(match.roundTimeout);
+  match.roundTimeout = setTimeout(() => evaluateTournamentRound(tId, matchId), match.roundTimer * 1000);
 }
 
 function evaluateTournamentRound(tId, matchId) {
   const t = tournaments[tId];
   const match = t?.matches[matchId];
   if (!match) return;
+
   const [p0, p1] = match.players;
   const c0 = match.choices[p0.id];
   const c1 = match.choices[p1.id];
@@ -286,81 +273,81 @@ function evaluateTournamentRound(tId, matchId) {
   else if (choice0 && !choice1) applyDamage(p1, rollDice(), `no choice (vs ${choice0})`);
   else if (!choice0 && choice1) applyDamage(p0, rollDice(), `no choice (vs ${choice1})`);
   else if (choice0 === choice1) { applyDamage(p0, rollDice(), "same choice"); applyDamage(p1, rollDice(), "same choice"); }
-  else if (BEATS[choice0] === choice1) { const dmg=rollDice(); applyDamage(p1,dmg,`${p0.nick} beats ${choice1}`); if(dmg===8){p1.stunned=true;nsp.to(tId).emit("log",`${p1.nick} stunned by CRIT!`);} }
-  else if (BEATS[choice1] === choice0) { const dmg=rollDice(); applyDamage(p0,dmg,`${p1.nick} beats ${choice0}`); if(dmg===8){p0.stunned=true;nsp.to(tId).emit("log",`${p0.nick} stunned by CRIT!`);} }
-  else { applyDamage(p0,rollDice(),"fallback"); applyDamage(p1,rollDice(),"fallback"); }
+  else if (BEATS[choice0] === choice1) { const dmg = rollDice(); applyDamage(p1, dmg, `${p0.nick} beats ${choice1}`); if(dmg===8){p1.stunned=true;nsp.to(tId).emit("log",`${p1.nick} stunned by CRIT!`);} }
+  else if (BEATS[choice1] === choice0) { const dmg = rollDice(); applyDamage(p0, dmg, `${p1.nick} beats ${choice0}`); if(dmg===8){p0.stunned=true;nsp.to(tId).emit("log",`${p0.nick} stunned by CRIT!`);} }
 
   nsp.to(tId).emit("updateMatch", { id: match.id, stage: match.stage, player1: p0, player2: p1 });
 
-  if (p0.hp <=0 || p1.hp<=0) { const winner=p0.hp>0?p0:p1; nsp.to(tId).emit("matchOver",{winnerNick:winner.nick,winnerChar:winner.char,stage:match.stage,player1:p0,player2:p1}); advanceWinner(tId,match.id,winner); return; }
+  if (p0.hp <=0 || p1.hp <=0) {
+    const winner = p0.hp>0?p0:p1;
+    nsp.to(tId).emit("matchOver",{winnerNick:winner.nick,winnerChar:winner.char,stage:match.stage,player1:p0,player2:p1});
+    advanceWinner(tId,match.id,winner);
+    return;
+  }
 
-  setTimeout(()=>startTournamentRound(tId,match.id),1000);
+  setTimeout(() => startTournamentRound(tId, match.id), 1000);
 }
 
 // ------------------- TOURNAMENT SOCKET -------------------
 nsp.on("connection", socket => {
-  nsp.emit("onlineCount", nsp.sockets.size);
-  let currentTournament=null;
+  let currentTournament = null;
 
-  socket.on("setNickname", nick => { socket.nick = assignUniqueNick(nick); socket.emit("nickConfirmed", socket.nick); });
+  socket.on("setNickname", nick => { socket.nick = nick || `Anon-${socket.id.slice(0,4)}`; socket.emit("nickConfirmed", socket.nick); });
 
-  socket.on("joinTournament", ({ nick,char }) => {
-    if(!nick||!char) return;
-    socket.nick = assignUniqueNick(nick);
-    let tId=Object.keys(tournaments).find(id=>tournaments[id].waiting.length<8);
-    if(!tId) tId=createTournament();
-    currentTournament=tId;
-    const t=tournaments[tId];
-    if(t.waiting.find(p=>p.id===socket.id)) return;
+  socket.on("joinTournament", ({ nick, char }) => {
+    if (!nick || !char) return;
+    socket.nick = nick;
+    let tId = Object.keys(tournaments).find(id => tournaments[id].waiting.length < 8);
+    if (!tId) tId = createTournament();
+    currentTournament = tId;
+    const t = tournaments[tId];
+    if (t.waiting.find(p => p.id === socket.id)) return;
     t.waiting.push({id:socket.id,nick:socket.nick,char});
     socket.join(tId);
     broadcastWaiting(tId);
 
-    if(t.waiting.length===8 && t.bracket.length===0){
-      const first8=t.waiting.slice(0,8);
+    if (t.waiting.length===8 && t.bracket.length===0){
+      const first8 = t.waiting.slice(0,8);
       nsp.to(tId).emit("waitingStart",{players:first8.map(p=>p.nick),total:8});
       generateBracket(first8,t);
       t.bracket.filter(m=>m.stage==="quarter").forEach(m=>startMatch(tId,m.player1,m.player2,m.stage,m.id));
     }
   });
 
-  socket.on("selectChoiceTournament",({tournamentId,matchId,choice})=>{
-    const t=tournaments[tournamentId];
-    if(!t) return;
-    const match=t.matches[matchId];
-    if(!match||!CHOICES.includes(choice)) return;
-    if(match.choices && match.choices[socket.id]==null && match.players.find(p=>p.id===socket.id&&!p.stunned)){
-      match.choices[socket.id]=choice;
-      nsp.to(tournamentId).emit("log",`${socket.nick} chose ${choice}`);
+  socket.on("selectChoiceTournament", ({ tournamentId, matchId, choice }) => {
+    const t = tournaments[tournamentId];
+    if (!t) return;
+    const match = t.matches[matchId];
+    if (!match || !CHOICES.includes(choice)) return;
+    if(match.choices[socket.id]==null && match.players.find(p=>p.id===socket.id&&!p.stunned)){
+      match.choices[socket.id] = choice;
+      nsp.to(tournamentId).emit("log", `${socket.nick} chose ${choice}`);
     }
   });
 
   socket.on("chatMessage", text => {
-    const tId=currentTournament;
+    const tId = currentTournament;
     if(!tId) return;
     nsp.to(tId).emit("chatMessage",{nick:socket.nick||"Anon",text});
   });
 
   socket.on("disconnect", () => {
-    releaseNick(socket.nick);
-    const tId=currentTournament;
+    const tId = currentTournament;
     if(!tId) return;
-    const t=tournaments[tId];
+    const t = tournaments[tId];
     if(!t) return;
-    t.waiting=t.waiting.filter(p=>p.id!==socket.id);
+    t.waiting = t.waiting.filter(p=>p.id!==socket.id);
     for(const matchId in t.matches){
-      const match=t.matches[matchId];
-      const idx=match.players.findIndex(p=>p.id===socket.id);
+      const match = t.matches[matchId];
+      const idx = match.players.findIndex(p=>p.id===socket.id);
       if(idx!==-1){
-        const other=match.players.find(p=>p.id!==socket.id);
+        const other = match.players.find(p=>p.id!==socket.id);
         nsp.to(tId).emit("matchOver",{winnerNick:other.nick,winnerChar:other.char,stage:match.stage,player1:match.players[0],player2:match.players[1]});
         advanceWinner(tId,match.id,other);
         break;
       }
     }
     broadcastWaiting(tId);
-    emitBracket(tId);
-    nsp.emit("onlineCount", nsp.sockets.size);
   });
 });
 
