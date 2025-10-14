@@ -1,7 +1,7 @@
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 const socket = io();
 
-// ---------- ELEMENTI BASE ----------
+// ---------- ELEMENTI ----------
 const player1Box = document.getElementById("player1");
 const player2Box = document.getElementById("player2");
 const player1Name = document.getElementById("player1-nick");
@@ -17,13 +17,22 @@ const chatInput = document.getElementById("chat-input");
 const eventBox = document.getElementById("event-messages");
 const onlineCountDisplay = document.getElementById("onlineCount");
 const homeBtn = document.getElementById("homeBtn");
+
 homeBtn.addEventListener("click", () => window.location.href = "/");
 
 // ---------- MUSICA ----------
 const musicBattle = new Audio("img/9.mp3");
-musicBattle.loop = true; musicBattle.volume = 0.5;
-let winnerMusic = new Audio(); winnerMusic.loop = true; winnerMusic.volume = 0.7;
-function unlockAudio() { if(musicBattle.paused) musicBattle.play().catch(()=>{}); if(winnerMusic.paused) winnerMusic.play().catch(()=>{});}
+musicBattle.loop = true;
+musicBattle.volume = 0.5;
+
+let winnerMusic = new Audio();
+winnerMusic.loop = true;
+winnerMusic.volume = 0.7;
+
+function unlockAudio() {
+  if (musicBattle.paused) musicBattle.play().catch(()=>{});
+  if (winnerMusic.paused) winnerMusic.play().catch(()=>{});
+}
 window.addEventListener("click", unlockAudio, { once: true });
 window.addEventListener("touchstart", unlockAudio, { once: true });
 
@@ -38,7 +47,7 @@ fullscreenBtn.addEventListener("click", async () => {
 // ---------- GIOCATORE ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
-if(nick && char) socket.emit("join1vs1", { nick, char });
+if (nick && char) socket.emit("join1vs1", { nick, char });
 
 // ---------- STATO ----------
 let currentGame = null;
@@ -46,7 +55,7 @@ let timer = 10;
 let countdownInterval = null;
 let roundFinished = false;
 
-// ---------- TIMER CENTRALE ----------
+// ---------- TIMER ----------
 const timerContainer = document.createElement("div");
 timerContainer.id = "timer-container";
 timerContainer.textContent = timer;
@@ -69,61 +78,65 @@ function createChoiceButtons(playerBox, playerId) {
     fire: container.querySelector(".fire")
   };
 }
-const buttonsMap = { p1: createChoiceButtons(player1Box,"p1"), p2: createChoiceButtons(player2Box,"p2") };
+
+const buttonsMap = {
+  p1: createChoiceButtons(player1Box, "p1")
+};
 
 // ---------- CLICK PULSANTI ----------
 Object.entries(buttonsMap).forEach(([player, btns]) => {
   Object.entries(btns).forEach(([choice, btn]) => {
     btn.addEventListener("click", () => {
-      if (roundFinished) return;
+      if (roundFinished || stunnedMe()) return;
       sendChoice(choice);
       disableButtons(player);
     });
   });
 });
 
-function sendChoice(choice) {
-  if (!currentGame) return;
-  socket.emit("selectChoice", { gameId: currentGame.id, choice });
-  addEventMessageSingle(nick, `You chose ${choice.toUpperCase()}`);
-}
-
 function stunnedMe() {
   if (!currentGame) return false;
   return nick === currentGame.player1.nick ? currentGame.player1.stunned : currentGame.player2.stunned;
 }
 
-// ---------- SOCKET EVENTS ----------
-socket.on("onlineCount", count => onlineCountDisplay.textContent = `Online: ${count}`);
+function sendChoice(choice) {
+  if (!currentGame) return;
+  socket.emit("selectChoice", { gameId: currentGame.id, choice });
+  addEventMessageSingle("You", `You chose ${choice.toUpperCase()}`);
+}
+
+// ---------- SOCKET ----------
+socket.on("onlineCount", count => { onlineCountDisplay.textContent = `Online: ${count}`; });
 socket.on("waiting", msg => addEventMessageSingle("system", msg));
 socket.on("log", msg => addEventMessageSingle("system", msg));
 
 socket.on("gameStart", (gameId, game) => {
   currentGame = game;
-  roundFinished = false;
+  startTurn();
   updateGame(game, false);
+  addEventMessageSingle("system", "⚔️ Battle started!");
 });
 
 socket.on("roundStart", ({ gameId, timer: t }) => {
   timer = t;
   roundFinished = false;
   timerContainer.textContent = timer;
-  enableButtons("p1"); enableButtons("p2");
-  startTimer(timer);
+  startTurn();
+  updateGame(currentGame, false);
 });
 
 socket.on("1vs1Update", (gameId, gameWithRolls) => {
   currentGame = gameWithRolls;
   roundFinished = true;
-  updateGame(gameWithRolls, true);
+  revealRoundResults(gameWithRolls);
 });
 
 socket.on("gameOver", (gameId, { winnerNick, winnerChar, draw }) => {
-  if(draw) addEventMessageWinner("🏆 DRAW!");
+  if (draw) addEventMessageWinner("🤝 It's a draw!");
   else addEventMessageWinner(`🏆 ${winnerNick} has won the battle!`);
   playWinnerMusic(winnerChar);
   stopTimer();
-  disableButtons("p1"); disableButtons("p2");
+  disableButtons("p1");
 });
 
 // ---------- CHAT ----------
@@ -133,97 +146,135 @@ chatInput.addEventListener("keydown", e => {
     e.target.value = "";
   }
 });
+
 socket.on("chatMessage", data => {
   if(data.roomId === currentGame?.id) addChatMessage(`${data.nick}: ${data.text}`);
 });
 
-// ---------- GAME UPDATE ----------
+// ---------- FUNZIONI ----------
 function updateGame(game, revealChoices) {
   const maxHp = 80;
-  const hp1 = Math.min(game.player1.hp,maxHp);
-  const hp2 = Math.min(game.player2.hp,maxHp);
+  const hp1 = Math.min(game.player1.hp, maxHp);
+  const hp2 = Math.min(game.player2.hp, maxHp);
+
   player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${hp1}/${maxHp}`;
   player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${hp2}/${maxHp}`;
-  player1HpBar.style.width = `${(hp1/maxHp)*100}%`;
-  player2HpBar.style.width = `${(hp2/maxHp)*100}%`;
-  player1HpBar.style.background = getHpColor(hp1/maxHp*100);
-  player2HpBar.style.background = getHpColor(hp2/maxHp*100);
-  updateCharacterImage(game.player1,0);
-  updateCharacterImage(game.player2,1);
+  player1HpBar.style.width = `${(hp1 / maxHp) * 100}%`;
+  player2HpBar.style.width = `${(hp2 / maxHp) * 100}%`;
+  player1HpBar.style.background = getHpColor(hp1 / maxHp * 100);
+  player2HpBar.style.background = getHpColor(hp2 / maxHp * 100);
 
-  if(revealChoices){
-    rollDiceAnimation(diceP1,game.player1.lastDamage||1);
-    rollDiceAnimation(diceP2,game.player2.lastDamage||1);
-    addEventMessageSingle("result", `${game.player1.nick} chose: ${game.player1.choice||"NONE"}`);
-    addEventMessageSingle("result", `${game.player2.nick} chose: ${game.player2.choice||"NONE"}`);
-  } else {
-    rollDiceAnimation(diceP1,1);
-    rollDiceAnimation(diceP2,1);
-  }
+  updateCharacterImage(game.player1, 0);
+  updateCharacterImage(game.player2, 1);
 }
 
-// ---------- SUPPORTO ----------
-function getHpColor(percent){
-  if(percent>60) return "linear-gradient(90deg,green,lime)";
-  if(percent>30) return "linear-gradient(90deg,yellow,orange)";
-  return "linear-gradient(90deg,red,darkred)";
+function revealRoundResults(game) {
+  rollDiceAnimation(diceP1, game.player1.lastDamage || 1);
+  rollDiceAnimation(diceP2, game.player2.lastDamage || 1);
+
+  addEventMessageSingle("result", `${game.player1.nick} chose: ${game.player1.choice ? game.player1.choice.toUpperCase() : "NONE"}`);
+  addEventMessageSingle("result", `${game.player2.nick} chose: ${game.player2.choice ? game.player2.choice.toUpperCase() : "NONE"}`);
+
+  updateGame(game, true);
 }
+
+// ---------- UTILS ----------
+function getHpColor(percent) {
+  if (percent > 60) return "linear-gradient(90deg, green, lime)";
+  if (percent > 30) return "linear-gradient(90deg, yellow, orange)";
+  return "linear-gradient(90deg, red, darkred)";
+}
+
 function updateCharacterImage(player,index){
-  let hp=Math.min(player.hp,80);
-  let src=`img/${player.char}`;
-  if(hp<=0) src+='0'; else if(hp<=20) src+='20'; else if(hp<=40) src+='40'; else if(hp<=60) src+='60';
+  let hp = Math.min(player.hp, 80);
+  let src = `img/${player.char}`;
+  if(hp<=0) src+='0';
+  else if(hp<=20) src+='20';
+  else if(hp<=40) src+='40';
+  else if(hp<=60) src+='60';
   src+='.png';
-  if(index===0) player1CharImg.src=src; else player2CharImg.src=src;
+  if(index===0) player1CharImg.src=src;
+  else player2CharImg.src=src;
 }
-function rollDiceAnimation(el,finalRoll){
-  let count=0;
-  const interval=setInterval(()=>{
+
+function rollDiceAnimation(el, finalRoll) {
+  let count = 0;
+  const interval = setInterval(() => {
     count++;
-    el.src=`img/dice${Math.ceil(Math.random()*6)}.png`;
-    if(count>=10){ clearInterval(interval); el.src=`img/dice${finalRoll}.png`; }
-  },50);
+    el.src = `img/dice${Math.ceil(Math.random()*6)}.png`;
+    if(count>=10) {
+      clearInterval(interval);
+      el.src = `img/dice${finalRoll}.png`;
+    }
+  }, 50);
 }
 
 // ---------- TURNI ----------
-function startTimer(seconds=10){
-  timer=seconds;
-  timerContainer.textContent=timer;
-  stopTimer();
-  countdownInterval=setInterval(()=>{
-    timer--;
-    timerContainer.textContent=timer;
-    if(timer<=0) stopTimer();
-  },1000);
-}
-function stopTimer(){ if(countdownInterval) clearInterval(countdownInterval); countdownInterval=null; }
+function startTurn() {
+  roundFinished = false;
+  timer = 10;
+  timerContainer.textContent = timer;
 
-// ---------- PULSANTI ----------
-function enableButtons(player){
-  const btns=buttonsMap[player]; if(!btns) return;
-  Object.values(btns).forEach(btn=>{btn.disabled=false; btn.classList.remove("disabled");});
-  document.getElementById(`choice-buttons-${player}`).classList.add("active");
+  enableButtons("p1");
+  stopTimer();
+  countdownInterval = setInterval(() => {
+    timer--;
+    timerContainer.textContent = timer;
+    if (timer <= 0) stopTimer();
+  }, 1000);
 }
+
+function stopTimer() {
+  if (countdownInterval) clearInterval(countdownInterval);
+}
+
+// ---------- BUTTONS ----------
+function enableButtons(player){
+  const btns = buttonsMap[player];
+  if(!btns) return;
+  Object.values(btns).forEach(btn => { btn.disabled = false; btn.classList.remove("disabled"); });
+}
+
 function disableButtons(player){
-  const btns=buttonsMap[player]; if(!btns) return;
-  Object.values(btns).forEach(btn=>{btn.disabled=true; btn.classList.add("disabled");});
-  document.getElementById(`choice-buttons-${player}`).classList.remove("active");
+  const btns = buttonsMap[player];
+  if(!btns) return;
+  Object.values(btns).forEach(btn => { btn.disabled = true; btn.classList.add("disabled"); });
 }
 
 // ---------- EVENTI ----------
-function addEventMessageSingle(playerNick,text){ const msg=document.createElement("div"); msg.textContent=text; eventBox.appendChild(msg); eventBox.scrollTop=eventBox.scrollHeight; }
-function addEventMessageWinner(text){ const msg=document.createElement("div"); msg.textContent=text; eventBox.appendChild(msg); eventBox.scrollTop=eventBox.scrollHeight; }
+function addEventMessageSingle(playerNick, text) {
+  const msg = document.createElement("div");
+  msg.textContent = text;
+  eventBox.appendChild(msg);
+  eventBox.scrollTop = eventBox.scrollHeight;
+}
 
-// ---------- CHAT ----------
-function addChatMessage(text){ const msg=document.createElement("div"); msg.textContent=text; chatMessages.appendChild(msg); chatMessages.scrollTop=chatMessages.scrollHeight; }
+function addEventMessageWinner(text) {
+  const msg = document.createElement("div");
+  msg.textContent = text;
+  eventBox.appendChild(msg);
+  eventBox.scrollTop = eventBox.scrollHeight;
+}
 
-// ---------- MUSICA VINCITORE ----------
-function playWinnerMusic(winnerChar){
-  musicBattle.pause(); musicBattle.currentTime=0;
-  winnerMusic.src=`img/${winnerChar}.mp3`;
+function addChatMessage(text) {
+  const msg = document.createElement("div");
+  msg.textContent = text;
+  chatMessages.appendChild(msg);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// ---------- MUSIC ----------
+function playWinnerMusic(winnerChar) {
+  musicBattle.pause();
+  musicBattle.currentTime = 0;
+  if (!winnerChar) return;
+  winnerMusic.src = `img/${winnerChar}.mp3`;
   winnerMusic.play().catch(()=>{});
 }
 
-// ---------- PING PRESENZA ----------
-setInterval(()=>{ socket.emit("stillHere"); },5000);
+// ---------- PING ----------
+setInterval(() => {
+  socket.emit("stillHere");
+}, 5000);
 
-document.body.style.overflowY="auto";
+document.body.style.overflowY = "auto";
