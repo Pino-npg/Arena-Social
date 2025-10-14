@@ -21,8 +21,6 @@ const homeBtn = document.getElementById("homeBtn");
 
 homeBtn.addEventListener("click", () => window.location.href = "/");
 
-// audio + fullscreen omitted for brevity (keep your existing code) ...
-
 // ---------- GIOCATORE ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
@@ -32,7 +30,6 @@ let joined1v1 = false;
 function tryJoin1v1() {
   if (!joined1v1 && nick && char) {
     socket.emit("join1vs1", { nick, char });
-    joined1v1 = true;
   }
 }
 tryJoin1v1();
@@ -43,13 +40,13 @@ let timer = 10;
 let countdownInterval = null;
 let inRevealPhase = false;
 
-// timer container (same as before)
+// timer container
 const timerContainer = document.createElement("div");
 timerContainer.id = "timer-container";
 timerContainer.textContent = timer;
 document.getElementById("battle-area").appendChild(timerContainer);
 
-// create buttons (same as before)
+// create buttons
 function createChoiceButtons(playerBox, playerId) {
   const container = document.createElement("div");
   container.className = "choice-buttons";
@@ -68,18 +65,14 @@ function createChoiceButtons(playerBox, playerId) {
 }
 const buttonsMap = { p1: createChoiceButtons(player1Box,"p1"), p2: createChoiceButtons(player2Box,"p2") };
 
-// click handlers — only allow when not in reveal and not stunned
+// click handlers
 Object.entries(buttonsMap).forEach(([player, btns]) => {
   Object.entries(btns).forEach(([choice, btn]) => {
     btn.addEventListener("click", () => {
       if (inRevealPhase) return;
       if (!currentGame) return;
       if (stunnedMe()) return;
-      // send choice (server will acknowledge)
       socket.emit("selectChoice", { gameId: currentGame.id, choice });
-      // local visible ack
-      addEventMessageSingle("you", `You chose ${choice.toUpperCase()}`);
-      // disable local buttons until next round or reveal
       disableButtons("p1"); disableButtons("p2");
     });
   });
@@ -94,66 +87,65 @@ function stunnedMe() {
 // online
 socket.on("onlineCount", count => {
   onlineCountDisplay.textContent = `Online: ${count}`;
-  // try join if not yet joined (safety)
   tryJoin1v1();
 });
+
+// joined confirmation
+socket.on("joined1v1", () => { joined1v1 = true; });
 
 // system logs
 socket.on("waiting", msg => addEventMessageSingle("system", msg));
 socket.on("log", msg => addEventMessageSingle("system", msg));
 
-// gameStart: server sends personalized payload { me, opp }
+// gameStart
 socket.on("gameStart", (gameId, payload) => {
   currentGame = { id: gameId, me: payload.me, opp: payload.opp };
   inRevealPhase = false;
+  currentGame.me.choice = null;
+  currentGame.opp.choice = null;
   timer = 10;
   timerContainer.textContent = timer;
   updateGameFromPerspective(currentGame, false);
   startTurnTimer(10);
 });
 
-// roundStart (general)
+// roundStart
 socket.on("roundStart", ({ gameId, timer: t }) => {
-  // only react if belongs to our current game
   if (!currentGame || currentGame.id !== gameId) return;
   inRevealPhase = false;
   timer = t;
+  currentGame.me.choice = null;
+  currentGame.opp.choice = null;
   timerContainer.textContent = timer;
   updateGameFromPerspective(currentGame, false);
   startTurnTimer(t);
 });
 
-// 1vs1Update: server sends per-player personalized { me, opp } and includes lastDamage & choice
+// 1vs1Update
 socket.on("1vs1Update", (gameId, payload) => {
   if (!currentGame || currentGame.id !== gameId) return;
-  // update local copy
   currentGame.me = payload.me;
   currentGame.opp = payload.opp;
+  currentGame.me.choice = payload.me.choice;
+  currentGame.opp.choice = payload.opp.choice;
   inRevealPhase = true;
-  // reveal choices & animate dice using lastDamage
   updateGameFromPerspective(currentGame, true);
-  // after reveal-phase (server already waited 3s before sending), client waits for next roundStart
 });
 
 // gameOver
 socket.on("gameOver", (gameId, data) => {
-  // data: { winnerNick, winnerChar, draw? }
   if (!currentGame || currentGame.id !== gameId) {
-    // still show event if not matched (global)
     if (data?.draw) addEventMessageWinner("Draw!");
     else addEventMessageWinner(`🏆 ${data.winnerNick} has won the battle!`);
     return;
   }
   if (data?.draw) addEventMessageWinner("🏳️ Draw!");
   else addEventMessageWinner(`🏆 ${data.winnerNick} has won the battle!`);
-  // allow chat to keep working — do not delete currentGame (so chat roomId still exists)
-  // disable choices permanently for now
   disableButtons("p1"); disableButtons("p2");
 });
 
-// choice ack (private)
+// choice ack
 socket.on("choiceAck", ({ choice }) => {
-  // optional: show only to chooser
   addEventMessageSingle("system", `Choice confirmed: ${choice.toUpperCase()}`);
 });
 
@@ -163,14 +155,12 @@ chatInput.addEventListener("keydown", e => {
   const text = e.target.value.trim();
   if (!text) return;
   const roomId = currentGame?.id || "global";
-  socket.emit("chatMessage", { roomId, text });
+  socket.emit("chatMessage", { roomId, text, nick });
   e.target.value = "";
 });
-socket.on("chatMessage", data => {
-  addChatMessage(`${data.nick}: ${data.text}`);
-});
+socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
 
-// ---------- UI UPDATE (perspective-aware) ----------
+// ---------- UI UPDATE ----------
 function updateGameFromPerspective(game, revealChoices) {
   if (!game) return;
   const maxHp = 80;
@@ -190,23 +180,19 @@ function updateGameFromPerspective(game, revealChoices) {
   player2CharImg.src = getCharImage(game.opp.char, game.opp.hp);
 
   if (revealChoices) {
-    // animate dice with lastDamage values
-    rollDiceAnimation(diceP1, game.me.lastDamage || 1);
-    rollDiceAnimation(diceP2, game.opp.lastDamage || 1);
+    const dmgMe = game.me.lastDamage ?? 1;
+    const dmgOpp = game.opp.lastDamage ?? 1;
+    rollDiceAnimation(diceP1, dmgMe);
+    rollDiceAnimation(diceP2, dmgOpp);
 
-    // now reveal choices as events (only here)
     addEventMessageSingle("result", `${game.me.nick} chose: ${game.me.choice ? game.me.choice.toUpperCase() : "NONE"}`);
     addEventMessageSingle("result", `${game.opp.nick} chose: ${game.opp.choice ? game.opp.choice.toUpperCase() : "NONE"}`);
-    // server already sent logs of damage (io.emit log), so they'll appear in eventBox via log handler
-    // disable choice buttons during reveal
+
     disableButtons("p1"); disableButtons("p2");
   } else {
-    // choice phase
     rollDiceAnimation(diceP1, 1);
     rollDiceAnimation(diceP2, 1);
-    // enable only if local not stunned
     if (!stunnedMe()) enableButtons("p1");
-    // opponent's panel should not be clickable — but we used same UI for both sides, so disable opponent buttons
     disableButtons("p2");
   }
 }
@@ -235,7 +221,7 @@ function rollDiceAnimation(el, finalRoll) {
   }, 40);
 }
 
-// ---------- buttons enable/disable ----------
+// buttons
 function enableButtons(player) {
   const btns = buttonsMap[player];
   if (!btns) return;
@@ -249,7 +235,7 @@ function disableButtons(player) {
   document.getElementById(`choice-buttons-${player}`).classList.remove("active");
 }
 
-// ---------- timer (client local visual) ----------
+// timer
 function startTurnTimer(seconds=10) {
   if (countdownInterval) clearInterval(countdownInterval);
   let t = seconds;
