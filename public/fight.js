@@ -1,4 +1,4 @@
-// fight.js (client)
+// fight.js
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
 const socket = io();
 
@@ -19,6 +19,11 @@ const eventBox = document.getElementById("event-messages");
 const onlineCountDisplay = document.getElementById("onlineCount");
 const homeBtn = document.getElementById("homeBtn");
 
+// audio
+const battleMusic = new Audio("audio/battle.mp3");
+battleMusic.loop = true;
+const winMusic = new Audio("audio/win.mp3");
+
 homeBtn.addEventListener("click", () => window.location.href = "/");
 
 // ---------- GIOCATORE ----------
@@ -30,6 +35,7 @@ let joined1v1 = false;
 function tryJoin1v1() {
   if (!joined1v1 && nick && char) {
     socket.emit("join1vs1", { nick, char });
+    joined1v1 = true;
   }
 }
 tryJoin1v1();
@@ -46,7 +52,7 @@ timerContainer.id = "timer-container";
 timerContainer.textContent = timer;
 document.getElementById("battle-area").appendChild(timerContainer);
 
-// create buttons
+// ---------- BUTTONS ----------
 function createChoiceButtons(playerBox, playerId) {
   const container = document.createElement("div");
   container.className = "choice-buttons";
@@ -65,12 +71,11 @@ function createChoiceButtons(playerBox, playerId) {
 }
 const buttonsMap = { p1: createChoiceButtons(player1Box,"p1"), p2: createChoiceButtons(player2Box,"p2") };
 
-// click handlers
+// click handlers — solo se non in reveal e non stunned
 Object.entries(buttonsMap).forEach(([player, btns]) => {
   Object.entries(btns).forEach(([choice, btn]) => {
     btn.addEventListener("click", () => {
-      if (inRevealPhase) return;
-      if (!currentGame) return;
+      if (!currentGame || inRevealPhase) return;
       if (stunnedMe()) return;
       socket.emit("selectChoice", { gameId: currentGame.id, choice });
       disableButtons("p1"); disableButtons("p2");
@@ -79,19 +84,15 @@ Object.entries(buttonsMap).forEach(([player, btns]) => {
 });
 
 function stunnedMe() {
-  if (!currentGame) return false;
-  return !!currentGame.me?.stunned;
+  return !!currentGame?.me?.stunned;
 }
 
 // ---------- SOCKET EVENTS ----------
-// online
+// online count
 socket.on("onlineCount", count => {
   onlineCountDisplay.textContent = `Online: ${count}`;
   tryJoin1v1();
 });
-
-// joined confirmation
-socket.on("joined1v1", () => { joined1v1 = true; });
 
 // system logs
 socket.on("waiting", msg => addEventMessageSingle("system", msg));
@@ -101,12 +102,12 @@ socket.on("log", msg => addEventMessageSingle("system", msg));
 socket.on("gameStart", (gameId, payload) => {
   currentGame = { id: gameId, me: payload.me, opp: payload.opp };
   inRevealPhase = false;
-  currentGame.me.choice = null;
-  currentGame.opp.choice = null;
   timer = 10;
   timerContainer.textContent = timer;
   updateGameFromPerspective(currentGame, false);
   startTurnTimer(10);
+  removeWaitingMessages();
+  battleMusic.play();
 });
 
 // roundStart
@@ -114,8 +115,6 @@ socket.on("roundStart", ({ gameId, timer: t }) => {
   if (!currentGame || currentGame.id !== gameId) return;
   inRevealPhase = false;
   timer = t;
-  currentGame.me.choice = null;
-  currentGame.opp.choice = null;
   timerContainer.textContent = timer;
   updateGameFromPerspective(currentGame, false);
   startTurnTimer(t);
@@ -126,8 +125,6 @@ socket.on("1vs1Update", (gameId, payload) => {
   if (!currentGame || currentGame.id !== gameId) return;
   currentGame.me = payload.me;
   currentGame.opp = payload.opp;
-  currentGame.me.choice = payload.me.choice;
-  currentGame.opp.choice = payload.opp.choice;
   inRevealPhase = true;
   updateGameFromPerspective(currentGame, true);
 });
@@ -135,18 +132,15 @@ socket.on("1vs1Update", (gameId, payload) => {
 // gameOver
 socket.on("gameOver", (gameId, data) => {
   if (!currentGame || currentGame.id !== gameId) {
-    if (data?.draw) addEventMessageWinner("Draw!");
-    else addEventMessageWinner(`🏆 ${data.winnerNick} has won the battle!`);
+    addEventMessageWinner(data?.draw ? "Draw!" : `🏆 ${data.winnerNick} has won the battle!`);
     return;
   }
-  if (data?.draw) addEventMessageWinner("🏳️ Draw!");
-  else addEventMessageWinner(`🏆 ${data.winnerNick} has won the battle!`);
+  inRevealPhase = true;
+  updateGameFromPerspective(currentGame, true);
+  addEventMessageWinner(data?.draw ? "🏳️ Draw!" : `🏆 ${data.winnerNick} has won the battle!`);
   disableButtons("p1"); disableButtons("p2");
-});
-
-// choice ack
-socket.on("choiceAck", ({ choice }) => {
-  addEventMessageSingle("system", `Choice confirmed: ${choice.toUpperCase()}`);
+  battleMusic.pause(); battleMusic.currentTime = 0;
+  winMusic.play();
 });
 
 // chat
@@ -155,12 +149,12 @@ chatInput.addEventListener("keydown", e => {
   const text = e.target.value.trim();
   if (!text) return;
   const roomId = currentGame?.id || "global";
-  socket.emit("chatMessage", { roomId, text, nick });
+  socket.emit("chatMessage", { roomId, text });
   e.target.value = "";
 });
 socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
 
-// ---------- UI UPDATE ----------
+// ---------- UPDATE UI ----------
 function updateGameFromPerspective(game, revealChoices) {
   if (!game) return;
   const maxHp = 80;
@@ -176,18 +170,15 @@ function updateGameFromPerspective(game, revealChoices) {
   player1HpBar.style.background = getHpColor((hpMe / maxHp) * 100);
   player2HpBar.style.background = getHpColor((hpOpp / maxHp) * 100);
 
-  player1CharImg.src = getCharImage(game.me.char, game.me.hp);
-  player2CharImg.src = getCharImage(game.opp.char, game.opp.hp);
+  player1CharImg.src = getCharImage(game.me.char, hpMe);
+  player2CharImg.src = getCharImage(game.opp.char, hpOpp);
 
   if (revealChoices) {
-    const dmgMe = game.me.lastDamage ?? 1;
-    const dmgOpp = game.opp.lastDamage ?? 1;
-    rollDiceAnimation(diceP1, dmgMe);
-    rollDiceAnimation(diceP2, dmgOpp);
+    rollDiceAnimation(diceP1, game.me.lastDamage || 1);
+    rollDiceAnimation(diceP2, game.opp.lastDamage || 1);
 
-    addEventMessageSingle("result", `${game.me.nick} chose: ${game.me.choice ? game.me.choice.toUpperCase() : "NONE"}`);
-    addEventMessageSingle("result", `${game.opp.nick} chose: ${game.opp.choice ? game.opp.choice.toUpperCase() : "NONE"}`);
-
+    addEventMessageSingle("result", `${game.me.nick} chose: ${game.me.choice ?? "NONE"}`);
+    addEventMessageSingle("result", `${game.opp.nick} chose: ${game.opp.choice ?? "NONE"}`);
     disableButtons("p1"); disableButtons("p2");
   } else {
     rollDiceAnimation(diceP1, 1);
@@ -200,11 +191,7 @@ function updateGameFromPerspective(game, revealChoices) {
 // helper image
 function getCharImage(char, hp=100) {
   if (!char) return "img/unknown.png";
-  let suffix = "";
-  if (hp <= 0) suffix = "0";
-  else if (hp <= 20) suffix = "20";
-  else if (hp <= 40) suffix = "40";
-  else if (hp <= 60) suffix = "60";
+  let suffix = hp <= 0 ? "0" : hp <= 20 ? "20" : hp <= 40 ? "40" : hp <= 60 ? "60" : "";
   return `img/${char.replace(/\s/g,"")}${suffix}.png`;
 }
 
@@ -221,7 +208,7 @@ function rollDiceAnimation(el, finalRoll) {
   }, 40);
 }
 
-// buttons
+// ---------- BUTTONS ----------
 function enableButtons(player) {
   const btns = buttonsMap[player];
   if (!btns) return;
@@ -235,7 +222,7 @@ function disableButtons(player) {
   document.getElementById(`choice-buttons-${player}`).classList.remove("active");
 }
 
-// timer
+// ---------- TIMER ----------
 function startTurnTimer(seconds=10) {
   if (countdownInterval) clearInterval(countdownInterval);
   let t = seconds;
@@ -250,7 +237,7 @@ function startTurnTimer(seconds=10) {
   }, 1000);
 }
 
-// events + chat UI helpers
+// ---------- EVENTS & CHAT ----------
 function addEventMessageSingle(playerNick, text) {
   const msg = document.createElement("div");
   msg.textContent = `[${playerNick}] ${text}`;
@@ -260,6 +247,7 @@ function addEventMessageSingle(playerNick, text) {
 function addEventMessageWinner(text) {
   const msg = document.createElement("div");
   msg.textContent = text;
+  msg.style.fontWeight = "bold";
   eventBox.appendChild(msg);
   eventBox.scrollTop = eventBox.scrollHeight;
 }
@@ -270,11 +258,16 @@ function addChatMessage(text) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// helpers
+// ---------- HELPERS ----------
 function getHpColor(percent) {
   if (percent > 60) return "linear-gradient(90deg, green, lime)";
   if (percent > 30) return "linear-gradient(90deg, yellow, orange)";
   return "linear-gradient(90deg, red, darkred)";
+}
+function removeWaitingMessages() {
+  [...eventBox.children].forEach(msg => {
+    if (msg.textContent.includes("Waiting for opponent")) msg.remove();
+  });
 }
 
 document.body.style.overflowY = "auto";
