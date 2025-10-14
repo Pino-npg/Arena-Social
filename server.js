@@ -42,25 +42,26 @@ function releaseNick(nick) {
 }
 
 // ------------------- 1VS1 MODE -------------------
+// ------------------- 1VS1 MODE -------------------
 const games = {};
 let waitingPlayer = null;
 const lastGames = {};
-const CHOICES = ["water","wood","fire"];
+const CHOICES = ["water", "wood", "fire"];
 const BEATS = { water: "fire", wood: "water", fire: "wood" };
 
 function startRound1vs1(gameId) {
   const game = games[gameId];
   if (!game) return;
 
-  // Reset scelte e timer di scelta
+  // Reset scelte e timer
   game.choices = { [game.players[0].id]: null, [game.players[1].id]: null };
   game.roundTimer = 10;
   io.to(gameId).emit("roundStart", { gameId, timer: game.roundTimer });
 
-  // Pulizia eventuale timeout precedente
-  game.roundTimeout && clearTimeout(game.roundTimeout);
+  // Cancella eventuale timeout precedente
+  clearTimeout(game.roundTimeout);
 
-  // Timeout per valutazione round (10s + 3s risultati)
+  // Timer di 10 secondi per la scelta + 3 secondi di fase risultato
   game.roundTimeout = setTimeout(() => evaluateRound1vs1(gameId), (game.roundTimer + 3) * 1000);
 }
 
@@ -70,63 +71,56 @@ function evaluateRound1vs1(gameId) {
   const [p0, p1] = game.players;
   const c0 = game.choices[p0.id];
   const c1 = game.choices[p1.id];
-
   const events = [];
 
-  function applyDamage(target, dmg, reason) {
+  const applyDamage = (target, dmg, reason) => {
     const prevHp = target.hp;
     target.hp = Math.max(0, target.hp - dmg);
     target.lastDamage = dmg;
-    events.push(`${target.nick} takes ${dmg} damage (${reason}). HP ${prevHp} -> ${target.hp}`);
-  }
+    events.push(`${target.nick} takes ${dmg} damage (${reason}). HP ${prevHp} → ${target.hp}`);
+  };
 
-  // Gestione stun
-  const p0CannotChoose = !!p0.stunned;
-  const p1CannotChoose = !!p1.stunned;
-  if (p0CannotChoose) p0.stunned = false;
-  if (p1CannotChoose) p1.stunned = false;
+  // Gestione scelte e stun
+  const choice0 = CHOICES.includes(c0) ? c0 : null;
+  const choice1 = CHOICES.includes(c1) ? c1 : null;
 
-  const choice0 = (CHOICES.includes(c0) && !p0CannotChoose) ? c0 : null;
-  const choice1 = (CHOICES.includes(c1) && !p1CannotChoose) ? c1 : null;
-
-  // Logica danno aggiornata
+  // --- LOGICA DANNI ---
   if (!choice0 && !choice1) {
     applyDamage(p0, rollDice(), "no choice (both)");
     applyDamage(p1, rollDice(), "no choice (both)");
   } else if (choice0 && !choice1) {
-    applyDamage(p0, rollDice(), `no choice (vs ${choice0})`);
+    applyDamage(p1, rollDice(), "didn't choose");
   } else if (!choice0 && choice1) {
-    applyDamage(p1, rollDice(), `no choice (vs ${choice1})`);
+    applyDamage(p0, rollDice(), "didn't choose");
   } else if (choice0 === choice1) {
-    // stesso elemento → nessun danno
     events.push(`Both chose ${choice0}. No damage.`);
   } else if (BEATS[choice0] === choice1) {
     const dmg = rollDice();
-    applyDamage(p1, dmg, `${p0.nick} (${choice0}) beats ${choice1}`);
-    if (dmg === 8) { p1.stunned = true; events.push(`${p1.nick} stunned by CRIT!`); }
+    applyDamage(p1, dmg, `${p0.nick} (${choice0}) beats ${p1.nick} (${choice1})`);
+    if (dmg === 8) { p1.stunned = true; events.push(`${p1.nick} is stunned by CRIT!`); }
   } else if (BEATS[choice1] === choice0) {
     const dmg = rollDice();
-    applyDamage(p0, dmg, `${p1.nick} (${choice1}) beats ${choice0}`);
-    if (dmg === 8) { p0.stunned = true; events.push(`${p0.nick} stunned by CRIT!`); }
-  } else {
-    // fallback danno
-    applyDamage(p0, rollDice(), "fallback");
-    applyDamage(p1, rollDice(), "fallback");
+    applyDamage(p0, dmg, `${p1.nick} (${choice1}) beats ${p0.nick} (${choice0})`);
+    if (dmg === 8) { p0.stunned = true; events.push(`${p0.nick} is stunned by CRIT!`); }
   }
 
-  // --- Invio aggiornamento al client dopo 3 secondi fase risultati ---
+  // --- FASE RISULTATO DOPO 3s ---
   setTimeout(() => {
     io.to(gameId).emit("1vs1Update", gameId, {
-      player1: { ...p0, choice: choice0 },
-      player2: { ...p1, choice: choice1 }
+      id: gameId,
+      players: [
+        { ...p0, choice: choice0 },
+        { ...p1, choice: choice1 }
+      ]
     });
 
+    // Mostra log eventi solo dopo che entrambe le scelte sono rivelate
     events.forEach(e => io.to(gameId).emit("log", e));
 
     // Controllo vittoria o Draw
     if (p0.hp <= 0 && p1.hp <= 0) {
       io.to(gameId).emit("gameOver", gameId, { winnerNick: null, winnerChar: null, draw: true });
-      game.players.forEach(p => lastGames[p.id] = game);
+      game.players.forEach(p => (lastGames[p.id] = game));
       delete games[gameId];
     } else if (p0.hp <= 0 || p1.hp <= 0) {
       const winner = p0.hp > 0 ? p0 : p1;
@@ -136,7 +130,6 @@ function evaluateRound1vs1(gameId) {
       });
       delete games[gameId];
     } else {
-      // round successivo
       startRound1vs1(gameId);
     }
   }, 3000);
@@ -156,17 +149,26 @@ io.on("connection", socket => {
     socket.nick = assignUniqueNick(nick);
     socket.char = char;
 
+    // evita di accoppiare lo stesso utente con se stesso
+    if (waitingPlayer && waitingPlayer.id === socket.id) {
+      socket.emit("waiting", "Already waiting for an opponent...");
+      return;
+    }
+
     if (!waitingPlayer) {
       waitingPlayer = socket;
       socket.emit("waiting", "Waiting for opponent...");
     } else {
-      const gameId = socket.id + "#" + waitingPlayer.id;
+      const gameId = `${waitingPlayer.id}#${socket.id}`;
       const players = [
         { id: waitingPlayer.id, nick: waitingPlayer.nick, char: waitingPlayer.char, hp: 80, stunned: false, lastDamage: 0 },
         { id: socket.id, nick: socket.nick, char, hp: 80, stunned: false, lastDamage: 0 }
       ];
       games[gameId] = { id: gameId, players };
       players.forEach(p => io.sockets.sockets.get(p.id)?.join(gameId));
+
+      // notifico inizio partita (opzionale)
+      io.to(gameId).emit("log", `⚔️ ${players[0].nick} vs ${players[1].nick} ⚔️`);
       startRound1vs1(gameId);
       waitingPlayer = null;
     }
@@ -175,18 +177,21 @@ io.on("connection", socket => {
   socket.on("selectChoice", ({ gameId, choice }) => {
     const game = games[gameId];
     if (!game || !CHOICES.includes(choice)) return;
+
     const player = game.players.find(p => p.id === socket.id);
     if (!player || player.stunned) return;
+
     if (game.choices && game.choices[socket.id] == null) {
       game.choices[socket.id] = choice;
-      io.to(gameId).emit("log", `${player.nick} chose ${choice}`);
+
+      // NON invio log della scelta per non far barare
+      io.to(socket.id).emit("log", `You chose ${choice}`);
     }
   });
 
   socket.on("chatMessage", data => {
     const { roomId, text } = data;
-    let game = Object.values(games).find(g => g.id === roomId);
-    if (!game) game = lastGames[roomId];
+    const game = games[roomId] || Object.values(games).find(g => g.id === roomId);
     if (!game) return;
     game.players.forEach(p => io.to(p.id).emit("chatMessage", { nick: socket.nick, text, roomId }));
   });
