@@ -43,7 +43,7 @@ body.fight #game-container {
 /* -------- HEADER FISSO -------- */
 #rules-btn {
   position: absolute;
-  top: 20px;
+  top: 16px;
   left: 20px;
   cursor: pointer;
   font-size: 2.2rem;

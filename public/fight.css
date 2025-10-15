@@ -37,6 +37,20 @@ header {
   display: flex;
   gap: 10px;
 }
+#online-count {
+  font-size: 1.2rem;
+  color: white;
+  text-shadow: 1px 1px 4px black;
+}
+
+#homeBtn {
+  font-size: 1.5rem;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: white;
+  transition: color 0.3s;
+}
 
 .arena-title {
   font-size: 3rem;
