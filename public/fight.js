@@ -60,8 +60,10 @@ socket.emit("join1vs1", { nick, char }, roomId => {
   socket.roomId = roomId;
 });
 
-// ---------- GESTIONE STUN ----------
+// ---------- STATO GIOCO ----------
+let gameOver = false;
 let stunned = { p1: false, p2: false };
+const lastDicePerPlayer = { p1: null, p2: null };
 
 // ---------- SOCKET EVENTS ----------
 socket.on("onlineCount", count => onlineCountDisplay.textContent = `Online: ${count}`);
@@ -69,22 +71,28 @@ socket.on("waiting", msg => addEventMessageSingle("system", msg));
 
 socket.on("gameStart", (roomId, game) => {
   socket.roomId = roomId;
+  gameOver = false;
+  lastDicePerPlayer.p1 = null;
+  lastDicePerPlayer.p2 = null;
   updateGame(game);
 });
 
 socket.on("1vs1Update", (roomId, game) => {
-  if (roomId === socket.roomId) updateGame(game);
+  if (roomId === socket.roomId && !gameOver) updateGame(game);
 });
 
 socket.on("gameOver", (roomId, { winnerNick, winnerChar }) => {
-  if (roomId === socket.roomId) {
+  if (roomId === socket.roomId && !gameOver) {
+    gameOver = true;
     addEventMessageWinner(`🏆 ${winnerNick} has won the battle!`);
+    // stoppa musica battaglia
+    musicBattle.pause();
+    musicBattle.currentTime = 0;
     playWinnerMusic(winnerChar);
   }
 });
 
 // ---------- CHAT ----------
-const currentRoomId = socket.roomId;
 chatInput.addEventListener("keydown", e => {
   if(e.key === "Enter" && e.target.value.trim() !== "" && socket.roomId) {
     socket.emit("chatMessage", { roomId: socket.roomId, text: e.target.value });
@@ -99,9 +107,6 @@ socket.on("chatMessage", data => {
 });
 
 // ---------- FUNZIONI ----------
-// ---------- FUNZIONI ----------
-const lastDicePerPlayer = { p1: null, p2: null };
-
 function updateGame(game) {
   const maxHp = 80;
   const hp1 = Math.min(game.player1.hp, maxHp);
@@ -111,15 +116,12 @@ function updateGame(game) {
   player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${hp2}/${maxHp}`;
 
   // --- HP BAR WIDTH ---
-  const hpPercent1 = (hp1 / maxHp) * 100;
-  const hpPercent2 = (hp2 / maxHp) * 100;
-
-  player1HpBar.style.width = `${hpPercent1}%`;
-  player2HpBar.style.width = `${hpPercent2}%`;
+  player1HpBar.style.width = `${(hp1 / maxHp) * 100}%`;
+  player2HpBar.style.width = `${(hp2 / maxHp) * 100}%`;
 
   // --- HP BAR COLOR DYNAMIC ---
-  player1HpBar.style.background = getHpColor(hpPercent1);
-  player2HpBar.style.background = getHpColor(hpPercent2);
+  player1HpBar.style.background = getHpColor((hp1 / maxHp) * 100);
+  player2HpBar.style.background = getHpColor((hp2 / maxHp) * 100);
 
   // --- DADI SOLO SE NUOVI ---
   if(game.player1.dice !== undefined && game.player1.dice !== lastDicePerPlayer.p1) {
@@ -146,24 +148,21 @@ function handleDice(playerIndex, game) {
   const player = playerIndex === 0 ? game.player1 : game.player2;
 
   let finalDmg = player.dice;
-
   const isPlayerStunned = (playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2);
+
   if (isPlayerStunned) {
     finalDmg = Math.max(0, player.dice - 1);
     addEventMessageSingle(player.nick, `${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
     if (playerIndex === 0) stunned.p1 = false;
     else stunned.p2 = false;
-  } 
-  else if (player.dice === 8) {
+  } else if (player.dice === 8) {
     addEventMessageSingle(player.nick, `${player.nick} CRIT! ${player.dice} damage dealt ⚡💥`);
     if (playerIndex === 0) stunned.p2 = true;
     else stunned.p1 = true;
-  } 
-  else {
+  } else {
     addEventMessageSingle(player.nick, `${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);
   }
 
-  // --- Mostra animazione dado ---
   rollDiceEffect(playerIndex === 0 ? "p1" : "p2", player.dice);
 }
 
@@ -206,7 +205,7 @@ function addEventMessageSingle(playerNick, text) {
   eventBox.scrollTop = eventBox.scrollHeight;
 }
 
-// ---------- MESSAGGIO VINCITORE (FORZATO) ----------
+// ---------- MESSAGGIO VINCITORE ----------
 function addEventMessageWinner(text) {
   const msg = document.createElement("div");
   msg.textContent = text;

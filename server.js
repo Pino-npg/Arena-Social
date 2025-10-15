@@ -87,14 +87,16 @@ async function nextTurn1vs1(game, attackerIndex) {
   io.to(game.id).emit("log", logMsg);
 
   // Controlla vittoria
-  if (defender.hp === 0) {
-    for (const p of game.players) {
-      io.to(p.id).emit("gameOver", game.id, { winnerNick: attacker.nick, winnerChar: attacker.char });
-      lastGames[p.id] = game;
-    }
-    delete games[game.id];
-    return;
+  // Controlla vittoria
+if (defender.hp === 0) {
+  gameOver = true; // aggiungi stato gameOver
+  for (const p of game.players) {
+    io.to(p.id).emit("gameOver", game.id, { winnerNick: attacker.nick, winnerChar: attacker.char });
+    lastGames[p.id] = game;
   }
+  delete games[game.id];
+  return; // blocca ulteriori turni
+}
 
   // Passa il turno
   setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
