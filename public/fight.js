@@ -1,245 +1,226 @@
-// fight.js (client)
 import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
+
 const socket = io();
 
 // ---------- ELEMENTI ----------
 const player1Box = document.getElementById("player1");
 const player2Box = document.getElementById("player2");
+
 const player1Name = document.getElementById("player1-nick");
 const player2Name = document.getElementById("player2-nick");
+
 const player1HpBar = document.getElementById("player1-hp");
 const player2HpBar = document.getElementById("player2-hp");
+
 const player1CharImg = document.getElementById("player1-char");
 const player2CharImg = document.getElementById("player2-char");
+
 const diceP1 = document.getElementById("dice-p1");
 const diceP2 = document.getElementById("dice-p2");
+
 const chatMessages = document.getElementById("chat-messages");
 const chatInput = document.getElementById("chat-input");
 const eventBox = document.getElementById("event-messages");
+
+// ---------- ONLINE & HOME ----------
 const onlineCountDisplay = document.getElementById("onlineCount");
 const homeBtn = document.getElementById("homeBtn");
+homeBtn.addEventListener("click", () => {
+  window.location.href = "https://fight-game-server.onrender.com/";
+});
 
-// ---------- MUSIC ----------
-const battleMusic = new Audio("audio/battle.mp3");
-battleMusic.loop = true;
-battleMusic.volume = 0.3;
-const victoryMusic = new Audio("audio/victory.mp3");
-victoryMusic.volume = 0.5;
+// ---------- MUSICA ----------
+const musicBattle = new Audio("img/9.mp3");
+musicBattle.loop = true;
+musicBattle.volume = 0.5;
 
-// ---------- HOME BUTTON ----------
-homeBtn.addEventListener("click", () => window.location.href = "/");
+let winnerMusic = new Audio();
+winnerMusic.loop = true; 
+winnerMusic.volume = 0.7;
 
-// ---------- GIOCATORE ----------
+function unlockAudio() {
+  if (musicBattle.paused) musicBattle.play().catch(()=>{});
+  if (winnerMusic.paused) winnerMusic.play().catch(()=>{});
+}
+window.addEventListener("click", unlockAudio, { once: true });
+window.addEventListener("touchstart", unlockAudio, { once: true });
+
+// ---------- FULLSCREEN ----------
+const fullscreenBtn = document.getElementById("fullscreen-btn");
+const container = document.getElementById("game-container");
+fullscreenBtn.addEventListener("click", async () => {
+  if (!document.fullscreenElement) await container.requestFullscreen();
+  else await document.exitFullscreen();
+});
+
+// ---------- INIZIO PARTITA ----------
 const nick = localStorage.getItem("selectedNick");
 const char = localStorage.getItem("selectedChar");
-
-// Guard: evita join multipli
-let joined1v1 = false;
-function tryJoin1v1() {
-  if (!joined1v1 && nick && char) {
-    socket.emit("join1vs1", { nick, char });
-    joined1v1 = true;
-  }
-}
-tryJoin1v1();
-
-// ---------- STATO ----------
-let currentGame = null; // { id, me, opp }
-let timer = 10;
-let countdownInterval = null;
-let inRevealPhase = false;
-
-// timer container
-const timerContainer = document.createElement("div");
-timerContainer.id = "timer-container";
-timerContainer.textContent = timer;
-document.getElementById("battle-area").appendChild(timerContainer);
-
-// ---------- CREATE BUTTONS ----------
-function createChoiceButtons(playerBox, playerId) {
-  const container = document.createElement("div");
-  container.className = "choice-buttons";
-  container.id = `choice-buttons-${playerId}`;
-  container.innerHTML = `
-    <button class="choice-btn water">💧</button>
-    <button class="choice-btn wood">🪵</button>
-    <button class="choice-btn fire">🔥</button>
-  `;
-  playerBox.appendChild(container);
-  return {
-    water: container.querySelector(".water"),
-    wood: container.querySelector(".wood"),
-    fire: container.querySelector(".fire")
-  };
-}
-const buttonsMap = { p1: createChoiceButtons(player1Box,"p1"), p2: createChoiceButtons(player2Box,"p2") };
-
-// click handlers
-Object.entries(buttonsMap).forEach(([player, btns]) => {
-  Object.entries(btns).forEach(([choice, btn]) => {
-    btn.addEventListener("click", () => {
-      if (inRevealPhase) return;
-      if (!currentGame) return;
-      if (stunnedMe()) return;
-      socket.emit("selectChoice", { gameId: currentGame.id, choice });
-      addEventMessageSingle("you", `You chose ${choice.toUpperCase()}`);
-      disableButtons("p1"); disableButtons("p2");
-    });
-  });
+socket.emit("join1vs1", { nick, char }, roomId => {
+  socket.roomId = roomId;
 });
 
-function stunnedMe() {
-  return !!currentGame?.me?.stunned;
-}
+// ---------- GESTIONE STUN ----------
+let stunned = { p1: false, p2: false };
 
 // ---------- SOCKET EVENTS ----------
-socket.on("onlineCount", count => {
-  onlineCountDisplay.textContent = `Online: ${count}`;
-  tryJoin1v1();
-});
-
+socket.on("onlineCount", count => onlineCountDisplay.textContent = `Online: ${count}`);
 socket.on("waiting", msg => addEventMessageSingle("system", msg));
-socket.on("log", msg => addEventMessageSingle("system", msg));
 
-// --- scelta 1vs1
-socket.on("gameStart", (gameId, payload) => {
-  currentGame = { id: gameId, me: payload.me, opp: payload.opp };
-  inRevealPhase=false;
-  updateUI();
+socket.on("gameStart", (roomId, game) => {
+  socket.roomId = roomId;
+  updateGame(game);
 });
 
-socket.on("roundStart", ({ gameId, timer })=>{
-  if(!currentGame || currentGame.id!==gameId) return;
-  inRevealPhase=false;
-  currentGame.me.choice=null;
-  currentGame.opp.choice=null;
-  startTurnTimer(timer);
-  enableButtons("p1");
+socket.on("1vs1Update", (roomId, game) => {
+  if (roomId === socket.roomId) updateGame(game);
 });
 
-socket.on("1vs1Update", (gameId, payload)=>{
-  if(!currentGame || currentGame.id!==gameId) return;
-  currentGame.me = payload.player1.id===currentGame.me.id?payload.player1:payload.player2;
-  currentGame.opp = payload.player1.id!==currentGame.me.id?payload.player1:payload.player2;
-  inRevealPhase=true;
-  updateUI(true);
+socket.on("gameOver", (roomId, { winnerNick, winnerChar }) => {
+  if (roomId === socket.roomId) {
+    // Forza sempre il messaggio del vincitore
+    addEventMessageWinner(`🏆 ${winnerNick} has won the battle!`);
+    playWinnerMusic(winnerChar);
+  }
 });
 
-socket.on("choiceAck", ({ choice })=>{
-  addEventMessageSingle("you", `Choice confirmed: ${choice.toUpperCase()}`);
-  disableButtons("p1");
+// ---------- CHAT ----------
+chatInput.addEventListener("keydown", e => {
+  if(e.key === "Enter" && e.target.value.trim() !== "" && socket.roomId) {
+    socket.emit("chatMessage", { roomId: socket.roomId, text: e.target.value });
+    e.target.value = "";
+  }
 });
 
-socket.on("gameOver", (gameId, data)=>{
-  if(data.draw) addEventMessageWinner("🏳️ Draw!");
-  else addEventMessageWinner(`🏆 ${data.winnerNick} has won!`);
-  disableButtons("p1");
+socket.on("chatMessage", data => {
+  if (data.roomId === socket.roomId) {
+    addChatMessage(`${data.nick}: ${data.text}`);
+  }
 });
 
-// --- funzione UI aggiornata
-function updateUI(reveal=false){
-  const maxHp=80;
-  const me=currentGame.me, opp=currentGame.opp;
-  player1Name.textContent = `${me.nick} (${me.char}) HP: ${me.hp}/${maxHp}`;
-  player2Name.textContent = `${opp.nick} (${opp.char}) HP: ${opp.hp}/${maxHp}`;
+// ---------- FUNZIONI ----------
+function updateGame(game) {
+  const maxHp = 80;
+  const hp1 = Math.min(game.player1.hp, maxHp);
+  const hp2 = Math.min(game.player2.hp, maxHp);
 
-  // animazione HP
-  player1HpBar.style.transition="width 0.5s";
-  player2HpBar.style.transition="width 0.5s";
-  player1HpBar.style.width=`${(me.hp/maxHp)*100}%`;
-  player2HpBar.style.width=`${(opp.hp/maxHp)*100}%`;
-  player1HpBar.style.background=getHpColor(me.hp/maxHp*100);
-  player2HpBar.style.background=getHpColor(opp.hp/maxHp*100);
+  player1Name.textContent = `${game.player1.nick} (${game.player1.char}) HP: ${hp1}/${maxHp}`;
+  player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${hp2}/${maxHp}`;
 
-  player1CharImg.src=getCharImage(me.char, me.hp);
-  player2CharImg.src=getCharImage(opp.char, opp.hp);
+  // --- HP BAR WIDTH ---
+  const hpPercent1 = (hp1 / maxHp) * 100;
+  const hpPercent2 = (hp2 / maxHp) * 100;
 
-  if(reveal){
-    rollDiceAnimation(diceP1, me.lastDamage||1);
-    rollDiceAnimation(diceP2, opp.lastDamage||1);
-    addEventMessageSingle("result", `${me.nick} chose: ${me.choice||"NONE"}`);
-    addEventMessageSingle("result", `${opp.nick} chose: ${opp.choice||"NONE"}`);
-    disableButtons("p1");
+  player1HpBar.style.width = `${hpPercent1}%`;
+  player2HpBar.style.width = `${hpPercent2}%`;
+
+  // --- HP BAR COLOR DYNAMIC ---
+  player1HpBar.style.background = getHpColor(hpPercent1);
+  player2HpBar.style.background = getHpColor(hpPercent2);
+
+  if(game.player1.dice) handleDice(0, game);
+  if(game.player2.dice) handleDice(1, game);
+
+  updateCharacterImage(game.player1, 0);
+  updateCharacterImage(game.player2, 1);
+}
+
+// --- Funzione colore dinamico ---
+function getHpColor(percent) {
+  if (percent > 60) {
+    return "linear-gradient(90deg, green, lime)";
+  } else if (percent > 30) {
+    return "linear-gradient(90deg, yellow, orange)";
   } else {
-    rollDiceAnimation(diceP1,1);
-    rollDiceAnimation(diceP2,1);
-    if(!me.stunned) enableButtons("p1");
+    return "linear-gradient(90deg, red, darkred)";
   }
 }
 
-// ---------- HELPERS ----------
-function getCharImage(char, hp=100) {
-  if (!char) return "img/unknown.png";
-  let suffix = hp<=0?"0":hp<=20?"20":hp<=40?"40":hp<=60?"60":"";
-  return `img/${char.replace(/\s/g,"")}${suffix}.png`;
+function handleDice(playerIndex, game) {
+  const player = playerIndex === 0 ? game.player1 : game.player2;
+  const opponentIndex = playerIndex === 0 ? 1 : 0;
+  const opponent = opponentIndex === 0 ? game.player1 : game.player2;
+
+  let finalDmg = player.dice;
+
+  // Se il player è stunnato → danno ridotto di 1
+  const isPlayerStunned = (playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2);
+  if (isPlayerStunned) {
+    finalDmg = Math.max(0, player.dice - 1);
+    addEventMessageSingle(player.nick, `${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
+    if (playerIndex === 0) stunned.p1 = false;
+    else stunned.p2 = false;
+  } 
+  // Se il player fa CRIT → stunna l’avversario
+  else if (player.dice === 8) {
+    addEventMessageSingle(player.nick, `${player.nick} CRIT! ${player.dice} damage dealt ⚡💥`);
+    if (playerIndex === 0) stunned.p2 = true;
+    else stunned.p1 = true;
+  } 
+  else {
+    addEventMessageSingle(player.nick, `${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);
+  }
+
+  showDice(playerIndex, player.dice);
 }
 
-function rollDiceAnimation(el, finalRoll) {
-  let count = 0;
-  const totalFrames = 15;
-  const interval = setInterval(()=>{
-    count++;
-    const rand = Math.ceil(Math.random()*6);
-    el.style.transform = `rotate(${Math.random()*40-20}deg)`;
-    el.src = `img/dice${rand}.png`;
-    if(count>=totalFrames){
-      clearInterval(interval);
-      el.src = `img/dice${finalRoll}.png`;
-      el.style.transform = "rotate(0deg)";
-    }
-  },40);
+
+function showDice(playerIndex, value){
+  const diceEl = playerIndex === 0 ? diceP1 : diceP2;
+  diceEl.src = `img/dice${value}.png`;
+  diceEl.style.width = "80px";
+  diceEl.style.height = "80px";
 }
 
-function enableButtons(player){
-  const btns = buttonsMap[player];
-  if(!btns) return;
-  Object.values(btns).forEach(btn=>{btn.disabled=false; btn.classList.remove("disabled");});
-  document.getElementById(`choice-buttons-${player}`).classList.add("active");
+function updateCharacterImage(player,index){
+  let hp = Math.min(player.hp, 80);
+  let src = `img/${player.char}`;
+  if(hp<=0) src+='0';
+  else if(hp<=20) src+='20';
+  else if(hp<=40) src+='40';
+  else if(hp<=60) src+='60';
+  src+='.png';
+  if(index===0) player1CharImg.src=src;
+  else player2CharImg.src=src;
 }
 
-function disableButtons(player){
-  const btns = buttonsMap[player];
-  if(!btns) return;
-  Object.values(btns).forEach(btn=>{btn.disabled=true; btn.classList.add("disabled");});
-  document.getElementById(`choice-buttons-${player}`).classList.remove("active");
-}
+// ---------- DOPPI EVENTI PER SINGOLO GIOCATORE ----------
+const lastEventMessagesPerPlayer = {};
+function addEventMessageSingle(playerNick, text) {
+  if (lastEventMessagesPerPlayer[playerNick] === text) return;
+  lastEventMessagesPerPlayer[playerNick] = text;
 
-function startTurnTimer(seconds=10){
-  if(countdownInterval) clearInterval(countdownInterval);
-  let t=seconds;
-  timerContainer.textContent=t;
-  countdownInterval = setInterval(()=>{
-    t--;
-    timerContainer.textContent=t;
-    if(t<=0){clearInterval(countdownInterval); countdownInterval=null;}
-  },1000);
-}
-
-function addEventMessageSingle(playerNick,text){
-  const msg = document.createElement("div");
-  msg.textContent = `[${playerNick}] ${text}`;
-  eventBox.appendChild(msg);
-  eventBox.scrollTop = eventBox.scrollHeight;
-}
-
-function addEventMessageWinner(text){
   const msg = document.createElement("div");
   msg.textContent = text;
   eventBox.appendChild(msg);
   eventBox.scrollTop = eventBox.scrollHeight;
 }
 
-function addChatMessage(text){
+// ---------- MESSAGGIO VINCITORE (FORZATO) ----------
+function addEventMessageWinner(text) {
+  const msg = document.createElement("div");
+  msg.textContent = text;
+  eventBox.appendChild(msg);
+  eventBox.scrollTop = eventBox.scrollHeight;
+}
+
+// ---------- CHAT ----------
+function addChatMessage(text) {
   const msg = document.createElement("div");
   msg.textContent = text;
   chatMessages.appendChild(msg);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-function getHpColor(percent){
-  if(percent>60) return "linear-gradient(90deg, green, lime)";
-  if(percent>30) return "linear-gradient(90deg, yellow, orange)";
-  return "linear-gradient(90deg, red, darkred)";
+// ---------- AUDIO VINCITORE ----------
+function playWinnerMusic(winnerChar) {
+  // stoppa musica battaglia
+  musicBattle.pause();
+  musicBattle.currentTime = 0;
+
+  winnerMusic.src = `img/${winnerChar}.mp3`;
+  winnerMusic.play().catch(err => console.log("⚠️ Audio non avviato automaticamente:", err));
 }
 
+// ---------- FIX SCROLL MOBILE ----------
 document.body.style.overflowY = "auto";

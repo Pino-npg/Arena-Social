@@ -17,76 +17,159 @@ header {
   margin-bottom: 10px;
   padding: 0 20px;
 }
-#header-left, #header-right { display:flex; align-items:center; gap:10px; }
-#online-count { font-size:1.2rem; color:white; text-shadow:1px 1px 4px black; }
-#home-btn, #trophy-btn, #fullscreen-btn {
-  font-size:1.5rem; cursor:pointer; background:transparent; border:none; color:white; transition:color 0.3s;
+
+#header-left, #header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
-#home-btn:hover, #trophy-btn:hover, #fullscreen-btn:hover { color:gold; }
-.arena-title { font-size:3rem; color:white; text-shadow:2px 2px 8px black; text-align:center; }
+
+#online-count {
+  font-size: 1.2rem;
+  color: white;
+  text-shadow: 1px 1px 4px black;
+}
+
+#home-btn, #trophy-btn {
+  font-size: 1.5rem;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: white;
+  transition: color 0.3s;
+}
+#home-btn:hover, #trophy-btn:hover {
+  color: gold;
+}
+
+.arena-title {
+  font-size: 3rem;
+  color: white;
+  text-shadow: 2px 2px 8px black;
+  text-align: center;
+}
 
 /* -------- MAIN AREA -------- */
-#main-area { display:flex; flex-direction:column; align-items:center; width:100%; flex-grow:1; gap:20px; padding:0 10px; }
-#battle-area { display:flex; flex-wrap:wrap; justify-content:center; gap:20px; width:100%; }
-
-/* -------- TIMER -------- */
-#turn-timer {
-  font-size:2rem; color: gold; text-shadow:2px 2px 6px black; margin-top:10px; text-align:center; font-weight:bold;
-  display:block;
+#main-area { 
+  display:flex; flex-direction:column; align-items:center; width:100%; flex-grow:1; gap:20px; padding:0 10px; 
+}
+#battle-area { 
+  display:flex; flex-wrap:wrap; justify-content:center; gap:20px; width:100%; 
 }
 
 /* -------- SIDE BOXES -------- */
-#bottom-area { width:100%; display:flex; gap:10px; padding:10px; background:rgba(0,0,0,0.6); border-top:1px solid #444; }
-.side-box { flex:1; background:#222; border:1px solid #444; padding:8px; display:flex; flex-direction:column; max-height:12em; overflow:hidden; }
+#bottom-area { 
+  width:100%; display:flex; gap:10px; padding:10px; background:rgba(0,0,0,0.6); border-top:1px solid #444;
+}
+.side-box { 
+  flex:1; background:#222; border:1px solid #444; padding:8px; display:flex; flex-direction:column; max-height:12em; 
+  overflow:hidden;
+}
 .side-box h3 { margin:0 0 5px 0; font-size:0.9rem; text-align:center; }
-#chat-messages, #event-messages { flex:1; overflow-y:auto; font-size:0.85rem; display:flex; flex-direction:column; gap:2px; padding:2px; }
-#chat-input { border:none; padding:4px; font-size:0.85rem; outline:none; margin-top:5px; background:#333; color:white; height:1.8em; }
+#chat-messages, #event-messages { 
+  flex:1; overflow-y:auto; font-size:0.85rem; display:flex; flex-direction:column; gap:2px; padding:2px; 
+}
+#chat-input { 
+  border:none; padding:4px; font-size:0.85rem; outline:none; margin-top:5px; background:#333; color:white; height:1.8em; 
+}
 
 /* -------- PLAYER BOX -------- */
-.match-container { display:flex; justify-content:center; align-items:flex-end; gap:20px; width:100%; flex-wrap:wrap; }
-.player { display:flex; flex-direction:column; align-items:center; width:45%; position:relative; background:rgba(0,0,0,0.4); padding:5px; border-radius:8px; }
+.match-container { 
+  display:flex; justify-content:center; align-items:flex-end; gap:20px; width:100%; flex-wrap:wrap; 
+}
+.player { 
+  display:flex; flex-direction:column; align-items:center; width:45%; position:relative; background:rgba(0,0,0,0.4); padding:5px; border-radius:8px;
+}
 .player img.char-img { width:180px; max-width:100%; object-fit:contain; margin-top:10px; transition: transform 0.3s; }
-.player-label { text-align:center; font-size:1.5rem; margin-bottom:5px; color:gold; text-shadow:1px 1px 4px black; }
-.hp-bar { width:100%; height:20px; background:#444; border:2px solid #222; border-radius:5px; overflow:hidden; margin-top:10px; position:relative; }
-.hp { height:100%; width:100%; background:linear-gradient(90deg,green,lime); transition:width 0.4s ease-in-out, background 0.4s ease-in-out, box-shadow 0.4s ease-in-out; border-radius:3px; box-shadow:0 0 10px rgba(0,255,0,0.3); }
-.hp.low { background:linear-gradient(90deg, red, orange); box-shadow:0 0 20px rgba(255,0,0,0.7); }
-.hp.damaged { animation: hpFlash 0.4s ease; }
-@keyframes hpFlash { 0%,100%{filter:brightness(1);} 50%{filter:brightness(2);} }
-
-.dice { width:60px; height:60px; margin-top:10px; transition: transform 0.2s; }
-.dice.roll { animation: diceRoll 0.5s; }
-@keyframes diceRoll { 0%{transform:rotate(0deg);} 50%{transform:rotate(180deg);} 100%{transform:rotate(360deg);} }
+.player-label { 
+  text-align:center; font-size:1.5rem; margin-bottom:5px; color:gold; text-shadow:1px 1px 4px black; 
+}
+.hp-bar { 
+  width:100%; height:20px; background:#444; border:2px solid #222; border-radius:5px; overflow:hidden; margin-top:10px; 
+}
+.hp { 
+  height:100%; width:100%; background:linear-gradient(90deg,green,lime); transition:width 0.3s ease-in-out; 
+}
+.dice { width:60px; height:60px; margin:10px auto; }
 
 /* -------- WINNER IMAGE -------- */
 #winnerImage {
-  display:none; max-width:90%; height:auto; margin:20px auto; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:2000; pointer-events:none;
+  display:none;
+  max-width:90%;
+  height:auto;
+  margin:20px auto;
+  position:fixed;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  z-index:2000;
+  pointer-events:none;
 }
 
 /* -------- OVERLAY / BRACKET -------- */
-#tournament-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:flex; justify-content:center; align-items:center; z-index:1000; overflow-y:auto; padding:20px; }
+#tournament-overlay { 
+  position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); 
+  display:flex; justify-content:center; align-items:center; z-index:1000; 
+  overflow-y:auto; padding:20px;
+}
 #tournament-overlay.hidden { display:none; }
-#tournament-board { background:#111; padding:20px; border:2px solid gold; width:100%; max-width:800px; text-align:center; border-radius:10px; }
+#tournament-board { 
+  background:#111; padding:20px; border:2px solid gold; width:100%; max-width:800px; text-align:center; border-radius:10px;
+}
 #bracket { display:flex; flex-direction:column; gap:10px; margin-top:10px; max-height:60vh; overflow-y:auto; }
 #close-overlay { margin-top:10px; font-size:1.2rem; padding:5px 10px; cursor:pointer; background:#333; color:white; border:none; border-radius:5px; }
 #close-overlay:hover { background:gold; color:black; }
 
-/* -------- EVENT ANIMATIONS -------- */
-@keyframes effectFade { 0%{opacity:1; transform:translate(-50%,-50%) translateY(0);} 100%{opacity:0; transform:translate(-50%,-50%) translateY(-30px);} }
-.event-effect { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:2rem; pointer-events:none; animation:effectFade 1s forwards; }
+/* -------- ANIMAZIONI EVENTI -------- */
+@keyframes effectFade {
+  0% { opacity:1; transform: translate(-50%,-50%) translateY(0); }
+  100% { opacity:0; transform: translate(-50%,-50%) translateY(-30px); }
+}
+.event-effect {
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  font-size:2rem; pointer-events:none;
+  animation: effectFade 1s forwards;
+}
 
 /* -------- MOBILE / RESPONSIVE -------- */
 @media (max-width:768px){
   #bottom-area { flex-direction:column; }
   .side-box { max-width:100%; max-height:8em; }
-  .match-container { flex-wrap: wrap; justify-content: space-between; gap:8px; }
-  .player { flex: 1 1 45%; min-width:140px; max-width:48%; }
+
+  .match-container {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .player {
+    flex: 1 1 45%;    /* metà schermo */
+    min-width: 140px; /* evita troppo stretto */
+    max-width: 48%;
+  }
+
   .player img.char-img { width:130px; }
   .player-label { font-size:1.1rem; }
   .dice { width:50px; height:50px; }
 }
+
+/* MOBILE LANDSCAPE LARGHI */
 @media (min-width:414px) and (max-width:768px) and (orientation: landscape){
-  .match-container { flex-wrap: wrap; justify-content: space-evenly; }
-  .player { flex: 1 1 40%; max-width:40%; min-width:140px; }
+  .match-container {
+    flex-wrap: wrap;
+    justify-content: space-evenly;
+  }
+  .player { 
+    flex: 1 1 40%; 
+    max-width:40%; 
+    min-width:140px; 
+  }
   .player img.char-img { width:140px; }
   .player-label { font-size:1.2rem; }
+}
+/* -------- HP BAR DINAMICA -------- */
+.hp {
+  height: 100%;
+  transition: width 0.5s ease-in-out, background 0.5s ease-in-out;
+  border-radius: 3px;
 }

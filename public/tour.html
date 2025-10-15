@@ -3,38 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tournament</title>
+<title>Tournament Arena 8</title>
 <link rel="stylesheet" href="tour.css">
 </head>
 <body class="fight">
   <div id="game-container">
-    <!-- HEADER -->
     <header>
       <div id="header-left">
         <span id="online-count">Online: 0</span>
         <button id="home-btn">🏠</button>
       </div>
-
-      <h1 class="arena-title">Tournament</h1>
-
+    
+      <h1 class="arena-title">Tournament 8 Arena</h1>
+    
       <div id="header-right">
         <button id="trophy-btn">🏆</button>
         <button id="fullscreen-btn">⛶</button>
       </div>
     </header>
 
-    <!-- MAIN AREA -->
     <div id="main-area">
-
-      <!-- TIMER -->
-      <div id="turn-timer">10</div>
-
-      <!-- AREA BATTAGLIA -->
       <div id="battle-area">
-        <!-- Match generati dinamicamente -->
+        <!-- Placeholder dinamico per 4 match dei quarti -->
       </div>
 
-      <!-- CHAT + EVENTI -->
       <div id="bottom-area">
         <div class="side-box" id="chat-box">
           <h3>Global Chat</h3>
@@ -50,7 +42,7 @@
     </div>
   </div>
 
-  <!-- OVERLAY TABELLONE -->
+  <!-- Overlay Tabellone -->
   <div id="tournament-overlay" class="hidden">
     <div id="tournament-board">
       <h2>🏆 Tournament Bracket</h2>
@@ -58,9 +50,6 @@
       <button id="close-overlay">Close</button>
     </div>
   </div>
-
-  <!-- WINNER IMAGE -->
-  <img id="winnerImage" src="" alt="Winner">
 
 <script type="module" src="tour.js"></script>
 </body>

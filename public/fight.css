@@ -33,7 +33,7 @@ header {
 #topLeftUI {
   position: absolute;
   top: 10px;
-  left: 10px;
+  left: 10px;  /* SINISTRA */
   display: flex;
   gap: 10px;
 }
@@ -59,16 +59,16 @@ header {
 /* -------- MAIN AREA -------- */
 #main-area {
   display: flex;
-  flex-direction: column;
+  flex-direction: column; /* battle sopra, chat/events sotto */
   align-items: center;
   width: 100%;
   flex-grow: 1;
-  gap: 30px;
+  gap: 20px;
 }
 
 /* -------- CHAT + EVENTI -------- */
 #bottom-area {
-  position: relative;
+  position: relative; /* non più absolute */
   width: 100%;
   display: flex;
   gap: 10px;
@@ -84,7 +84,7 @@ header {
   padding: 5px;
   display: flex;
   flex-direction: column;
-  max-height: 9em;
+  max-height: 7em; /* ≈ 5 righe di testo */
 }
 
 .side-box h3 {
@@ -98,10 +98,10 @@ header {
   overflow-y: auto;
   font-size: 0.85rem;
   display: flex;
-  flex-direction: column;
+  flex-direction: column; /* non più reverse */
 }
 
-/* Chat input */
+/* Chat input dentro il box */
 #chat-input {
   border: none;
   padding: 4px;
@@ -110,47 +110,48 @@ header {
   margin-top: 5px;
   background: #333;
   color: white;
-  height: 1.8em;
+  height: 1.8em; /* sempre una riga */
 }
 
 /* -------- BATTLE -------- */
 #battle-area {
   flex: 1;
   display: flex;
-  justify-content: space-around;
+  justify-content: center;
   align-items: flex-end;
   width: 100%;
   position: relative;
-  margin-bottom: 180px;
+  margin-bottom: 180px; /* spazio per chat+eventi */
 }
+
 
 .player {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 45%;
+  width: 50%;
   position: relative;
 }
 
 .dice {
-  width: 100px;
-  height: 100px;
-  margin: 15px auto;
+  width: 80px;
+  height: 80px;
+  margin: 10px auto;
   order: 1;
 }
 
 .player img {
-  width: 320px;
+  width: 360px;
   max-width: 100%;
   object-fit: contain;
   order: 2;
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
 /* HP bar */
 .hp-bar {
   width: 100%;
-  height: 22px;
+  height: 20px;
   background: #444;
   border: 2px solid #222;
   border-radius: 5px;
@@ -161,8 +162,7 @@ header {
   height: 100%;
   width: 100%;
   background: linear-gradient(90deg, green, lime);
-  transition: width 0.5s ease-in-out, background 0.5s ease-in-out;
-  border-radius: 3px;
+  transition: width 0.3s ease-in-out;
 }
 
 /* Player label */
@@ -174,91 +174,7 @@ header {
   text-shadow: 1px 1px 4px black;
 }
 
-/* -------- SCELTA ATTACCO (ACQUA / LEGNO / FUOCO) -------- */
-.choice-buttons {
-  display: none;
-  position: absolute;
-  bottom: 140px; /* sopra i dadi */
-  left: 50%;
-  transform: translateX(-50%);
-  width: 180px;
-  height: 140px;
-  justify-content: center;
-  align-items: center;
-}
-
-.choice-buttons.active {
-  display: flex !important;
-  animation: fadeIn 0.4s ease-in-out;
-}
-
-.choice-btn {
-  position: absolute;
-  width: 75px;
-  height: 75px;
-  font-size: 2.2rem;
-  border-radius: 50%;
-  border: 2px solid gold;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-/* disposizione scelta attacchi sopra i dadi */
-.choice-btn.fire  { top: 0; left: 50%; transform: translateX(-50%); }
-.choice-btn.wood  { bottom: 0; left: 0; }
-.choice-btn.water { bottom: 0; right: 0; }
-
-.choice-btn:hover:not(.disabled) {
-  background: rgba(255, 215, 0, 0.8);
-  transform: scale(1.1);
-}
-
-.choice-btn.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.9); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-/* -------- TIMER CENTRALE -------- */
-#timer-container {
-  position: absolute;
-  bottom: calc(50% + 50px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.6);
-  border: 2px solid gold;
-  border-radius: 50%;
-  width: 80px;
-  height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2.2rem;
-  color: gold;
-  text-shadow: 2px 2px 8px black;
-}
-
-/* -------- ALTRI DETTAGLI -------- */
-#homeBtn {
-  background: rgba(0,0,0,0.6);
-  color: gold;
-  border: 1px solid gold;
-  padding: 5px 10px;
-  cursor: pointer;
-  font-size: 1.2rem;
-  border-radius: 4px;
-}
-#homeBtn:hover {
-  background: rgba(255, 215, 0, 0.3);
-}
-
-/* Mobile */
+/* Mobile: chat/eventi uno sopra l’altro */
 @media (max-width: 768px) {
   #bottom-area {
     flex-direction: column;
@@ -266,19 +182,11 @@ header {
   .side-box {
     max-width: 100%;
   }
-  .player img { width: 90%; }
-  .choice-buttons { width: 140px; height: 120px; bottom: 120px; }
-  .choice-btn { width: 60px; height: 60px; font-size: 1.8rem; }
-  .dice { width: 80px; height: 80px; margin: 10px auto; }
 }
 
-/* Scroll bar visiva nei box */
-#chat-messages::-webkit-scrollbar,
-#event-messages::-webkit-scrollbar {
-  width: 6px;
-}
-#chat-messages::-webkit-scrollbar-thumb,
-#event-messages::-webkit-scrollbar-thumb {
-  background: gold;
+/* -------- HP BAR DINAMICA -------- */
+.hp {
+  height: 100%;
+  transition: width 0.5s ease-in-out, background 0.5s ease-in-out;
   border-radius: 3px;
 }

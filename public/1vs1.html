@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>1vs1</title>
+<title>1vs1 Inferno Arena</title>
 <link rel="stylesheet" href="fight.css">
 </head>
 <body class="fight">
@@ -14,7 +14,10 @@
         <button id="homeBtn">🏠</button>
       </div>
 
-      <h1 class="arena-title">1vs1</h1>
+      <h1 class="arena-title">1vs1 Arena</h1>
+      <div id="onlineContainer" style="display: inline-block; margin-left: 20px;">
+        
+      </div>
       <button id="fullscreen-btn">⛶</button>
     </header>
 
@@ -23,16 +26,20 @@
       <div id="battle-area">
         <div class="player" id="player1">
           <div class="player-label" id="player1-label">
-            <span id="player1-nick"></span>
+            <span id="player1-nick"></span> 
+            <span id="player1-name"></span>
           </div>
           <img id="player1-char" src="" alt="player1">
           <div class="hp-bar"><div id="player1-hp" class="hp"></div></div>
           <img id="dice-p1" class="dice" src="img/dice1.png" alt="dice">
         </div>
 
+
+    
         <div class="player" id="player2">
           <div class="player-label" id="player2-label">
-            <span id="player2-nick"></span>
+            <span id="player2-nick"></span>  
+            <span id="player2-name"></span>
           </div>
           <img id="player2-char" src="" alt="player2">
           <div class="hp-bar"><div id="player2-hp" class="hp"></div></div>
@@ -54,31 +61,7 @@
         </div>
       </div>
     </div>
-  </div>
 
-  <script type="module">
-    import { io } from "https://cdn.socket.io/4.7.5/socket.io.esm.min.js";
-    const socket = io();
-
-    // ---------- ONLINE ----------
-    const onlineCountDisplay = document.getElementById("onlineCount");
-    socket.on("onlineCount", count => {
-      onlineCountDisplay.textContent = "Online: " + count;
-    });
-
-    // ---------- HOME BUTTON ----------
-    document.getElementById("homeBtn").addEventListener("click", () => {
-      window.location.href = "/"; // torna alla home
-    });
-
-    // ---------- SELEZIONE NICK E CHAR ----------
-    const nick = localStorage.getItem("selectedNick");
-    const char = localStorage.getItem("selectedChar");
-    socket.emit("join1vs1", { nick, char });
-
-    // ---------- (Qui inserire il resto del fight.js) ----------
-    // Puoi continuare a importare fight.js o incollare direttamente il contenuto
-    import("./fight.js");
-  </script>
+  <script type="module" src="fight.js"></script>
 </body>
 </html>
