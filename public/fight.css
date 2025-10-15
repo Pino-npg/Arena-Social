@@ -37,7 +37,7 @@ header {
   display: flex;
   gap: 10px;
 }
-#online-count {
+#onlineCount {
   font-size: 1.2rem;
   color: white;
   text-shadow: 1px 1px 4px black;
@@ -51,7 +51,21 @@ header {
   color: white;
   transition: color 0.3s;
 }
+#fullscreen-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
+#fullscreen-btn {
+  cursor: pointer;
+  font-size: 2rem;
+  transition: transform 0.2s, color 0.2s;
+}
+#fullscreen-btn:hover { transform: scale(1.2); color: gold; }
 .arena-title {
   font-size: 3rem;
   color: white;
