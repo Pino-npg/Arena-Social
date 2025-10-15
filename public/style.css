@@ -59,7 +59,7 @@ body.fight #game-container {
   background: crimson;
   color: white;
   border-radius: 5px;
-  font-size: 1rem;
+  font-size: 1.5rem;
   text-decoration: none;
   transition: background 0.2s, transform 0.2s;
 }
@@ -79,7 +79,7 @@ body.fight #game-container {
 
 #fullscreen-btn {
   cursor: pointer;
-  font-size: 1.5rem;
+  font-size: 2rem;
   transition: transform 0.2s, color 0.2s;
 }
 #fullscreen-btn:hover { transform: scale(1.2); color: gold; }
@@ -159,7 +159,7 @@ body.fight #game-container {
 /* -------- MODE -------- */
 #mode-box { margin: 20px 0; }
 #mode-box button {
-  margin: 5px; padding: 10px 20px; font-size: 1rem;
+  margin: 5px; padding: 10px 20px; font-size: 2rem;
   border-radius: 5px; border: none; background: #444;
   color: rgb(235, 11, 11); cursor: pointer; transition: background 0.2s;
 }
@@ -186,6 +186,6 @@ body.fight #game-container {
 
 /* -------- RESPONSIVE -------- */
 @media (max-width: 768px) {
-  .arena-title { font-size: 2rem; }
+  .arena-title { font-size: 2.5rem; }
   .char-grid { grid-template-columns: repeat(2, 1fr); }
 }
