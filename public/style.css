@@ -46,7 +46,7 @@ body.fight #game-container {
   top: 20px;
   left: 20px;
   cursor: pointer;
-  font-size: 1.5rem;
+  font-size: 2rem;
   transition: transform 0.2s, color 0.2s;
 }
 #rules-btn:hover { transform: scale(1.2); color: gold; }
@@ -161,7 +161,7 @@ body.fight #game-container {
 #mode-box button {
   margin: 5px; padding: 10px 20px; font-size: 1rem;
   border-radius: 5px; border: none; background: #444;
-  color: white; cursor: pointer; transition: background 0.2s;
+  color: rgb(235, 11, 11); cursor: pointer; transition: background 0.2s;
 }
 #mode-box button:hover:enabled { background: #666; }
 #mode-box button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -180,7 +180,7 @@ body.fight #game-container {
 .rules-content h2 { margin-bottom: 10px; color: gold; }
 .rules-content button {
   margin-top: 15px; padding: 8px 15px; border: none; background: crimson;
-  color: white; border-radius: 5px; cursor: pointer;
+  color: white; border-radius: 8px; cursor: pointer;
 }
 .rules-content button:hover { background: darkred; }
 
