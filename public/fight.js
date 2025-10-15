@@ -84,6 +84,7 @@ socket.on("gameOver", (roomId, { winnerNick, winnerChar }) => {
 });
 
 // ---------- CHAT ----------
+const currentRoomId = socket.roomId;
 chatInput.addEventListener("keydown", e => {
   if(e.key === "Enter" && e.target.value.trim() !== "" && socket.roomId) {
     socket.emit("chatMessage", { roomId: socket.roomId, text: e.target.value });
@@ -98,6 +99,9 @@ socket.on("chatMessage", data => {
 });
 
 // ---------- FUNZIONI ----------
+// ---------- FUNZIONI ----------
+const lastDicePerPlayer = { p1: null, p2: null };
+
 function updateGame(game) {
   const maxHp = 80;
   const hp1 = Math.min(game.player1.hp, maxHp);
@@ -117,8 +121,15 @@ function updateGame(game) {
   player1HpBar.style.background = getHpColor(hpPercent1);
   player2HpBar.style.background = getHpColor(hpPercent2);
 
-  if(game.player1.dice) handleDice(0, game);
-  if(game.player2.dice) handleDice(1, game);
+  // --- DADI SOLO SE NUOVI ---
+  if(game.player1.dice !== undefined && game.player1.dice !== lastDicePerPlayer.p1) {
+    handleDice(0, game);
+    lastDicePerPlayer.p1 = game.player1.dice;
+  }
+  if(game.player2.dice !== undefined && game.player2.dice !== lastDicePerPlayer.p2) {
+    handleDice(1, game);
+    lastDicePerPlayer.p2 = game.player2.dice;
+  }
 
   updateCharacterImage(game.player1, 0);
   updateCharacterImage(game.player2, 1);
