@@ -78,7 +78,6 @@ socket.on("1vs1Update", (roomId, game) => {
 
 socket.on("gameOver", (roomId, { winnerNick, winnerChar }) => {
   if (roomId === socket.roomId) {
-    // Forza sempre il messaggio del vincitore
     addEventMessageWinner(`🏆 ${winnerNick} has won the battle!`);
     playWinnerMusic(winnerChar);
   }
@@ -125,25 +124,18 @@ function updateGame(game) {
   updateCharacterImage(game.player2, 1);
 }
 
-// --- Funzione colore dinamico ---
+// --- Colore dinamico HP ---
 function getHpColor(percent) {
-  if (percent > 60) {
-    return "linear-gradient(90deg, green, lime)";
-  } else if (percent > 30) {
-    return "linear-gradient(90deg, yellow, orange)";
-  } else {
-    return "linear-gradient(90deg, red, darkred)";
-  }
+  if (percent > 60) return "linear-gradient(90deg, green, lime)";
+  else if (percent > 30) return "linear-gradient(90deg, yellow, orange)";
+  else return "linear-gradient(90deg, red, darkred)";
 }
 
 function handleDice(playerIndex, game) {
   const player = playerIndex === 0 ? game.player1 : game.player2;
-  const opponentIndex = playerIndex === 0 ? 1 : 0;
-  const opponent = opponentIndex === 0 ? game.player1 : game.player2;
 
   let finalDmg = player.dice;
 
-  // Se il player è stunnato → danno ridotto di 1
   const isPlayerStunned = (playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2);
   if (isPlayerStunned) {
     finalDmg = Math.max(0, player.dice - 1);
@@ -151,7 +143,6 @@ function handleDice(playerIndex, game) {
     if (playerIndex === 0) stunned.p1 = false;
     else stunned.p2 = false;
   } 
-  // Se il player fa CRIT → stunna l’avversario
   else if (player.dice === 8) {
     addEventMessageSingle(player.nick, `${player.nick} CRIT! ${player.dice} damage dealt ⚡💥`);
     if (playerIndex === 0) stunned.p2 = true;
@@ -161,15 +152,23 @@ function handleDice(playerIndex, game) {
     addEventMessageSingle(player.nick, `${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);
   }
 
-  showDice(playerIndex, player.dice);
+  // --- Mostra animazione dado ---
+  rollDiceEffect(playerIndex === 0 ? "p1" : "p2", player.dice);
 }
 
+// 🎲 Effetto roll per i dadi
+function rollDiceEffect(playerId, finalValue) {
+  const dice = document.getElementById(`dice-${playerId}`);
+  if (!dice) return;
 
-function showDice(playerIndex, value){
-  const diceEl = playerIndex === 0 ? diceP1 : diceP2;
-  diceEl.src = `img/dice${value}.png`;
-  diceEl.style.width = "80px";
-  diceEl.style.height = "80px";
+  dice.classList.add("rolling");
+
+  setTimeout(() => {
+    dice.classList.remove("rolling");
+    dice.src = `img/dice${finalValue}.png`;
+    dice.style.width = "80px";
+    dice.style.height = "80px";
+  }, 600);
 }
 
 function updateCharacterImage(player,index){
@@ -214,7 +213,6 @@ function addChatMessage(text) {
 
 // ---------- AUDIO VINCITORE ----------
 function playWinnerMusic(winnerChar) {
-  // stoppa musica battaglia
   musicBattle.pause();
   musicBattle.currentTime = 0;
 
