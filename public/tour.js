@@ -435,6 +435,12 @@ socket.on("matchOver", ({ winnerNick, winnerChar, stage, matchId }) => {
 
 socket.on("tournamentOver", ({ nick, char }) => {
   addEventMessage(`🎉 ${nick ?? "??"} won the tournament!`);
+  // 🔇 Ferma la musica di battaglia
+  if (window.battleMusic) {
+    window.battleMusic.pause();
+    window.battleMusic.currentTime = 0;
+  }
+
   showWinnerChar(char);
   playWinnerMusic(char);
 
