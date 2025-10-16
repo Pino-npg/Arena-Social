@@ -147,7 +147,7 @@ function handleDice(playerIndex, game) {
   const isPlayerStunned = (playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2);
   if (isPlayerStunned) {
     finalDmg = Math.max(0, player.dice - 1);
-    addEventMessageSingle(player.nick, `${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
+    addEventMessageSingle(player.nick, `${player.nick} is stunned and skips the turn 😵‍💫`);
     if (playerIndex === 0) stunned.p1 = false;
     else stunned.p2 = false;
   } 
