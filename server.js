@@ -304,10 +304,10 @@ function nextTurn(match, tournamentId, attackerIndex) {
 const lastTournaments = {}; // nuovo oggetto
 
 // alla fine del torneo, invece di cancellare subito
+const tIdCopy = tId; // crea una copia locale
 setTimeout(() => {
-  lastTournaments[tournamentId] = tournaments[tournamentId];
-  delete tournaments[tournamentId];
-}, 100000); // mantiene la stanza viva 5 secondi, o anche di più se vuoi
+  lastTournaments[tIdCopy] = tournaments[tIdCopy];
+}, 50000); // mantiene la stanza viva 50 secondi, o anche di più se vuoi
 
 nsp.on("connection", socket => {
   let currentTournament = null;
