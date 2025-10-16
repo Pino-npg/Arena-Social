@@ -109,6 +109,7 @@ function nextTurn1vs1(game, attackerIndex) {
   // Prossimo turno
   setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
 }
+
 // ------------------- SOCKET.IO 1VS1 -------------------
 io.on("connection", socket => {
   io.emit("onlineCount", io.engine.clientsCount);
@@ -301,13 +302,7 @@ function nextTurn(match, tournamentId, attackerIndex) {
 }
 
 // ------------------- TOURNAMENT NAMESPACE -------------------
-const lastTournaments = {}; // nuovo oggetto
-
-// alla fine del torneo, invece di cancellare subito
-const tIdCopy = tId; // crea una copia locale
-setTimeout(() => {
-  lastTournaments[tIdCopy] = tournaments[tIdCopy];
-}, 50000); // mantiene la stanza viva 50 secondi, o anche di più se vuoi
+const lastTournaments = {}; // simile a lastGames
 
 nsp.on("connection", socket => {
   let currentTournament = null;
