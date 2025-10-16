@@ -56,16 +56,16 @@ function nextTurn1vs1(game, attackerIndex) {
   const attacker = game.players[attackerIndex];
   const defender = game.players[defenderIndex];
 
-  // gestione stun
-  if (defender.stunned) {
-    defender.stunned = false;
-    io.to(game.id).emit("log", `${defender.nick} is stunned and skips the turn 😵‍💫`);
+  // --- gestione stun: salta turno ---
+  if (attacker.stunned) {
+    attacker.stunned = false;
+    io.to(game.id).emit("log", `${attacker.nick} is stunned and skips the turn 😵‍💫`);
     game.players.forEach(p => {
       const me = game.players.find(pl => pl.id === p.id);
       const opp = game.players.find(pl => pl.id !== p.id);
       io.to(p.id).emit("1vs1Update", game.id, { player1: me, player2: opp });
     });
-    setTimeout(() => nextTurn1vs1(game, attackerIndex), 3000);
+    setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
     return;
   }
 
@@ -104,7 +104,7 @@ function nextTurn1vs1(game, attackerIndex) {
   setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
 }
 
-// ------------------- SOCKET.IO CONNECTION -------------------
+// ------------------- SOCKET.IO 1VS1 -------------------
 io.on("connection", socket => {
   io.emit("onlineCount", io.engine.clientsCount);
 
@@ -171,7 +171,7 @@ io.on("connection", socket => {
   });
 });
 
-// ------------------- TOURNAMENT MODE -------------------
+// ------------------- TOURNAMENT -------------------
 const tournaments = {};
 const nsp = io.of("/tournament");
 
@@ -232,49 +232,9 @@ function advanceWinner(tournamentId, matchId, winnerObj) {
   }
 }
 
-function nextTurn(match, tournamentId, attackerIndex) {
-  const defenderIndex = attackerIndex === 0 ? 1 : 0;
-  const attacker = match.players[attackerIndex];
-  const defender = match.players[defenderIndex];
-
-  const realRoll = rollDice();
-  let damage = realRoll;
-  let logMsg = "";
-
-  if (attacker.stunned) {
-    damage = Math.max(0, damage - 1);
-    attacker.stunned = false;
-    logMsg = `${attacker.nick} is stunned! Rolled ${realRoll} → deals only ${damage} 😵‍💫`;
-  } else if (realRoll === 8) {
-    defender.stunned = true;
-    logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥`;
-  } else {
-    logMsg = `${attacker.nick} rolls ${realRoll} and deals ${damage} 💥`;
-  }
-
-  defender.hp = Math.max(0, defender.hp - damage);
-  attacker.roll = realRoll;
-  attacker.dmg = damage;
-
-  nsp.to(tournamentId).emit("updateMatch", { id: match.id, stage: match.stage, player1: match.players[0], player2: match.players[1] });
-  nsp.to(tournamentId).emit("log", logMsg);
-
-  if (defender.hp <= 0) {
-    const winner = attacker;
-    nsp.to(tournamentId).emit("matchOver", { winnerNick: winner.nick, winnerChar: winner.char, stage: match.stage, player1: match.players[0], player2: match.players[1] });
-    advanceWinner(tournamentId, match.id, winner);
-    return;
-  }
-
-  setTimeout(() => nextTurn(match, tournamentId, defenderIndex), 3000);
-}
-
 function startMatch(tournamentId, p1, p2, stage, matchId) {
   const t = tournaments[tournamentId];
   if (!t) return;
-
-  p1 = p1 || { nick:"??", char:"unknown", id:null };
-  p2 = p2 || { nick:"??", char:"unknown", id:null };
 
   const players = [
     { ...p1, hp: 80, stunned: false, roll: 1, dmg: 0 },
@@ -290,6 +250,49 @@ function startMatch(tournamentId, p1, p2, stage, matchId) {
 
   const first = Math.floor(Math.random() * 2);
   setTimeout(() => nextTurn(match, tournamentId, first), 1000);
+}
+
+function nextTurn(match, tournamentId, attackerIndex) {
+  const defenderIndex = attackerIndex === 0 ? 1 : 0;
+  const attacker = match.players[attackerIndex];
+  const defender = match.players[defenderIndex];
+
+  // --- gestione stun: salta turno ---
+  if (attacker.stunned) {
+    attacker.stunned = false;
+    nsp.to(tournamentId).emit("log", `${attacker.nick} is stunned and skips the turn 😵‍💫`);
+    nsp.to(tournamentId).emit("updateMatch", { id: match.id, stage: match.stage, player1: match.players[0], player2: match.players[1] });
+    setTimeout(() => nextTurn(match, tournamentId, defenderIndex), 3000);
+    return;
+  }
+
+  const realRoll = rollDice();
+  let damage = realRoll;
+  let logMsg = "";
+
+  if (realRoll === 8) {
+    defender.hp = Math.max(0, defender.hp - damage);
+    defender.stunned = true;
+    logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥 (enemy stunned!)`;
+  } else {
+    defender.hp = Math.max(0, defender.hp - damage);
+    logMsg = `${attacker.nick} rolls ${realRoll} and deals ${damage} 💥`;
+  }
+
+  attacker.roll = realRoll;
+  attacker.dmg = damage;
+
+  nsp.to(tournamentId).emit("updateMatch", { id: match.id, stage: match.stage, player1: match.players[0], player2: match.players[1] });
+  nsp.to(tournamentId).emit("log", logMsg);
+
+  if (defender.hp <= 0) {
+    const winner = attacker;
+    nsp.to(tournamentId).emit("matchOver", { winnerNick: winner.nick, winnerChar: winner.char, stage: match.stage, player1: match.players[0], player2: match.players[1] });
+    advanceWinner(tournamentId, match.id, winner);
+    return;
+  }
+
+  setTimeout(() => nextTurn(match, tournamentId, defenderIndex), 3000);
 }
 
 // ------------------- TOURNAMENT NAMESPACE -------------------
