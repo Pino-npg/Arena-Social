@@ -43,8 +43,8 @@ header {
 }
 #fullscreen-btn {
   position: absolute;
-  top: 20px;
-  right: 60px;
+  top: 12px;
+  right: 70px;
   display: flex;
   align-items: center;
   gap: 10px;
