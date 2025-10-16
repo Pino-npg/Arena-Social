@@ -31,7 +31,7 @@ header {
 }
 
 #home-btn, #trophy-btn {
-  font-size: 3rem;
+  font-size: 2.5rem;
   cursor: pointer;
   background: transparent;
   border: none;
@@ -43,8 +43,8 @@ header {
 }
 #fullscreen-btn {
   position: absolute;
-  top: 50px;
-  right: 20px;
+  top: 20px;
+  right: 60px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -52,12 +52,12 @@ header {
 
 #fullscreen-btn {
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 1.5rem;
   transition: transform 0.2s, color 0.2s;
 }
 #fullscreen-btn:hover { transform: scale(1.2); color: gold; }
 .arena-title {
-  font-size: 2rem;
+  font-size: 3rem;
   color: rgb(190, 58, 58);
   text-shadow: 2px 2px 8px black;
   text-align: center;

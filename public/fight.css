@@ -38,13 +38,13 @@ header {
   gap: 10px;
 }
 #onlineCount {
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   color: white;
   text-shadow: 1px 1px 4px black;
 }
 
 #homeBtn {
-  font-size: 1.5rem;
+  font-size: 2.5rem;
   cursor: pointer;
   background: transparent;
   border: none;
@@ -62,7 +62,7 @@ header {
 
 #fullscreen-btn {
   cursor: pointer;
-  font-size: 2rem;
+  font-size: 1.5rem;
   transition: transform 0.2s, color 0.2s;
 }
 #fullscreen-btn:hover { transform: scale(1.2); color: gold; }
@@ -73,7 +73,7 @@ header {
 }
 
 #fullscreen-btn {
-  font-size: 2rem;
+  font-size: 1.5rem;
   cursor: pointer;
   color: white;
   background: transparent;
