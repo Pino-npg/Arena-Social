@@ -60,18 +60,26 @@ function nextTurn1vs1(game, attackerIndex) {
   // --- gestione stun: salta turno ---
   if (attacker.stunned) {
     attacker.stunned = false;
+
+    // Aggiorna lo stato dei giocatori
     game.players.forEach(p => {
       const me = game.players.find(pl => pl.id === p.id);
       const opp = game.players.find(pl => pl.id !== p.id);
       io.to(p.id).emit("1vs1Update", game.id, { player1: me, player2: opp });
     });
+
+    // Log dello stun senza interferenze
     io.to(game.id).emit("log", `${attacker.nick} is stunned and skips the turn 😵‍💫`);
+
+    // Passa il turno all'altro
     setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
     return;
   }
 
+  // --- turno normale ---
   const roll = rollDice();
-  let damage = roll;
+  const damage = roll;
+
   if (roll === 8) {
     defender.hp = Math.max(0, defender.hp - damage);
     defender.stunned = true;
@@ -80,14 +88,17 @@ function nextTurn1vs1(game, attackerIndex) {
     defender.hp = Math.max(0, defender.hp - damage);
     io.to(game.id).emit("log", `${attacker.nick} rolls ${roll} and deals ${damage} 💥`);
   }
+
   attacker.dice = damage;
 
+  // Aggiorna tutti i giocatori
   game.players.forEach(p => {
     const me = game.players.find(pl => pl.id === p.id);
     const opp = game.players.find(pl => pl.id !== p.id);
     io.to(p.id).emit("1vs1Update", game.id, { player1: me, player2: opp });
   });
 
+  // Controllo game over
   if (defender.hp === 0) {
     game.players.forEach(p => io.to(p.id).emit("gameOver", game.id, { winnerNick: attacker.nick, winnerChar: attacker.char }));
     lastGames[game.id] = game;
@@ -95,9 +106,9 @@ function nextTurn1vs1(game, attackerIndex) {
     return;
   }
 
+  // Prossimo turno
   setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
 }
-
 
 // ------------------- SOCKET.IO 1VS1 -------------------
 io.on("connection", socket => {
@@ -291,7 +302,13 @@ function nextTurn(match, tournamentId, attackerIndex) {
 }
 
 // ------------------- TOURNAMENT NAMESPACE -------------------
-const lastTournaments = {}; // simile a lastGames
+const lastTournaments = {}; // nuovo oggetto
+
+// alla fine del torneo, invece di cancellare subito
+setTimeout(() => {
+  lastTournaments[tournamentId] = tournaments[tournamentId];
+  delete tournaments[tournamentId];
+}, 100000); // mantiene la stanza viva 5 secondi, o anche di più se vuoi
 
 nsp.on("connection", socket => {
   let currentTournament = null;
