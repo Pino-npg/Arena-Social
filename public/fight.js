@@ -60,10 +60,8 @@ socket.emit("join1vs1", { nick, char }, roomId => {
   socket.roomId = roomId;
 });
 
-// ---------- STATO GIOCO ----------
-let gameOver = false;
+// ---------- GESTIONE STUN ----------
 let stunned = { p1: false, p2: false };
-const lastDicePerPlayer = { p1: null, p2: null };
 
 // ---------- SOCKET EVENTS ----------
 socket.on("onlineCount", count => onlineCountDisplay.textContent = `Online: ${count}`);
@@ -71,23 +69,17 @@ socket.on("waiting", msg => addEventMessageSingle("system", msg));
 
 socket.on("gameStart", (roomId, game) => {
   socket.roomId = roomId;
-  gameOver = false;
-  lastDicePerPlayer.p1 = null;
-  lastDicePerPlayer.p2 = null;
   updateGame(game);
 });
 
 socket.on("1vs1Update", (roomId, game) => {
-  if (roomId === socket.roomId && !gameOver) updateGame(game);
+  if (roomId === socket.roomId) updateGame(game);
 });
 
 socket.on("gameOver", (roomId, { winnerNick, winnerChar }) => {
-  if (roomId === socket.roomId && !gameOver) {
-    gameOver = true;
+  if (roomId === socket.roomId) {
+    // Forza sempre il messaggio del vincitore
     addEventMessageWinner(`🏆 ${winnerNick} has won the battle!`);
-    // stoppa musica battaglia
-    musicBattle.pause();
-    musicBattle.currentTime = 0;
     playWinnerMusic(winnerChar);
   }
 });
@@ -116,58 +108,71 @@ function updateGame(game) {
   player2Name.textContent = `${game.player2.nick} (${game.player2.char}) HP: ${hp2}/${maxHp}`;
 
   // --- HP BAR WIDTH ---
-  player1HpBar.style.width = `${(hp1 / maxHp) * 100}%`;
-  player2HpBar.style.width = `${(hp2 / maxHp) * 100}%`;
+  const hpPercent1 = (hp1 / maxHp) * 100;
+  const hpPercent2 = (hp2 / maxHp) * 100;
+
+  player1HpBar.style.width = `${hpPercent1}%`;
+  player2HpBar.style.width = `${hpPercent2}%`;
 
   // --- HP BAR COLOR DYNAMIC ---
-  player1HpBar.style.background = getHpColor((hp1 / maxHp) * 100);
-  player2HpBar.style.background = getHpColor((hp2 / maxHp) * 100);
+  player1HpBar.style.background = getHpColor(hpPercent1);
+  player2HpBar.style.background = getHpColor(hpPercent2);
 
-  // --- DADI SOLO SE NUOVI ---
-  if(game.player1.dice !== undefined && game.player1.dice !== lastDicePerPlayer.p1) {
-    handleDice(0, game);
-    lastDicePerPlayer.p1 = game.player1.dice;
-  }
-  if(game.player2.dice !== undefined && game.player2.dice !== lastDicePerPlayer.p2) {
-    handleDice(1, game);
-    lastDicePerPlayer.p2 = game.player2.dice;
-  }
+  if(game.player1.dice) handleDice(0, game);
+  if(game.player2.dice) handleDice(1, game);
 
   updateCharacterImage(game.player1, 0);
   updateCharacterImage(game.player2, 1);
 }
 
-// --- Colore dinamico HP ---
+// --- Funzione colore dinamico ---
 function getHpColor(percent) {
-  if (percent > 60) return "linear-gradient(90deg, green, lime)";
-  else if (percent > 30) return "linear-gradient(90deg, yellow, orange)";
-  else return "linear-gradient(90deg, red, darkred)";
+  if (percent > 60) {
+    return "linear-gradient(90deg, green, lime)";
+  } else if (percent > 30) {
+    return "linear-gradient(90deg, yellow, orange)";
+  } else {
+    return "linear-gradient(90deg, red, darkred)";
+  }
 }
 
 function handleDice(playerIndex, game) {
   const player = playerIndex === 0 ? game.player1 : game.player2;
+  const opponentIndex = playerIndex === 0 ? 1 : 0;
+  const opponent = opponentIndex === 0 ? game.player1 : game.player2;
 
   let finalDmg = player.dice;
-  const isPlayerStunned = (playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2);
 
+  // Se il player è stunnato → danno ridotto di 1
+  const isPlayerStunned = (playerIndex === 0 && stunned.p1) || (playerIndex === 1 && stunned.p2);
   if (isPlayerStunned) {
     finalDmg = Math.max(0, player.dice - 1);
     addEventMessageSingle(player.nick, `${player.nick} is stunned and only deals ${finalDmg} damage 😵‍💫`);
     if (playerIndex === 0) stunned.p1 = false;
     else stunned.p2 = false;
-  } else if (player.dice === 8) {
+  } 
+  // Se il player fa CRIT → stunna l’avversario
+  else if (player.dice === 8) {
     addEventMessageSingle(player.nick, `${player.nick} CRIT! ${player.dice} damage dealt ⚡💥`);
     if (playerIndex === 0) stunned.p2 = true;
     else stunned.p1 = true;
-  } else {
+  } 
+  else {
     addEventMessageSingle(player.nick, `${player.nick} rolls ${player.dice} and deals ${finalDmg} damage 💥`);
   }
 
-  rollDiceEffect(playerIndex === 0 ? "p1" : "p2", player.dice);
+  showDice(playerIndex, player.dice);
 }
 
+
+function showDice(playerIndex, value){
+  const diceEl = playerIndex === 0 ? diceP1 : diceP2;
+  diceEl.src = `img/dice${value}.png`;
+  diceEl.style.width = "80px";
+  diceEl.style.height = "80px";
+}
 // 🎲 Effetto roll per i dadi
-function rollDiceEffect(playerId, finalValue) {
+function rollDiceEffect(playerId) {
   const dice = document.getElementById(`dice-${playerId}`);
   if (!dice) return;
 
@@ -175,10 +180,9 @@ function rollDiceEffect(playerId, finalValue) {
 
   setTimeout(() => {
     dice.classList.remove("rolling");
-    dice.src = `img/dice${finalValue}.png`;
-    dice.style.width = "80px";
-    dice.style.height = "80px";
-  }, 600);
+    const roll = Math.floor(Math.random() * 6) + 1;
+    dice.src = `img/dice${roll}.png`;
+  }, 1000);
 }
 
 function updateCharacterImage(player,index){
@@ -205,7 +209,7 @@ function addEventMessageSingle(playerNick, text) {
   eventBox.scrollTop = eventBox.scrollHeight;
 }
 
-// ---------- MESSAGGIO VINCITORE ----------
+// ---------- MESSAGGIO VINCITORE (FORZATO) ----------
 function addEventMessageWinner(text) {
   const msg = document.createElement("div");
   msg.textContent = text;
@@ -223,6 +227,7 @@ function addChatMessage(text) {
 
 // ---------- AUDIO VINCITORE ----------
 function playWinnerMusic(winnerChar) {
+  // stoppa musica battaglia
   musicBattle.pause();
   musicBattle.currentTime = 0;
 
