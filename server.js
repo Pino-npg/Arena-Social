@@ -51,71 +51,65 @@ const lastGames = {};
 
 async function nextTurn1vs1(game, attackerIndex) {
   if (!games[game.id]) return; // evita doppi turni dopo fine partita
+
   const defenderIndex = attackerIndex === 0 ? 1 : 0;
   const attacker = game.players[attackerIndex];
   const defender = game.players[defenderIndex];
 
-  // Tiro del dado
+  // Se il difensore era stunnato nel turno precedente → salta turno
+  if (defender.stunned) {
+    defender.stunned = false; // rimuove lo stato di stun
+    io.to(game.id).emit("log", `${defender.nick} is stunned and skips the turn 😵‍💫`);
+
+    // aggiorna stato visivo per entrambi i giocatori
+    for (const p of game.players) {
+      const me = game.players.find(pl => pl.id === p.id);
+      const opp = game.players.find(pl => pl.id !== p.id);
+      io.to(p.id).emit("1vs1Update", game.id, { player1: me, player2: opp });
+    }
+
+    // passa direttamente il turno all'attaccante (extra turno)
+    if (!games[game.id]) return;
+    setTimeout(() => nextTurn1vs1(game, attackerIndex), 3000);
+    return;
+  }
+
+  // --- Lancio del dado ---
   const realRoll = rollDice();
   let damage = realRoll;
   let logMsg = "";
 
-  // Gestione stun e critico
-  if (attacker.stunned) {
-    damage = Math.max(1, damage - 1);
-    attacker.stunned = false;
-    logMsg = `${attacker.nick} is stunned! Rolled ${realRoll} → deals only ${damage} 😵‍💫`;
-  } else if (realRoll === 8) {
-    defender.stunned = true;
-    logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥 (extra turn!)`;
-    io.to(game.id).emit("log", logMsg);
-    // aggiorna HP e invia stato come prima...
+  // --- Gestione CRITICO ---
+  if (realRoll === 8) {
     defender.hp = Math.max(0, defender.hp - damage);
-    attacker.dice = damage;
-  
-    // Controlla vittoria
-    if (defender.hp === 0) {
-      for (const p of game.players) {
-        io.to(p.id).emit("gameOver", game.id, { winnerNick: attacker.nick, winnerChar: attacker.char });
-        lastGames[game.id] = game;
-      }
-      delete games[game.id];
-      clearTimeout(game.turnTimeout);
-      game.ended = true;
-      return;
-    }
-  
-    // Extra turno immediato (non passa al difensore)
-    if (!games[game.id]) return;
-    setTimeout(() => nextTurn1vs1(game, attackerIndex), 3000);
-    return;
-  
-  }
+    defender.stunned = true; // chi subisce salta il prossimo turno
+    logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥 (enemy stunned!)`;
+  } 
+  // --- Tiro normale ---
   else {
+    defender.hp = Math.max(0, defender.hp - damage);
     logMsg = `${attacker.nick} rolls ${realRoll} and deals ${damage} 💥`;
   }
 
-  // Aggiornamento HP
-  defender.hp = Math.max(0, defender.hp - damage);
-  attacker.hp = Math.min(attacker.hp, 80);
   attacker.dice = damage;
-  attacker.roll = realRoll;   // valore reale del dado
-  attacker.damage = damage;   // danno effettivo (dopo stun/critico)
 
-  // Aggiorna stato per ciascun player
+  // --- Aggiorna stato per entrambi ---
   for (const p of game.players) {
     const me = game.players.find(pl => pl.id === p.id);
     const opp = game.players.find(pl => pl.id !== p.id);
     io.to(p.id).emit("1vs1Update", game.id, { player1: me, player2: opp });
   }
 
-  // Invia log **una sola volta** alla stanza
+  // --- Log condiviso ---
   io.to(game.id).emit("log", logMsg);
 
-  // Controlla vittoria
+  // --- Controllo vittoria ---
   if (defender.hp === 0) {
     for (const p of game.players) {
-      io.to(p.id).emit("gameOver", game.id, { winnerNick: attacker.nick, winnerChar: attacker.char });
+      io.to(p.id).emit("gameOver", game.id, {
+        winnerNick: attacker.nick,
+        winnerChar: attacker.char
+      });
       lastGames[game.id] = game;
     }
     delete games[game.id];
@@ -123,11 +117,11 @@ async function nextTurn1vs1(game, attackerIndex) {
     return;
   }
 
-  // Passa il turno
-  if (!games[game.id]) return; // evita doppi turni dopo gameOver
+  // --- Turno successivo ---
+  if (!games[game.id]) return;
   setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
 }
-
+  
 // ------------------- SOCKET.IO CONNECTION -------------------
 io.on("connection", socket => {
   // Online count
