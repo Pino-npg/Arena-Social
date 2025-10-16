@@ -337,15 +337,11 @@ nsp.on("connection", socket => {
   });
 
   // --- chat torneo anche a partita finita ---
-  socket.on("chatMessage", text => {
-    const tId = currentTournament;
-    if (!tId) return;
-
-    const t = tournaments[tId] || lastTournaments[tId];
-    if (!t) return;
-
-    nsp.to(tId).emit("chatMessage", { nick: socket.nick || "Anon", text });
-  });
+  // Chat globale (sempre attiva)
+socket.on("chatMessage", text => {
+  if (!text?.trim()) return;
+  nsp.emit("chatMessage", { nick: socket.nick || "Anon", text });
+});
 
   socket.on("disconnect", () => {
     releaseNick(socket.nick);

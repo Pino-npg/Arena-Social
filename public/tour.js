@@ -73,9 +73,9 @@ closeOverlayBtn.addEventListener("click", () => overlay.classList.add("hidden"))
 
 // ---------- Chat ----------
 chatInput.addEventListener("keydown", e => {
-  if (e.key === "Enter" && e.target.value.trim() !== "") {
-    socket.emit("chatMessage", e.target.value);
-    e.target.value = "";
+  if (e.key === "Enter" && chatInput.value.trim()) {
+    socket.emit("chatMessage", chatInput.value);
+    chatInput.value = "";
   }
 });
 socket.on("chatMessage", data => addChatMessage(`${data.nick}: ${data.text}`));
@@ -332,21 +332,51 @@ if(hpPercent > 60){
   }
 
 // ---------- Winner ----------
-function showWinnerChar(char){
-  if(!char) return;
-  const winnerImg = document.createElement("img");
-  winnerImg.src = `img/${char}.webp`;
-  winnerImg.onerror = () => { winnerImg.src = "img/${char}.png"; };
-  winnerImg.style.position = "fixed";
-  winnerImg.style.top = "0";
-  winnerImg.style.left = "0";
-  winnerImg.style.width = "100%";
-  winnerImg.style.height = "100%";
-  winnerImg.style.objectFit = "contain";
-  winnerImg.style.zIndex = "9999";
-  winnerImg.style.backgroundColor = "black";
-  document.body.appendChild(winnerImg);
-  winnerImg.addEventListener("click", () => winnerImg.remove());
+function showWinnerChar(char) {
+  if (!char) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = "winner-overlay";
+  overlay.style.position = "fixed";
+  overlay.style.inset = "0";
+  overlay.style.background = "rgba(0,0,0,0.9)";
+  overlay.style.display = "flex";
+  overlay.style.justifyContent = "center";
+  overlay.style.alignItems = "center";
+  overlay.style.zIndex = "9999";
+
+  const box = document.createElement("div");
+  box.style.position = "relative";
+
+  const img = document.createElement("img");
+  img.src = `img/${char}.webp`;
+  img.onerror = () => { img.src = `img/${char}.png`; };
+  img.style.maxWidth = "70vw";
+  img.style.borderRadius = "12px";
+  img.style.boxShadow = "0 0 25px rgba(255,255,255,0.3)";
+
+  const closeBtn = document.createElement("button");
+  closeBtn.textContent = "✖";
+  closeBtn.style.position = "absolute";
+  closeBtn.style.top = "-15px";
+  closeBtn.style.right = "-15px";
+  closeBtn.style.width = "35px";
+  closeBtn.style.height = "35px";
+  closeBtn.style.border = "none";
+  closeBtn.style.borderRadius = "50%";
+  closeBtn.style.background = "#ff4a4a";
+  closeBtn.style.color = "white";
+  closeBtn.style.fontSize = "18px";
+  closeBtn.style.cursor = "pointer";
+  closeBtn.style.boxShadow = "0 0 10px rgba(0,0,0,0.5)";
+  closeBtn.onmouseenter = () => (closeBtn.style.background = "#ff1e1e");
+  closeBtn.onmouseleave = () => (closeBtn.style.background = "#ff4a4a");
+  closeBtn.onclick = () => overlay.remove();
+
+  box.appendChild(closeBtn);
+  box.appendChild(img);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
 }
 
 function playWinnerMusic(winnerChar){
@@ -407,7 +437,11 @@ socket.on("tournamentOver", ({ nick, char }) => {
   addEventMessage(`🎉 ${nick ?? "??"} won the tournament!`);
   showWinnerChar(char);
   playWinnerMusic(char);
-  setTimeout(()=> battleArea.innerHTML = "<h2>Waiting for new tournament...</h2>", 2500);
+
+  // Aggiorna solo l'area di battaglia, ma lascia visibile il vincitore
+  setTimeout(() => {
+    battleArea.innerHTML = "<h2>Waiting for new tournament...</h2>";
+  }, 2500);
 });
 
 socket.on("log", msg => addEventMessage(msg));

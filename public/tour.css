@@ -107,17 +107,43 @@ header {
 .dice { width:60px; height:60px; margin:10px auto; }
 
 /* -------- WINNER IMAGE -------- */
-#winnerImage {
-  display:none;
-  max-width:90%;
-  height:auto;
-  margin:20px auto;
-  position:fixed;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%);
-  z-index:2000;
-  pointer-events:none;
+#winner-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.winner-box {
+  position: relative;
+}
+
+.winner-box img {
+  max-width: 60vw;
+  border-radius: 12px;
+  box-shadow: 0 0 25px rgba(255, 255, 255, 0.3);
+}
+
+.close-btn {
+  position: absolute;
+  top: -15px;
+  right: -15px;
+  background: #ff4a4a;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 50%;
+  width: 35px;
+  height: 35px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.4);
+}
+
+.close-btn:hover {
+  background: #ff1e1e;
 }
 
 /* -------- OVERLAY / BRACKET -------- */
