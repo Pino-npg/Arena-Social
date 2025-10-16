@@ -26,16 +26,16 @@ header {
 
 #online-count {
   font-size: 1.2rem;
-  color: white;
+  color: rgb(203, 58, 58);
   text-shadow: 1px 1px 4px black;
 }
 
 #home-btn, #trophy-btn {
-  font-size: 1.2rem;
+  font-size: 3rem;
   cursor: pointer;
   background: transparent;
   border: none;
-  color: white;
+  color: rgb(182, 65, 65);
   transition: color 0.3s;
 }
 #home-btn:hover, #trophy-btn:hover {
@@ -43,7 +43,7 @@ header {
 }
 #fullscreen-btn {
   position: absolute;
-  top: 20px;
+  top: 50px;
   right: 20px;
   display: flex;
   align-items: center;
@@ -52,13 +52,13 @@ header {
 
 #fullscreen-btn {
   cursor: pointer;
-  font-size: 2rem;
+  font-size: 1rem;
   transition: transform 0.2s, color 0.2s;
 }
 #fullscreen-btn:hover { transform: scale(1.2); color: gold; }
 .arena-title {
-  font-size: 3rem;
-  color: white;
+  font-size: 2rem;
+  color: rgb(190, 58, 58);
   text-shadow: 2px 2px 8px black;
   text-align: center;
 }

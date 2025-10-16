@@ -109,7 +109,6 @@ function nextTurn1vs1(game, attackerIndex) {
   // Prossimo turno
   setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
 }
-
 // ------------------- SOCKET.IO 1VS1 -------------------
 io.on("connection", socket => {
   io.emit("onlineCount", io.engine.clientsCount);
