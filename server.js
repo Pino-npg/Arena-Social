@@ -50,6 +50,7 @@ let waitingPlayer = null;
 const lastGames = {};
 
 async function nextTurn1vs1(game, attackerIndex) {
+  if (!games[game.id]) return; // evita doppi turni dopo fine partita
   const defenderIndex = attackerIndex === 0 ? 1 : 0;
   const attacker = game.players[attackerIndex];
   const defender = game.players[defenderIndex];
@@ -66,15 +67,40 @@ async function nextTurn1vs1(game, attackerIndex) {
     logMsg = `${attacker.nick} is stunned! Rolled ${realRoll} → deals only ${damage} 😵‍💫`;
   } else if (realRoll === 8) {
     defender.stunned = true;
-    logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥`;
-  } else {
+    logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥 (extra turn!)`;
+    io.to(game.id).emit("log", logMsg);
+    // aggiorna HP e invia stato come prima...
+    defender.hp = Math.max(0, defender.hp - damage);
+    attacker.dice = damage;
+  
+    // Controlla vittoria
+    if (defender.hp === 0) {
+      for (const p of game.players) {
+        io.to(p.id).emit("gameOver", game.id, { winnerNick: attacker.nick, winnerChar: attacker.char });
+        lastGames[game.id] = game;
+      }
+      delete games[game.id];
+      clearTimeout(game.turnTimeout);
+      game.ended = true;
+      return;
+    }
+  
+    // Extra turno immediato (non passa al difensore)
+    if (!games[game.id]) return;
+    setTimeout(() => nextTurn1vs1(game, attackerIndex), 3000);
+    return;
+  
+  }
+  else {
     logMsg = `${attacker.nick} rolls ${realRoll} and deals ${damage} 💥`;
   }
 
   // Aggiornamento HP
-  defender.hp = Math.max(0, Math.min(defender.hp - damage, 80));
+  defender.hp = Math.max(0, defender.hp - damage);
   attacker.hp = Math.min(attacker.hp, 80);
   attacker.dice = damage;
+  attacker.roll = realRoll;   // valore reale del dado
+  attacker.damage = damage;   // danno effettivo (dopo stun/critico)
 
   // Aggiorna stato per ciascun player
   for (const p of game.players) {
@@ -90,13 +116,15 @@ async function nextTurn1vs1(game, attackerIndex) {
   if (defender.hp === 0) {
     for (const p of game.players) {
       io.to(p.id).emit("gameOver", game.id, { winnerNick: attacker.nick, winnerChar: attacker.char });
-      lastGames[p.id] = game;
+      lastGames[game.id] = game;
     }
     delete games[game.id];
+    clearTimeout(game.turnTimeout);
     return;
   }
 
   // Passa il turno
+  if (!games[game.id]) return; // evita doppi turni dopo gameOver
   setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
 }
 
@@ -165,7 +193,7 @@ io.on("connection", socket => {
       if (idx !== -1) {
         const other = game.players.find(p => p.id !== socket.id);
         io.to(other.id).emit("gameOver", gameId, { winnerNick: other.nick, winnerChar: other.char });  // aggiungi gameId
-        lastGames[other.id] = game;
+        lastGames[game.id] = game;
         delete games[gameId];
         break;
       }
