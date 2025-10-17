@@ -342,8 +342,7 @@ nsp.on("connection", socket => {
   // Chat globale (sempre attiva)
   socket.on("chatMessage", text => {
     if (!text?.trim()) return;
-    const nick = socket.nick || nickMap.get(socket.id) || "Anon";
-    nsp.emit("chatMessage", { nick, text });
+    nsp.emit("chatMessage", { nick: socket.nick, text });
   });
 
   socket.on("disconnect", () => {
