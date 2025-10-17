@@ -66,6 +66,14 @@ document.getElementById("mode-tournament").addEventListener("click", () => {
   window.location.href = "/tour.html";
 });
 
+document.getElementById("opensea-btn").addEventListener("click", () => {
+  window.open("https://opensea.io/collection/pino-lrxnl-429031234", "_blank");
+});
+
+document.getElementById("rarible-btn").addEventListener("click", () => {
+  window.open("https://og.rarible.com/collection/base/0x4a37b1116df669abe9dbf51afa0ffb6623a188f7/items", "_blank");
+});
+
 // ---------- RULES POPUP ----------
 document.getElementById("rules-btn").addEventListener("click", () => {
   document.getElementById("rules-popup").classList.remove("hidden");
