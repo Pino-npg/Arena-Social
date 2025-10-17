@@ -27,6 +27,7 @@ function assignUniqueNick(nick) {
   if (usedNicks.has(base)) {
     const count = usedNicks.get(base) + 1;
     usedNicks.set(base, count);
+    const nickMap = new Map(); // socket.id → nick
     finalNick = `${base}#${count}`;
   } else {
     usedNicks.set(base, 1);
@@ -309,6 +310,7 @@ nsp.on("connection", socket => {
 
   socket.on("setNickname", nick => {
     socket.nick = assignUniqueNick(nick);
+    nickMap.set(socket.id, socket.nick);
     socket.emit("nickConfirmed", socket.nick);
   });
 
@@ -338,13 +340,15 @@ nsp.on("connection", socket => {
 
   // --- chat torneo anche a partita finita ---
   // Chat globale (sempre attiva)
-socket.on("chatMessage", text => {
-  if (!text?.trim()) return;
-  nsp.emit("chatMessage", { nick: socket.nick || "Anon", text });
-});
+  socket.on("chatMessage", text => {
+    if (!text?.trim()) return;
+    const nick = socket.nick || nickMap.get(socket.id) || "Anon";
+    nsp.emit("chatMessage", { nick, text });
+  });
 
   socket.on("disconnect", () => {
     releaseNick(socket.nick);
+    nickMap.delete(socket.id);
     const tId = currentTournament;
     if (!tId) return;
     const t = tournaments[tId];
