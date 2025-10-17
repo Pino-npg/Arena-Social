@@ -43,7 +43,16 @@ let renderedMatchesByStage = {
 const musicQuarter = "img/5.mp3";    
 const musicSemi    = "img/6.mp3"; 
 const musicFinal   = "img/7.mp3";
-
+function playBattleMusic(src) {
+  if (tournamentEnded) return; // 🔕 blocca se torneo finito
+  if (musicBattle) {
+    musicBattle.pause();
+    musicBattle.currentTime = 0;
+  }
+  musicBattle.src = src || musicQuarter;
+  musicBattle.loop = true;
+  musicBattle.play().catch(() => {});
+}
 const musicBattle = new Audio(musicQuarter);
 musicBattle.loop = true;
 musicBattle.volume = 0.5;
@@ -170,11 +179,11 @@ function setStage(stage){
   battleArea.prepend(title);
 }
 
-function setMusic(src){
-  if(!src) return;
+function setMusic(src) {
+  if (tournamentEnded || !src) return; // 🧱 blocca se torneo finito
   const wasPlaying = !musicBattle.paused;
-  musicBattle.src=src;
-  if(wasPlaying) musicBattle.play().catch(()=>{});
+  musicBattle.src = src;
+  if (wasPlaying) musicBattle.play().catch(() => {});
 }
 
 // ---------- Matches ----------
@@ -388,12 +397,16 @@ function playWinnerMusic(winnerChar){
 }
 
 // ---------- Socket events ----------
+socket.on("tournamentStart", () => {
+  tournamentEnded = false; // 🔄 riabilita la musica
+});
 socket.on("startTournament", matches => {
   if(waitingContainer) { waitingContainer.remove(); waitingContainer=null; }
   clearMatchesUI();
   currentStage = matches[0]?.stage || "quarter";
   setStage(currentStage);
   matches.forEach(m => renderMatchCard(m));
+
 });
 
 socket.on("startMatch", match => {
@@ -433,13 +446,22 @@ socket.on("matchOver", ({ winnerNick, winnerChar, stage, matchId }) => {
   }
 });
 
+let tournamentEnded = false; // 👈 flag globale
+
 socket.on("tournamentOver", ({ nick, char }) => {
+  tournamentEnded = true; // 🔒 blocca la musica di battaglia
+
   addEventMessage(`🎉 ${nick ?? "??"} won the tournament!`);
+
+  // 🔇 ferma subito la musica battaglia
+  if (musicBattle) {
+    musicBattle.pause();
+    musicBattle.currentTime = 0;
+  }
 
   showWinnerChar(char);
   playWinnerMusic(char);
 
-  // Aggiorna solo l'area di battaglia, ma lascia visibile il vincitore
   setTimeout(() => {
     battleArea.innerHTML = "<h2>Waiting for new tournament...</h2>";
   }, 2500);
