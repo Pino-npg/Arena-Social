@@ -27,7 +27,19 @@ socket.on("nickConfirmed", finalNick => {
   localStorage.setItem("selectedNick", finalNick);
   console.log("✅ Nick confermato dal server:", finalNick);
 });
-
+document.getElementById("reddit-connect").addEventListener("click", () => {
+  const w = window.open("/reddit/login", "reddit_auth", "width=600,height=700");
+  // ascolta il messaggio dal popup
+  window.addEventListener("message", function onMsg(e) {
+    if (e.data?.reddit) {
+      const redditUser = e.data.user;
+      console.log("Reddit user:", redditUser);
+      // salva localmente o mostra UI di conferma
+      alert(`Logged in as ${redditUser || "?"}`);
+      window.removeEventListener("message", onMsg);
+    }
+  });
+});
 // ---------- PERSONAGGI ----------
 const chars = document.querySelectorAll(".char");
 let selectedChar = null;

@@ -111,10 +111,31 @@ function nextTurn1vs1(game, attackerIndex) {
   setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
 }
 
+// --- AUTOLOGIN REDDIT (senza pulsante) ---
+import cookieParser from "cookie-parser";
+app.use(cookieParser());
+
+app.use((req, res, next) => {
+  const redditHeader = req.headers["x-reddit-user"]; // header usato da Reddit embed/app se abilitato
+  const redditCookie = req.cookies["reddit_user"];   // oppure cookie se già autenticato
+  
+  if (redditHeader) {
+    req.redditUser = redditHeader;
+  } else if (redditCookie) {
+    req.redditUser = redditCookie;
+  } else {
+    req.redditUser = null;
+  }
+  next();
+});
 // ------------------- SOCKET.IO 1VS1 -------------------
 io.on("connection", socket => {
   io.emit("onlineCount", io.engine.clientsCount);
-
+  const redditUser = socket.handshake.headers["x-reddit-user"];
+  if (redditUser) {
+    socket.nick = assignUniqueNick(redditUser);
+    socket.emit("nickConfirmed", socket.nick);
+  }
   socket.on("setNickname", nick => {
     const finalNick = assignUniqueNick(nick);
     socket.nick = finalNick;
@@ -340,10 +361,37 @@ nsp.on("connection", socket => {
 
   // --- chat torneo anche a partita finita ---
   // Chat globale (sempre attiva)
-  socket.on("chatMessage", text => {
-    if (!text?.trim()) return;
-    nsp.emit("chatMessage", { nick: socket.nick, text });
-  });
+  // whitelist domains (solo questi domini possono essere inviati come link)
+const LINK_WHITELIST = ["opensea.io", "rarible.com", "github.com", "fight-game-server.onrender.com"];
+
+function containsUrl(text){
+  const urlRe = /https?:\/\/[^\s/$.?#].[^\s]*/gi;
+  return urlRe.test(text);
+}
+
+function allowedUrls(text){
+  const urlRe = /https?:\/\/([^\/\s]+)(\/[^\s]*)?/gi;
+  let m;
+  while ((m = urlRe.exec(text)) !== null) {
+    const host = m[1].replace(/^www\./i,"").toLowerCase();
+    if (!LINK_WHITELIST.some(d => host.endsWith(d))) return false;
+  }
+  return true;
+}
+
+socket.on("chatMessage", text => {
+  if (!text || !text.trim()) return;
+
+  // se contiene link non in whitelist → rifiuta e opzionalmente manda messaggio di sistema
+  if (containsUrl(text) && !allowedUrls(text)) {
+    // invia solo al mittente un warning (non broadcast)
+    socket.emit("chatMessage", { nick: "SYSTEM", text: "Links are restricted. Allowed: OpenSea, Rarible, GitHub." });
+    return;
+  }
+
+  // broadcast normale (usa nsp per torneo)
+  nsp.emit("chatMessage", { nick: socket.nick || "Anon", text });
+});
 
   socket.on("disconnect", () => {
     releaseNick(socket.nick);

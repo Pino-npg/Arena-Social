@@ -51,7 +51,7 @@ body.fight #game-container {
 }
 #rules-btn:hover { transform: scale(1.2); color: gold; }
 
-#pino-btn {
+#GitHub-btn {
   position: absolute;
   top: 20px;
   left: 70px; /* accanto a Rules */
@@ -63,7 +63,24 @@ body.fight #game-container {
   text-decoration: none;
   transition: background 0.2s, transform 0.2s;
 }
-#pino-btn:hover {
+#GitHub-btn:hover {
+  background: darkred;
+  transform: scale(1.1);
+}
+
+#Reddit-btn {
+  position: absolute;
+  top: 20px;
+  left: 150px; /* accanto a GitHub */
+  padding: 5px 10px;
+  background: crimson;
+  color: white;
+  border-radius: 5px;
+  font-size: 1.2rem;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.2s;
+}
+#Reddit-btn:hover {
   background: darkred;
   transform: scale(1.1);
 }
