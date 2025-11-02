@@ -64,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
       c.addEventListener("click", () => {
         const nickOk = nickConfirmed || !!localStorage.getItem("selectedNick");
         if (!nickOk) {
-          alert("⚠️ Devi prima scegliere e confermare un nickname!");
+          alert("⚠️ No nickname selected!");
           return;
         }
         chars.forEach(el => el.classList.remove("selected"));

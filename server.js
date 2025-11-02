@@ -130,21 +130,30 @@ app.use((req, res, next) => {
 io.on("connection", socket => {
   io.emit("onlineCount", io.engine.clientsCount);
 
-  // se reddit header arriva via websocket handshake, auto-assign nick
+  // Reddit login → assegna nick solo se effettivamente autenticato
   const redditUser = socket.handshake.headers["x-reddit-user"];
-  if (redditUser) {
-    const autoNick = assignUniqueNick(redditUser);
-    socket.nick = autoNick;
-    nickMap.set(socket.id, autoNick);
-    socket.emit("nickConfirmed", autoNick);
+  if (redditUser && redditUser.trim() !== "") {
+    socket.nick = assignUniqueNick(redditUser);
+    socket.emit("nickConfirmed", socket.nick);
   }
 
+  // Nickname manuale scelto dal client
   socket.on("setNickname", nick => {
+    if (!nick || nick.trim() === "") {
+      // se arriva vuoto, ignora completamente (nessun pino automatico)
+      socket.emit("nickError", "Nickname obbligatorio!");
+      return;
+    }
     const finalNick = assignUniqueNick(nick);
     socket.nick = finalNick;
-    nickMap.set(socket.id, finalNick);
     socket.emit("nickConfirmed", finalNick);
   });
+
+  // opzionale: messaggio di debug o log
+  socket.on("disconnect", () => {
+    io.emit("onlineCount", io.engine.clientsCount);
+  });
+
 
   socket.on("join1vs1", ({ nick, char }) => {
     // prefer server-assigned nick if present, otherwise assign from provided nick
