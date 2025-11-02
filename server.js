@@ -1,5 +1,6 @@
 // server.js
 import express from "express";
+import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import { v4 as uuidv4 } from "uuid";
@@ -18,7 +19,10 @@ app.get("/", (req, res) => res.send("Fight server attivo!"));
 
 // ------------------- UTILS -------------------
 const rollDice = () => Math.floor(Math.random() * 8) + 1;
-const usedNicks = new Map();
+
+// nick tracking
+const usedNicks = new Map();   // base -> count
+const nickMap = new Map();     // socket.id -> nick
 
 function assignUniqueNick(nick) {
   if (!nick || nick.trim() === "") return "Anon";
@@ -27,7 +31,6 @@ function assignUniqueNick(nick) {
   if (usedNicks.has(base)) {
     const count = usedNicks.get(base) + 1;
     usedNicks.set(base, count);
-    const nickMap = new Map(); // socket.id → nick
     finalNick = `${base}#${count}`;
   } else {
     usedNicks.set(base, 1);
@@ -37,7 +40,7 @@ function assignUniqueNick(nick) {
 
 function releaseNick(nick) {
   if (!nick) return;
-  const base = nick.split("#")[0];
+  const base = String(nick).split("#")[0];
   if (usedNicks.has(base)) {
     let count = usedNicks.get(base) - 1;
     if (count <= 0) usedNicks.delete(base);
@@ -69,8 +72,8 @@ function nextTurn1vs1(game, attackerIndex) {
       io.to(p.id).emit("1vs1Update", game.id, { player1: me, player2: opp });
     });
 
-    // Log dello stun senza interferenze
-    io.to(game.id).emit("log", `${attacker.nick} is stunned and skips the turn 😵‍💫`);
+    // Log dello stun
+    io.to(game.id).emit("log", `${attacker.nick || "Anon"} is stunned and skips the turn 😵‍💫`);
 
     // Passa il turno all'altro
     setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
@@ -84,10 +87,10 @@ function nextTurn1vs1(game, attackerIndex) {
   if (roll === 8) {
     defender.hp = Math.max(0, defender.hp - damage);
     defender.stunned = true;
-    io.to(game.id).emit("log", `${attacker.nick} CRIT! Rolled ${roll} → deals ${damage} ⚡💥 (enemy stunned!)`);
+    io.to(game.id).emit("log", `${attacker.nick || "Anon"} CRIT! Rolled ${roll} → deals ${damage} ⚡💥 (enemy stunned!)`);
   } else {
     defender.hp = Math.max(0, defender.hp - damage);
-    io.to(game.id).emit("log", `${attacker.nick} rolls ${roll} and deals ${damage} 💥`);
+    io.to(game.id).emit("log", `${attacker.nick || "Anon"} rolls ${roll} and deals ${damage} 💥`);
   }
 
   attacker.dice = damage;
@@ -101,7 +104,7 @@ function nextTurn1vs1(game, attackerIndex) {
 
   // Controllo game over
   if (defender.hp === 0) {
-    game.players.forEach(p => io.to(p.id).emit("gameOver", game.id, { winnerNick: attacker.nick, winnerChar: attacker.char }));
+    game.players.forEach(p => io.to(p.id).emit("gameOver", game.id, { winnerNick: attacker.nick || "Anon", winnerChar: attacker.char }));
     lastGames[game.id] = game;
     delete games[game.id];
     return;
@@ -111,39 +114,41 @@ function nextTurn1vs1(game, attackerIndex) {
   setTimeout(() => nextTurn1vs1(game, defenderIndex), 3000);
 }
 
-// --- AUTOLOGIN REDDIT (senza pulsante) ---
-import cookieParser from "cookie-parser";
+// ------------------- AUTOLOGIN REDDIT (senza pulsante) -------------------
 app.use(cookieParser());
-
 app.use((req, res, next) => {
-  const redditHeader = req.headers["x-reddit-user"]; // header usato da Reddit embed/app se abilitato
-  const redditCookie = req.cookies["reddit_user"];   // oppure cookie se già autenticato
-  
-  if (redditHeader) {
-    req.redditUser = redditHeader;
-  } else if (redditCookie) {
-    req.redditUser = redditCookie;
-  } else {
-    req.redditUser = null;
-  }
+  // Reddit embed may provide a header or cookie; we read it to set req.redditUser
+  const redditHeader = req.headers["x-reddit-user"];
+  const redditCookie = req.cookies?.reddit_user;
+  if (redditHeader) req.redditUser = redditHeader;
+  else if (redditCookie) req.redditUser = redditCookie;
+  else req.redditUser = null;
   next();
 });
+
 // ------------------- SOCKET.IO 1VS1 -------------------
 io.on("connection", socket => {
   io.emit("onlineCount", io.engine.clientsCount);
+
+  // se reddit header arriva via websocket handshake, auto-assign nick
   const redditUser = socket.handshake.headers["x-reddit-user"];
   if (redditUser) {
-    socket.nick = assignUniqueNick(redditUser);
-    socket.emit("nickConfirmed", socket.nick);
+    const autoNick = assignUniqueNick(redditUser);
+    socket.nick = autoNick;
+    nickMap.set(socket.id, autoNick);
+    socket.emit("nickConfirmed", autoNick);
   }
+
   socket.on("setNickname", nick => {
     const finalNick = assignUniqueNick(nick);
     socket.nick = finalNick;
+    nickMap.set(socket.id, finalNick);
     socket.emit("nickConfirmed", finalNick);
   });
 
   socket.on("join1vs1", ({ nick, char }) => {
-    socket.nick = assignUniqueNick(nick);
+    // prefer server-assigned nick if present, otherwise assign from provided nick
+    if (!socket.nick) socket.nick = assignUniqueNick(nick);
     socket.char = char;
 
     if (!waitingPlayer) {
@@ -170,17 +175,19 @@ io.on("connection", socket => {
   });
 
   socket.on("chatMessage", data => {
-    const { roomId, text } = data;
+    // data expected { roomId, text } for 1vs1
+    const { roomId, text } = data || {};
     let game = Object.values(games).find(g => g.id === roomId) || lastGames[roomId];
     if (!game) return;
 
     game.players.forEach(p => {
-      io.to(p.id).emit("chatMessage", { nick: socket.nick, text, roomId });
+      io.to(p.id).emit("chatMessage", { nick: socket.nick || "Anon", text, roomId });
     });
   });
 
   socket.on("disconnect", () => {
     releaseNick(socket.nick);
+    nickMap.delete(socket.id);
     io.emit("onlineCount", io.engine.clientsCount);
 
     if (waitingPlayer && waitingPlayer.id === socket.id) waitingPlayer = null;
@@ -256,7 +263,9 @@ function advanceWinner(tournamentId, matchId, winnerObj) {
 
   if (brMatch.id === "F" && brMatch.winner) {
     nsp.to(tournamentId).emit("tournamentOver", { nick: brMatch.winner.nick, char: brMatch.winner.char });
-    setTimeout(() => delete tournaments[tournamentId], 5000);
+    // keep last tournament copy for chat lookups if needed
+    lastTournaments[tournamentId] = t;
+    setTimeout(() => { delete tournaments[tournamentId]; }, 5000);
   }
 }
 
@@ -269,7 +278,7 @@ function startMatch(tournamentId, p1, p2, stage, matchId) {
     { ...p2, hp: 80, stunned: false, roll: 1, dmg: 0 }
   ];
 
-  const match = { id: matchId, players, stage };
+  const match = { id: matchId, players, stage, turn: 0 };
   t.matches[matchId] = match;
 
   nsp.to(tournamentId).emit("startTournament", Object.values(t.matches));
@@ -288,7 +297,7 @@ function nextTurn(match, tournamentId, attackerIndex) {
   // --- gestione stun: salta turno ---
   if (attacker.stunned) {
     attacker.stunned = false;
-    nsp.to(tournamentId).emit("log", `${attacker.nick} is stunned and skips the turn 😵‍💫`);
+    nsp.to(tournamentId).emit("log", `${attacker.nick || "Anon"} is stunned and skips the turn 😵‍💫`);
     nsp.to(tournamentId).emit("updateMatch", { id: match.id, stage: match.stage, player1: match.players[0], player2: match.players[1] });
     setTimeout(() => nextTurn(match, tournamentId, defenderIndex), 3000);
     return;
@@ -301,21 +310,22 @@ function nextTurn(match, tournamentId, attackerIndex) {
   if (realRoll === 8) {
     defender.hp = Math.max(0, defender.hp - damage);
     defender.stunned = true;
-    logMsg = `${attacker.nick} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥 (enemy stunned!)`;
+    logMsg = `${attacker.nick || "Anon"} CRIT! Rolled ${realRoll} → deals ${damage} ⚡💥 (enemy stunned!)`;
   } else {
     defender.hp = Math.max(0, defender.hp - damage);
-    logMsg = `${attacker.nick} rolls ${realRoll} and deals ${damage} 💥`;
+    logMsg = `${attacker.nick || "Anon"} rolls ${realRoll} and deals ${damage} 💥`;
   }
 
   attacker.roll = realRoll;
   attacker.dmg = damage;
+  match.turn = (match.turn || 0) + 1;
 
-  nsp.to(tournamentId).emit("updateMatch", { id: match.id, stage: match.stage, player1: match.players[0], player2: match.players[1] });
+  nsp.to(tournamentId).emit("updateMatch", { id: match.id, stage: match.stage, player1: match.players[0], player2: match.players[1], turn: match.turn });
   nsp.to(tournamentId).emit("log", logMsg);
 
   if (defender.hp <= 0) {
     const winner = attacker;
-    nsp.to(tournamentId).emit("matchOver", { winnerNick: winner.nick, winnerChar: winner.char, stage: match.stage, player1: match.players[0], player2: match.players[1] });
+    nsp.to(tournamentId).emit("matchOver", { winnerNick: winner.nick, winnerChar: winner.char, stage: match.stage, player1: match.players[0], player2: match.players[1], matchId: match.id });
     advanceWinner(tournamentId, match.id, winner);
     return;
   }
@@ -329,6 +339,14 @@ const lastTournaments = {}; // simile a lastGames
 nsp.on("connection", socket => {
   let currentTournament = null;
 
+  // auto-assign nick if header present
+  const rHeader = socket.handshake.headers["x-reddit-user"];
+  if (rHeader) {
+    socket.nick = assignUniqueNick(rHeader);
+    nickMap.set(socket.id, socket.nick);
+    socket.emit("nickConfirmed", socket.nick);
+  }
+
   socket.on("setNickname", nick => {
     socket.nick = assignUniqueNick(nick);
     nickMap.set(socket.id, socket.nick);
@@ -337,7 +355,7 @@ nsp.on("connection", socket => {
 
   socket.on("joinTournament", ({ nick, char }) => {
     if (!nick || !char) return;
-    socket.nick = assignUniqueNick(nick);
+    if (!socket.nick) socket.nick = assignUniqueNick(nick);
 
     let tId = Object.keys(tournaments).find(id => tournaments[id].waiting.length < 8);
     if (!tId) tId = createTournament();
@@ -360,61 +378,61 @@ nsp.on("connection", socket => {
   });
 
   // --- chat torneo anche a partita finita ---
-  // Chat globale (sempre attiva)
   // whitelist domains (solo questi domini possono essere inviati come link)
-const LINK_WHITELIST = ["opensea.io", "rarible.com", "github.com", "fight-game-server.onrender.com"];
+  const LINK_WHITELIST = ["opensea.io", "rarible.com", "github.com", "fight-game-server.onrender.com"];
 
-function containsUrl(text){
-  const urlRe = /https?:\/\/[^\s/$.?#].[^\s]*/gi;
-  return urlRe.test(text);
-}
-
-function allowedUrls(text){
-  const urlRe = /https?:\/\/([^\/\s]+)(\/[^\s]*)?/gi;
-  let m;
-  while ((m = urlRe.exec(text)) !== null) {
-    const host = m[1].replace(/^www\./i,"").toLowerCase();
-    if (!LINK_WHITELIST.some(d => host.endsWith(d))) return false;
-  }
-  return true;
-}
-
-socket.on("chatMessage", text => {
-  if (!text || !text.trim()) return;
-
-  // se contiene link non in whitelist → rifiuta e opzionalmente manda messaggio di sistema
-  if (containsUrl(text) && !allowedUrls(text)) {
-    // invia solo al mittente un warning (non broadcast)
-    socket.emit("chatMessage", { nick: "SYSTEM", text: "Links are restricted. Allowed: OpenSea, Rarible, GitHub." });
-    return;
+  function containsUrl(text){
+    const urlRe = /https?:\/\/[^\s/$.?#].[^\s]*/gi;
+    return urlRe.test(text);
   }
 
-  // broadcast normale (usa nsp per torneo)
-  nsp.emit("chatMessage", { nick: socket.nick || "Anon", text });
-});
+  function allowedUrls(text){
+    const urlRe = /https?:\/\/([^\/\s]+)(\/[^\s]*)?/gi;
+    let m;
+    while ((m = urlRe.exec(text)) !== null) {
+      const host = m[1].replace(/^www\./i,"").toLowerCase();
+      if (!LINK_WHITELIST.some(d => host.endsWith(d))) return false;
+    }
+    return true;
+  }
+
+  socket.on("chatMessage", text => {
+    if (!text || !text.trim()) return;
+
+    // se contiene link non in whitelist → rifiuta e manda messaggio di sistema
+    if (containsUrl(text) && !allowedUrls(text)) {
+      socket.emit("chatMessage", { nick: "SYSTEM", text: "Links are restricted. Allowed: OpenSea, Rarible, GitHub." });
+      return;
+    }
+
+    // broadcast globale nella namespace torneo
+    nsp.emit("chatMessage", { nick: socket.nick || "Anon", text });
+  });
 
   socket.on("disconnect", () => {
     releaseNick(socket.nick);
     nickMap.delete(socket.id);
+
     const tId = currentTournament;
-    if (!tId) return;
-    const t = tournaments[tId];
-    if (!t) return;
+    if (tId) {
+      const t = tournaments[tId] || lastTournaments[tId];
+      if (t) {
+        t.waiting = t.waiting.filter(p => p.id !== socket.id);
 
-    t.waiting = t.waiting.filter(p => p.id !== socket.id);
-
-    for (const matchId in t.matches) {
-      const match = t.matches[matchId];
-      const idx = match.players.findIndex(p => p.id === socket.id);
-      if (idx !== -1) {
-        const other = match.players.find(p => p.id !== socket.id);
-        if (other) nsp.to(tId).emit("matchOver", { winnerNick: other.nick, winnerChar: other.char, stage: match.stage, player1: match.players[0], player2: match.players[1] });
-        advanceWinner(tId, match.id, other);
-        break;
+        for (const matchId in t.matches) {
+          const match = t.matches[matchId];
+          const idx = match.players.findIndex(p => p.id === socket.id);
+          if (idx !== -1) {
+            const other = match.players.find(p => p.id !== socket.id);
+            if (other) nsp.to(tId).emit("matchOver", { winnerNick: other.nick, winnerChar: other.char, stage: match.stage, player1: match.players[0], player2: match.players[1], matchId: match.id });
+            advanceWinner(tId, match.id, other);
+            break;
+          }
+        }
+        broadcastWaiting(tId);
+        emitBracket(tId);
       }
     }
-    broadcastWaiting(tId);
-    emitBracket(tId);
 
     nsp.emit("onlineCount", nsp.sockets.size);
   });
