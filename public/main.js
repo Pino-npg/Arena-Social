@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return el;
   };
 
-  // ---- Messaggio visivo ----
+  // ---- Visual message ----
   const container = ensure("game-container");
   function showMessage(text, color = "gold", duration = 2000) {
     const msg = document.createElement("div");
@@ -55,38 +55,51 @@ document.addEventListener("DOMContentLoaded", () => {
     confirmBtn.addEventListener("click", () => {
       const nick = nicknameInput.value.trim();
       if (!nick) {
-        showMessage("⚠️ Inserisci un nickname prima!", "crimson");
+        showMessage("⚠️ Please insert a nickname first!", "crimson");
         return;
       }
       nickConfirmed = true;
       confirmBtn.disabled = true;
       nicknameInput.disabled = true;
       socket.emit("setNickname", nick);
-      showMessage(`✅ Nickname confermato: ${nick}`, "lightgreen");
+      showMessage(`✅ Nickname confirmed: ${nick}`, "lightgreen");
+
+      // enable characters
+      document.querySelectorAll(".char").forEach(c => {
+        c.style.pointerEvents = "auto";
+        c.style.opacity = "1";
+      });
     });
   }
 
   socket.on("nickConfirmed", finalNick => {
     try { localStorage.setItem("selectedNick", finalNick); } catch {}
-    console.log("✅ Nick confermato dal server:", finalNick);
+    console.log("✅ Nick confirmed from server:", finalNick);
   });
 
   // ---- CHAR SELECT ----
   const chars = document.querySelectorAll(".char");
   let selectedChar = null;
+
+  // initially disable characters
+  chars.forEach(c => {
+    c.style.pointerEvents = "none";
+    c.style.opacity = "0.4";
+  });
+
   if (chars.length) {
     chars.forEach(c => {
       c.addEventListener("click", () => {
         const nickOk = nickConfirmed || !!localStorage.getItem("selectedNick");
         if (!nickOk) {
-          showMessage("⚠️ Conferma prima il nickname!", "crimson");
+          showMessage("⚠️ Please confirm your nickname first!", "crimson");
           return;
         }
         chars.forEach(el => el.classList.remove("selected"));
         c.classList.add("selected");
         selectedChar = c.dataset.char;
         localStorage.setItem("selectedChar", selectedChar);
-        showMessage(`⭐ Hai scelto ${selectedChar}!`, "gold");
+        showMessage(`⭐ You chose ${selectedChar}!`, "gold");
         const m1 = ensure("mode-1vs1");
         const mt = ensure("mode-tournament");
         if (m1) m1.disabled = false;
@@ -101,7 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const requireChar = () => {
     const hasChar = selectedChar || localStorage.getItem("selectedChar");
     if (!hasChar) {
-      showMessage("⚠️ Seleziona un personaggio prima!", "crimson");
+      showMessage("⚠️ Please select a character first!", "crimson");
       return false;
     }
     return true;
@@ -120,14 +133,16 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---- COLLECTION BUTTONS ----
   const openseaBtn = ensure("opensea-btn");
   const raribleBtn = ensure("rarible-btn");
-  if (openseaBtn) openseaBtn.addEventListener("click", () => {
-    showMessage("🌐 Opening OpenSea...");
-    window.open("https://opensea.io/collection/pino-lrxnl-429031234", "_blank");
-  });
-  if (raribleBtn) raribleBtn.addEventListener("click", () => {
-    showMessage("🌐 Opening Rarible...");
-    window.open("https://og.rarible.com/collection/base/0x4a37b1116df669abe9dbf51afa0ffb6623a188f7/items", "_blank");
-  });
+  if (openseaBtn)
+    openseaBtn.addEventListener("click", () => {
+      showMessage("🌐 Opening OpenSea...");
+      window.open("https://opensea.io/collection/pino-lrxnl-429031234", "_blank");
+    });
+  if (raribleBtn)
+    raribleBtn.addEventListener("click", () => {
+      showMessage("🌐 Opening Rarible...");
+      window.open("https://og.rarible.com/collection/base/0x4a37b1116df669abe9dbf51afa0ffb6623a188f7/items", "_blank");
+    });
 
   // ---- RULES POPUP ----
   const rulesBtn = ensure("rules-btn");
@@ -160,8 +175,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---- Check missing ----
   const idsToCheck = [
-    "online","nickname","confirm-nick","mode-1vs1","mode-tournament",
-    "opensea-btn","rarible-btn","rules-btn","close-rules","rules-popup","game-container"
+    "online", "nickname", "confirm-nick", "mode-1vs1", "mode-tournament",
+    "opensea-btn", "rarible-btn", "rules-btn", "close-rules", "rules-popup", "game-container"
   ];
   const missing = idsToCheck.filter(id => !$(id));
   if (missing.length)
