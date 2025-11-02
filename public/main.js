@@ -63,10 +63,14 @@ document.addEventListener("DOMContentLoaded", () => {
     chars.forEach(c => {
       c.addEventListener("click", () => {
         const nickOk = nickConfirmed || !!localStorage.getItem("selectedNick");
-        if (!nickOk) return;
+        if (!nickOk) {
+          alert("⚠️ Devi prima scegliere e confermare un nickname!");
+          return;
+        }
         chars.forEach(el => el.classList.remove("selected"));
         c.classList.add("selected");
         selectedChar = c.dataset.char;
+        localStorage.setItem("selectedChar", selectedChar);
         const m1 = ensure("mode-1vs1");
         const mt = ensure("mode-tournament");
         if (m1) m1.disabled = false;
@@ -74,7 +78,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
   } else console.warn("[WARN] no .char elements found");
-
   // ---------- MODES ----------
   const btn1 = ensure("mode-1vs1");
   const btnt = ensure("mode-tournament");
