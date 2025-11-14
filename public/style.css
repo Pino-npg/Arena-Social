@@ -59,7 +59,7 @@ body.fight #game-container {
   background: crimson;
   color: white;
   border-radius: 5px;
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   text-decoration: none;
   transition: background 0.2s, transform 0.2s;
 }
@@ -76,7 +76,7 @@ body.fight #game-container {
   background: crimson;
   color: white;
   border-radius: 5px;
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   text-decoration: none;
   transition: background 0.2s, transform 0.2s;
 }
